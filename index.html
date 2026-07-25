@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="tr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no, maximum-scale=1"
+    />
+    <meta name="theme-color" content="#16232E" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Kadastro" />
+    <meta name="description" content="Yol çiz, şehir kendi kendine büyüsün." />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <title>Kadastro</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="map" aria-label="Şehir haritası"></canvas>
+      <div id="ui">
+        <div id="top-bar" class="bar">
+          <div class="hud-block">
+            <span id="hud-money" class="mono money">—</span>
+            <span id="hud-net" class="mono dim">—</span>
+          </div>
+          <div class="hud-block hud-right">
+            <span id="hud-population" class="mono dim">—</span>
+            <span id="hud-camera" class="mono dim">—</span>
+          </div>
+          <div id="demand" class="demand" aria-label="Konut, ticaret, sanayi talebi">
+            <span class="demand-bar"><i id="demand-res"></i></span>
+            <span class="demand-bar"><i id="demand-com"></i></span>
+            <span class="demand-bar"><i id="demand-ind"></i></span>
+          </div>
+        </div>
+
+        <div id="hint" class="hint">Henüz yol yok. Bir hat çiz, gerisi kendiliğinden gelir.</div>
+
+        <div id="cost-label" class="cost-label mono" data-hidden="true"></div>
+
+        <div id="bottom">
+          <div id="tool-sheet" class="sheet" data-open="false" aria-hidden="true"></div>
+          <div id="tool-dock" class="bar"></div>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

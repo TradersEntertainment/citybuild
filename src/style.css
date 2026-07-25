@@ -1,0 +1,378 @@
+/* Palette — Section 14.2 */
+:root {
+  --murekkep: #16232e;
+  --parsomen: #e6dac2;
+  --cini: #2c6e8c;
+  --pirinc: #c08a2e;
+  --yosun: #56784a;
+  --kiremit: #a34c38;
+  --sis: #97a2a6;
+
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+
+  --bar-height: 64px;
+  --touch-min: 44px;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  /* iOS: pulling down must not refresh or rubber-band the page. */
+  overscroll-behavior: none;
+  background: var(--murekkep);
+  color: var(--parsomen);
+  font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  /* 100dvh, not 100vh — Safari's address bar clips the latter. */
+  height: 100dvh;
+  width: 100vw;
+}
+
+#map {
+  display: block;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+/* DOM layer above the canvas; only its children take pointer input. */
+#ui {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.bar {
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--murekkep) 88%, transparent);
+  backdrop-filter: blur(8px);
+  border-color: color-mix(in srgb, var(--parsomen) 14%, transparent);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+#top-bar {
+  border-bottom: 1px solid;
+  border-color: inherit;
+  padding: calc(var(--safe-top) + 8px) calc(var(--safe-right) + 14px) 8px
+    calc(var(--safe-left) + 14px);
+  min-height: calc(var(--safe-top) + 40px);
+  font-size: 13px;
+}
+
+#top-bar {
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.hud-block {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hud-right {
+  align-items: flex-end;
+  text-align: right;
+  overflow: hidden;
+}
+
+.hud-right .mono {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+#hud-net[data-sign='negative'] {
+  color: var(--kiremit);
+}
+
+/* RCI demand, the one place three numbers read faster as bars (§8). */
+.demand {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 26px;
+  flex: none;
+}
+
+.demand-bar {
+  display: flex;
+  align-items: flex-end;
+  width: 5px;
+  height: 100%;
+  background: color-mix(in srgb, var(--parsomen) 12%, transparent);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.demand-bar i {
+  display: block;
+  width: 100%;
+  height: 0;
+  transition: height 400ms ease-out;
+}
+
+#demand-res {
+  background: var(--pirinc);
+}
+
+#demand-com {
+  background: var(--cini);
+}
+
+#demand-ind {
+  background: var(--kiremit);
+}
+
+.money {
+  font-size: 15px;
+  color: var(--parsomen);
+  transition: color 160ms ease-out;
+}
+
+.money[data-delta='gain'] {
+  color: var(--pirinc);
+}
+
+.money[data-delta='loss'] {
+  color: var(--kiremit);
+}
+
+.dim {
+  font-size: 11px;
+}
+
+#bottom {
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+}
+
+#tool-dock {
+  border-top: 1px solid;
+  border-color: inherit;
+  padding: 8px calc(var(--safe-right) + 12px) calc(var(--safe-bottom) + 8px)
+    calc(var(--safe-left) + 12px);
+  min-height: calc(var(--safe-bottom) + var(--bar-height));
+  gap: 8px;
+}
+
+.dock-spacer {
+  flex: 1;
+}
+
+.tool-button {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 22%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--parsomen);
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: lowercase;
+  cursor: pointer;
+}
+
+.tool-name {
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.tool-option {
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  opacity: 0.75;
+}
+
+.tool-button[data-active='true'] {
+  background: var(--pirinc);
+  border-color: var(--pirinc);
+  color: var(--murekkep);
+}
+
+/* Bottom sheet — options rise above the dock; a full-screen menu never opens. */
+.sheet {
+  pointer-events: auto;
+  background: color-mix(in srgb, var(--murekkep) 96%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 14%, transparent);
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 220ms ease-out;
+}
+
+.sheet[data-open='true'] {
+  max-height: 60dvh;
+}
+
+.sheet-title {
+  padding: 12px 16px 6px;
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sis);
+}
+
+.sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--touch-min);
+  padding: 0 16px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 8%, transparent);
+  background: transparent;
+  color: var(--parsomen);
+  font: inherit;
+  font-size: 14px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sheet-row[data-locked='true'] {
+  color: var(--sis);
+  cursor: default;
+}
+
+.sheet-row[data-selected='true'] .sheet-row-name {
+  color: var(--pirinc);
+}
+
+.swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  flex: none;
+  margin-right: 10px;
+}
+
+.brush-row {
+  display: flex;
+  gap: 8px;
+  padding: 8px 16px 14px;
+}
+
+.brush-button {
+  min-height: var(--touch-min);
+  min-width: var(--touch-min);
+  padding: 0 14px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 22%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--parsomen);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.brush-button[data-selected='true'] {
+  background: var(--pirinc);
+  border-color: var(--pirinc);
+  color: var(--murekkep);
+}
+
+.sheet-row-meta {
+  font-size: 11px;
+  color: var(--sis);
+}
+
+/* Cost tag riding above the finger while a road is drawn. */
+.cost-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--murekkep);
+  color: var(--parsomen);
+  font-size: 13px;
+  white-space: nowrap;
+  box-shadow: 0 2px 10px rgb(22 35 46 / 35%);
+}
+
+.cost-label[data-hidden='true'] {
+  display: none;
+}
+
+.cost-label[data-truncated='true'] {
+  background: var(--kiremit);
+}
+
+.hint {
+  pointer-events: none;
+  align-self: center;
+  max-width: 78%;
+  text-align: center;
+  font-size: 13px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--parsomen) 70%, transparent);
+  transition: opacity 400ms ease-out;
+}
+
+.hint[data-hidden='true'] {
+  opacity: 0;
+}
+
+.mono {
+  font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--sis);
+}
+
+/* Landscape: bars hug the sides so the map keeps its vertical room. */
+@media (orientation: landscape) and (max-height: 520px) {
+  #top-bar,
+  #tool-dock {
+    min-height: 0;
+  }
+  #tool-dock {
+    padding-bottom: calc(var(--safe-bottom) + 6px);
+    padding-top: 6px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hint {
+    transition: none;
+  }
+}
