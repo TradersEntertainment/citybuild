@@ -96,6 +96,11 @@ export function mountTopBar(root: HTMLElement): () => void {
   };
 
   moneyElement.textContent = STR.format.money(shown);
+  // The markup ships a placeholder so the bar has height before the first
+  // frame. Anything that can legitimately render empty has to clear its own,
+  // or write() sees "no change" against an empty string and leaves the dash up
+  // for the rest of the session.
+  fpsElement.textContent = '';
   paint();
   return uiStore.subscribe(paint);
 }
