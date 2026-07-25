@@ -50,6 +50,7 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 2 | Bölgeler, binalar, temel ekonomi | Tamam |
 | 3D | Sunum katmanının three.js'e taşınması, araç trafiği | Tamam |
 | 3 | Şebekeler, hizmetler, kirlilik/gürültü difüzyonu, trafik sıkışıklığı | Sırada |
+| 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
 | 4 | Çağlar, teknoloji, görevler, olaylar, offline ilerleme | Kısmen — kayıt ve çağ bildirimi tamam |
 | 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme zinciri tamam |
 | 6 | Prestij, alternatif haritalar, prosedürel ses | — |
@@ -58,9 +59,6 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 
 Bunlar bilerek açık bırakıldı, unutulmadı:
 
-- **Parsel satın alma yok.** `claimParcel` yalnızca başlangıç parselinde çağrılıyor,
-  bu yüzden oyun 48×48 kareye sıkışık. Bu haliyle `metro`, `metropolis` ve
-  `megacity` çağlarına matematiksel olarak ulaşılamaz.
 - **Offline ilerleme hesaplanıp atılıyor.** `creditAwayTime` doğru çalışıyor ama
   sonucu yalnızca `playedMs`'e ekleniyor; ekonomi ve nüfus adımları işletilmiyor.
 - **Bölge silinemiyor.** Silme aracı yalnızca yol sütununa dokunuyor; yanlış
