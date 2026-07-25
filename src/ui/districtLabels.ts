@@ -23,12 +23,25 @@ export interface DistrictLabelsHandle {
   dispose(): void;
 }
 
-/** Beyond this the city is a map and the names are the point. */
-const FAR_FADE = 150;
-/** Below this the player is looking at buildings, not at districts. */
-const NEAR_FADE = 34;
+/**
+ * Below this the player is looking at buildings, not at districts, and the
+ * names would be sitting on the roofs they describe. Above it there is no fade
+ * at all: the furthest the camera goes is the map view, which is precisely
+ * where knowing what a part of the city is called is worth most.
+ */
+const NEAR_FADE = 26;
+const NEAR_SPAN = 16;
 /** No more than this many on screen; a wall of names is a wall. */
 const MAX_LABELS = 12;
+/**
+ * Zoomed far enough out that the whole city is in frame, twelve names are
+ * twelve names on top of each other. Only the biggest neighbourhoods survive
+ * that far away, which is also what a real map does.
+ */
+const CROWDED_DISTANCE = 96;
+const CROWDED_LABELS = 5;
+/** Screen height reserved for the dock and the collapsed panel. */
+const DOCK_CLEARANCE = 118;
 
 export function mountDistrictLabels(root: HTMLElement, camera: CameraRig): DistrictLabelsHandle {
   const layer = document.createElement('div');
@@ -87,13 +100,13 @@ export function mountDistrictLabels(root: HTMLElement, camera: CameraRig): Distr
     // One fade for the whole layer by distance, so names do not pop in one at a
     // time as the camera drifts.
     const distance = camera.distance;
-    const near = Math.min(1, Math.max(0, (distance - NEAR_FADE) / 22));
-    const far = Math.min(1, Math.max(0, (FAR_FADE - distance) / 40));
-    const layerOpacity = near * far;
+    const layerOpacity = Math.min(1, Math.max(0, (distance - NEAR_FADE) / NEAR_SPAN));
+    // Districts arrive sorted biggest first, so thinning is a cut, not a search.
+    const shown = distance > CROWDED_DISTANCE ? CROWDED_LABELS : districts.length;
 
     for (let i = 0; i < elements.length; i++) {
       const element = elements[i] as HTMLElement;
-      const district = districts[i];
+      const district = i < shown ? districts[i] : undefined;
       if (!district || layerOpacity <= 0.02) {
         element.style.opacity = '0';
         continue;
@@ -105,12 +118,14 @@ export function mountDistrictLabels(root: HTMLElement, camera: CameraRig): Distr
       }
       // A margin rather than the exact viewport, so a name does not vanish the
       // instant its anchor crosses the edge while the label is still visible.
+      // The bottom is different: the dock and the panel live there, and a
+      // neighbourhood name printed across the tool buttons is just noise.
       const margin = 120;
       if (
         placed.x < -margin ||
         placed.y < -margin ||
         placed.x > camera.viewportWidth + margin ||
-        placed.y > camera.viewportHeight + margin
+        placed.y > camera.viewportHeight - DOCK_CLEARANCE
       ) {
         element.style.opacity = '0';
         continue;

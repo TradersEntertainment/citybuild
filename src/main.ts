@@ -504,6 +504,10 @@ function publishReadout(): void {
 }
 
 syncUi();
+// Named on the first frame rather than on the sweep timer: a returning player
+// opens a city that already has neighbourhoods, and waiting a beat for them to
+// appear reads as the game noticing them rather than knowing them.
+districtLabels.setDistricts(findDistricts(game));
 // The other way back in: the app was closed rather than backgrounded, and the
 // gap is whatever the save last wrote down. A new city's lastSeen is now, so
 // this costs it nothing.

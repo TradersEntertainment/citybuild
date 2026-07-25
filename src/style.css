@@ -529,11 +529,20 @@ body {
 
 .city-panel[data-open='true'] .panel-detail {
   grid-template-rows: 1fr;
+  /* Open, the panel is three quarters of a phone screen. It is a panel about
+     the city, so some of the city has to stay in view — past this it scrolls
+     rather than growing. */
+  max-height: 58dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
-/* The grid-rows trick needs a min-height-0 child to actually collapse. */
-.panel-detail > * {
+/* The grid-rows trick needs a min-height-0 child to actually collapse, and it
+   needs exactly one — anything past the first lands in an implicit row that
+   grid-template-rows does not size. */
+.panel-detail-inner {
   min-height: 0;
+  overflow: hidden;
 }
 
 .panel-section {
@@ -1126,8 +1135,11 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* Under the panels and the dock: a name is context, never a control. */
-  z-index: 1;
+  /* No stacking context of its own. The layer is appended before the panels,
+     so document order already puts it under them — giving it a z-index lifted
+     it above the panel instead, and two sets of text fought over the same
+     pixels. The panel's blur then reads the names as texture, which is what
+     "the menu shows what is behind it" was supposed to mean. */
   transition: opacity 200ms ease-out;
 }
 

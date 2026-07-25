@@ -105,7 +105,16 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   goalRows.className = 'mission-rows';
   goals.body.append(goalRows);
 
-  detail.append(goals.el, people.el, books.el, grid.el, trade.el);
+  // Every section goes inside one wrapper, and the wrapper is the detail's only
+  // child. The collapse is a grid animating its single row from 0fr to 1fr, and
+  // a grid with five children puts four of them in *implicit* rows that
+  // grid-template-rows does not size — so the panel was only ever collapsing
+  // its first section and showing the rest, which is the opposite of a panel
+  // that stays out of the way until it is asked for.
+  const inner = document.createElement('div');
+  inner.className = 'panel-detail-inner';
+  inner.append(goals.el, people.el, books.el, grid.el, trade.el);
+  detail.append(inner);
   panel.append(toggle, detail);
   root.append(panel);
 
