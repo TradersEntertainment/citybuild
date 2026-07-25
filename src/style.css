@@ -437,6 +437,170 @@ body {
 }
 
 /*
+ * The city panel: the books, always on screen, never opaque.
+ *
+ * The player is looking at their city; a panel that blanks out the district
+ * underneath in order to report a figure about that district is working
+ * against itself. So the ground is a blur of what is behind it at every size,
+ * and the only solid ink is the type.
+ */
+.city-panel {
+  position: absolute;
+  left: calc(var(--safe-left) + 10px);
+  bottom: calc(var(--safe-bottom) + var(--bar-height) + 12px);
+  width: min(62vw, 230px);
+  pointer-events: auto;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 13%, transparent);
+  background: color-mix(in srgb, var(--murekkep) 54%, transparent);
+  backdrop-filter: blur(9px) saturate(115%);
+  overflow: hidden;
+}
+
+.panel-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 11px;
+  border: 0;
+  background: transparent;
+  color: var(--parsomen);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.panel-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+}
+
+.panel-stat-label {
+  color: color-mix(in srgb, var(--parsomen) 62%, transparent);
+  letter-spacing: 0.03em;
+}
+
+.panel-stat-value {
+  font-size: 12px;
+  color: var(--parsomen);
+}
+
+.panel-stat[data-sign='negative'] .panel-stat-value {
+  color: var(--kiremit);
+}
+
+.panel-chevron {
+  flex: none;
+  font-size: 13px;
+  color: var(--sis);
+  transition: transform 220ms ease-out;
+}
+
+.city-panel[data-open='true'] .panel-chevron {
+  transform: rotate(180deg);
+}
+
+.panel-detail {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 240ms ease-out;
+}
+
+.city-panel[data-open='true'] .panel-detail {
+  grid-template-rows: 1fr;
+}
+
+/* The grid-rows trick needs a min-height-0 child to actually collapse. */
+.panel-detail > * {
+  min-height: 0;
+}
+
+.panel-section {
+  overflow: hidden;
+  padding: 0 11px;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 9%, transparent);
+}
+
+.panel-section:first-child {
+  border-top: 0;
+}
+
+.panel-heading {
+  padding: 9px 0 5px;
+  font-size: 9.5px;
+  font-weight: 600;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
+  color: var(--sis);
+}
+
+.panel-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-bottom: 9px;
+}
+
+.panel-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--parsomen) 72%, transparent);
+}
+
+.panel-row.strong {
+  margin-top: 3px;
+  padding-top: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 11%, transparent);
+  color: var(--parsomen);
+}
+
+.panel-value {
+  font-size: 11.5px;
+  color: var(--parsomen);
+}
+
+.panel-row[data-sign='negative'] .panel-value {
+  color: var(--kiremit);
+}
+
+.panel-row[data-alarm='true'] .panel-value {
+  color: var(--kiremit);
+}
+
+/* Landscape on a short screen: the panel would cover the map, so it folds. */
+@media (orientation: landscape) and (max-height: 520px) {
+  .city-panel {
+    width: min(44vw, 200px);
+  }
+  .city-panel[data-open='true'] .panel-detail {
+    max-height: 42dvh;
+    overflow-y: auto;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel-detail,
+  .panel-chevron {
+    transition: none;
+  }
+}
+
+/*
  * Camera buttons up the right edge. Pinch and twist still work; these are what
  * a mouse — or an embedded page that eats the pinch — leaves the player with.
  */

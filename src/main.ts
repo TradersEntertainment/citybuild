@@ -20,6 +20,7 @@ import { UndoStack } from './sim/undo';
 import { parcelOfTile, startingCentre } from './sim/world';
 import { Autosave, loadCity, nextSeed } from './state/persistence';
 import { uiStore } from './state/store';
+import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
 import { mountParcelPrompt } from './ui/parcelPrompt';
@@ -73,6 +74,7 @@ const tools = new ToolController(game, camera, undo, {
 
 const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
+mountCityPanel(ui);
 mountHint(ui);
 const toast = mountToast(ui);
 
@@ -320,6 +322,7 @@ function coachFacts(): CoachFacts {
 
 function syncUi(): void {
   const store = uiStore.getState();
+  const totals = totalBuildings(game);
   store.syncFromSim({
     era: game.era,
     money: game.money,
@@ -328,6 +331,19 @@ function syncUi(): void {
     taxRate: game.taxRate,
     demand: { ...game.demand },
     net: game.ledger.net,
+    ledger: {
+      taxIncome: game.ledger.taxIncome,
+      roadUpkeep: game.ledger.roadUpkeep,
+      serviceUpkeep: game.ledger.serviceUpkeep,
+      farmYield: game.ledger.farmYield,
+    },
+    totals: {
+      housing: totals.housing,
+      residents: totals.residents,
+      commercialJobs: totals.commercialJobs,
+      industrialJobs: totals.industrialJobs,
+      farmJobs: totals.farmJobs,
+    },
   });
   coach.update(coachFacts());
   store.setGuidance(

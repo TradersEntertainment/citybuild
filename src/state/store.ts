@@ -20,11 +20,30 @@ export interface UiState {
   /** Diagnostics strip; Phase 0 uses it to prove the frame budget. */
   demand: { res: number; com: number; ind: number };
   net: number;
+  ledger: LedgerView;
+  totals: CityTotals;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
   hintVisible: boolean;
   /** What the game wants to say, or null when the city needs no advice. */
   guidance: string | null;
+}
+
+/** The city's books, as the panel shows them. All figures are per minute. */
+export interface LedgerView {
+  taxIncome: number;
+  roadUpkeep: number;
+  serviceUpkeep: number;
+  farmYield: number;
+}
+
+/** What the city is made of, for the panel's population section. */
+export interface CityTotals {
+  housing: number;
+  residents: number;
+  commercialJobs: number;
+  industrialJobs: number;
+  farmJobs: number;
 }
 
 export interface SimSnapshot {
@@ -36,6 +55,8 @@ export interface SimSnapshot {
   demand: { res: number; com: number; ind: number };
   /** Net income per minute; drives the sign and colour of the HUD figure. */
   net: number;
+  ledger: LedgerView;
+  totals: CityTotals;
 }
 
 export interface UiActions {
@@ -60,6 +81,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   overlay: 'none',
   demand: { res: 0, com: 0, ind: 0 },
   net: 0,
+  ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, farmYield: 0 },
+  totals: { housing: 0, residents: 0, commercialJobs: 0, industrialJobs: 0, farmJobs: 0 },
   fps: 0,
   hintVisible: true,
   guidance: null,
@@ -76,7 +99,18 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       current.net === snapshot.net &&
       current.demand.res === snapshot.demand.res &&
       current.demand.com === snapshot.demand.com &&
-      current.demand.ind === snapshot.demand.ind
+      current.demand.ind === snapshot.demand.ind &&
+      // The ledger has to be compared too, not inferred from `net`: a tax rise
+      // and an upkeep rise of the same size leave net untouched while both
+      // figures on the panel have moved.
+      current.ledger.taxIncome === snapshot.ledger.taxIncome &&
+      current.ledger.roadUpkeep === snapshot.ledger.roadUpkeep &&
+      current.ledger.serviceUpkeep === snapshot.ledger.serviceUpkeep &&
+      current.ledger.farmYield === snapshot.ledger.farmYield &&
+      current.totals.housing === snapshot.totals.housing &&
+      current.totals.commercialJobs === snapshot.totals.commercialJobs &&
+      current.totals.industrialJobs === snapshot.totals.industrialJobs &&
+      current.totals.farmJobs === snapshot.totals.farmJobs
         ? current
         : { ...current, ...snapshot },
     ),

@@ -12,6 +12,7 @@ export const STR = {
   format: {
     money: (value: number): string => `₺${money.format(Math.round(value))}`,
     count: (value: number): string => plain.format(Math.round(value)),
+    percent: (value: number): string => `%${Math.round(value * 100)}`,
   },
 
   intro: {
@@ -135,6 +136,22 @@ export const STR = {
       `${money.format(Math.round(amount))} ₺ · ${plain.format(tiles)} kare`,
     truncated: 'para yetmiyor',
     erase: (tiles: number) => `${plain.format(tiles)} kare siliniyor`,
+  },
+
+  panel: {
+    people: 'Nüfus',
+    jobs: 'İş',
+    housing: 'Konut kapasitesi',
+    vacancy: 'Boş konut',
+    workers: 'Çalışabilir nüfus',
+    unemployment: 'İşsizlik',
+    books: 'Bütçe',
+    tax: 'Vergi',
+    roads: 'Yol bakımı',
+    stations: 'Hizmet gideri',
+    net: 'Net',
+    demandTitle: 'Talep',
+    farmYield: 'Tarım ürünü',
   },
 
   view: {
