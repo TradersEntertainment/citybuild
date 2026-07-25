@@ -237,6 +237,19 @@ export const JUNCTION_PENALTY_4WAY = 0.25; // KAVŞAK_CEZASI
 export const JUNCTION_PENALTY_3WAY = 0.1;
 /** Congested segments lose speed: hız / (1 + (doluluk-1)×1.5) */
 export const CONGESTION_SLOWDOWN = 1.5;
+/**
+ * Trips generated per minute. Residents leave and come back; a job draws
+ * somebody in. These set the scale that road capacity is measured against, so
+ * they are what decides whether a dirt track can serve a hamlet.
+ */
+export const TRIPS_PER_RESIDENT = 0.5;
+export const TRIPS_PER_JOB = 0.35;
+/** Passes of the spread that pushes district traffic onto its arterial. */
+export const TRAFFIC_SPREAD_PASSES = 6;
+/** Load above this puts a warning mark on the buildings it strands. */
+export const CONGESTION_ALARM = 1.2;
+/** How much a jam takes off the land value of what it runs past. */
+export const CONGESTION_LAND_VALUE = 16;
 export const UNDO_STACK_SIZE = 20;
 
 // --- Idle / offline (§11, §20) -----------------------------------------------

@@ -1,4 +1,4 @@
-import { ROAD_ACCESS_MAX_WALK, SEA_LEVEL } from '../data/balance';
+import { CONGESTION_LAND_VALUE, ROAD_ACCESS_MAX_WALK, SEA_LEVEL } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import { decodeRoad, decodeTerrain, NONE } from './tiles';
 import { index, type World } from './world';
@@ -76,7 +76,11 @@ export function computeRoadDistance(world: World, out: Uint8Array): void {
  * so. Phase 3 replaces this with the diffused version that also answers to
  * parks, services, pollution and neighbouring building levels.
  */
-export function computeLandValue(world: World, fields: Fields): void {
+export function computeLandValue(
+  world: World,
+  fields: Fields,
+  traffic?: { load: Float32Array },
+): void {
   const { roadDistance, landValue } = fields;
 
   for (let y = 0; y < world.size; y++) {
@@ -98,6 +102,17 @@ export function computeLandValue(world: World, fields: Fields): void {
         value += bestAdjacentRoadBonus(world, x, y);
       }
 
+      // A jam outside the door is worth less than a quiet street, which is the
+      // one consequence of congestion the player feels in the ledger.
+      //
+      // Read from the roads this tile fronts onto, not from the tile itself:
+      // load only exists on paved ground, so a plot's own figure is always zero
+      // and the penalty would never once have applied.
+      if (traffic) {
+        const jam = Math.max(0, worstAdjacentLoad(world, traffic.load, x, y) - 1);
+        value -= Math.min(1, jam) * CONGESTION_LAND_VALUE;
+      }
+
       if (terrain === 'hill') value -= 6;
       if (terrain === 'rock') value -= 14;
       if (terrain === 'marsh') value -= 10;
@@ -106,6 +121,21 @@ export function computeLandValue(world: World, fields: Fields): void {
       landValue[i] = value < 0 ? 0 : value > 100 ? 100 : value;
     }
   }
+}
+
+/** Worst congestion on the roads touching a tile; 0 when none of them are. */
+function worstAdjacentLoad(world: World, load: Float32Array, x: number, y: number): number {
+  let worst = 0;
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= world.size || ny >= world.size) continue;
+      const value = load[index(world, nx, ny)] ?? 0;
+      if (value > worst) worst = value;
+    }
+  }
+  return worst;
 }
 
 function bestAdjacentRoadBonus(world: World, x: number, y: number): number {

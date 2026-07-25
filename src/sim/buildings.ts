@@ -5,6 +5,7 @@ import {
   BUILDING_SPAWN_THRESHOLD,
   FARM_JOBS_PER_TILE,
   DECAY_DURATION_S,
+  CONGESTION_ALARM,
   NOISE_ALARM,
   NUISANCE_SENSITIVITY,
   POLLUTION_ALARM,
@@ -14,6 +15,7 @@ import {
 import { capacityOf, isBuiltZone, type BuiltZone, type Level } from '../data/buildings';
 import { UNREACHABLE, type Fields } from './fields';
 import { serviceCoverageAt } from './services';
+import { congestionNear, type TrafficField } from './traffic';
 import type { GameState } from './state';
 import { decodeZone, ISSUE, NONE, type ZoneKind } from './tiles';
 import { index, isTileOwned, type World } from './world';
@@ -143,7 +145,14 @@ function opinion(zone: BuiltZone, neighbour: ZoneKind): number {
  * One evaluation pass over every zoned tile. Spawns, grows and decays.
  * `dt` is the seconds since the last pass.
  */
-export function evaluateBuildings(state: GameState, fields: Fields, dt: number): void {
+export function evaluateBuildings(
+  state: GameState,
+  fields: Fields,
+  dt: number,
+  /** Owned by the scheduler and refreshed on its own clock; omitted in tests
+   *  that are not about congestion. */
+  traffic?: TrafficField,
+): void {
   const { world } = state;
   // Farmland is counted here rather than in its own sweep: this pass already
   // visits every tile, and the count only has to be as fresh as the buildings.
@@ -168,7 +177,7 @@ export function evaluateBuildings(state: GameState, fields: Fields, dt: number):
           demolish(state, building);
           continue;
         }
-        updateBuilding(state, fields, building, dt);
+        updateBuilding(state, fields, building, dt, traffic);
         continue;
       }
 
@@ -211,10 +220,11 @@ function updateBuilding(
   fields: Fields,
   building: Building,
   dt: number,
+  traffic?: TrafficField,
 ): void {
   const score = suitability(state, fields, building.x, building.y, building.zone);
   building.score = score;
-  building.issues = diagnose(state, fields, building);
+  building.issues = diagnose(state, fields, building, traffic);
 
   if (score < BUILDING_DECAY_THRESHOLD) {
     building.decayTimer += dt;
@@ -263,7 +273,12 @@ function applyCapacity(building: Building, seeded: boolean): void {
   }
 }
 
-function diagnose(state: GameState, fields: Fields, building: Building): number {
+function diagnose(
+  state: GameState,
+  fields: Fields,
+  building: Building,
+  traffic?: TrafficField,
+): number {
   let issues = 0;
   const i = index(state.world, building.x, building.y);
   if ((fields.roadDistance[i] ?? UNREACHABLE) > ROAD_ACCESS_MAX_WALK) issues |= ISSUE.noService;
@@ -277,6 +292,10 @@ function diagnose(state: GameState, fields: Fields, building: Building): number 
     issues |= ISSUE.pollution;
   }
   if (minds.noise > 0 && (state.world.noise[i] ?? 0) > NOISE_ALARM) issues |= ISSUE.noise;
+  if (traffic) {
+    const jam = congestionNear(state.world, traffic, building.x, building.y);
+    if (jam > CONGESTION_ALARM) issues |= ISSUE.traffic;
+  }
   return issues;
 }
 

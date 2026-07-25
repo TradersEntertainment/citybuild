@@ -26,6 +26,8 @@ export interface FrameInput {
   state: GameState;
   draft: DraftRender | null;
   now: number;
+  /** Per-tile congestion, so the cars move at the speed the sim says they do. */
+  trafficLoad?: Float32Array;
 }
 
 export interface RenderStats {
@@ -170,7 +172,12 @@ export class Renderer {
 
     this.overlay.setDraft(frame.draft);
     this.buildings.sync(frame.state, frame.now);
-    this.traffic.update(deltaMs / 1000, frame.state.population, this.camera.distance);
+    this.traffic.update(
+      deltaMs / 1000,
+      frame.state.population,
+      this.camera.distance,
+      frame.trafficLoad,
+    );
     this.issues.sync(frame.state, this.camera.distance, frame.now);
 
     const targetY = sampleHeight(frame.state.world, this.camera.x, this.camera.y);

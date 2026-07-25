@@ -302,7 +302,10 @@ function frame(now: number): void {
   // Which land is on the market only changes when a parcel is bought, so this
   // is driven by a flag rather than recomputed every frame.
   if (renderer.needsForSaleRefresh) renderer.setForSale(parcelOffers(game));
-  renderer.render({ state: game, draft: tools.draft, now }, deltaMs);
+  renderer.render(
+    { state: game, draft: tools.draft, now, trafficLoad: systems.traffic.load },
+    deltaMs,
+  );
 
   updateCostLabel(tools.isDrawing ? tools.summary : null);
   // The dock relabels itself as tools change, so the ring is re-measured rather

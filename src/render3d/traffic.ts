@@ -51,7 +51,13 @@ export interface TrafficLayer {
   /** Re-reads the road network; call when roads change. */
   rebuildNetwork(): void;
   /** Advances every vehicle and writes the instance matrices. */
-  update(deltaSeconds: number, population: number, cameraDistance: number): void;
+  update(
+    deltaSeconds: number,
+    population: number,
+    cameraDistance: number,
+    /** Per-tile congestion from the sim; cars crawl where the city is jammed. */
+    load?: Float32Array,
+  ): void;
   dispose(): void;
 }
 
@@ -106,7 +112,12 @@ export function createTraffic(world: World): TrafficLayer {
   const scale = new THREE.Vector3(1, 1, 1);
   const axis = new THREE.Vector3(0, 1, 0);
 
-  const update = (deltaSeconds: number, population: number, cameraDistance: number): void => {
+  const update = (
+    deltaSeconds: number,
+    population: number,
+    cameraDistance: number,
+    load?: Float32Array,
+  ): void => {
     // Cars are a few pixels from far away; drawing them there costs the frame
     // budget and buys nothing (§17).
     if (cameraDistance > LOD_TRAFFIC_DISTANCE || roadTiles.length === 0) {
@@ -133,7 +144,11 @@ export function createTraffic(world: World): TrafficLayer {
     const step = Math.min(0.1, deltaSeconds);
     let visible = 0;
     for (const car of cars) {
-      car.t += car.speed * step;
+      // A jam the sim has measured is a jam the player can see: the whole point
+      // of drawing cars is that the road's state is legible without a readout.
+      const jam = load ? (load[index(world, car.toX, car.toY)] ?? 0) : 0;
+      const slowdown = jam > 1 ? 1 / (1 + (jam - 1) * 1.5) : 1;
+      car.t += car.speed * slowdown * step;
       while (car.t >= 1) {
         car.t -= 1;
         advance(world, car);
