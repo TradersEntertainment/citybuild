@@ -1,14 +1,11 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
-import { INK_DRY_MS } from './data/balance';
 import { STR } from './data/strings.tr';
-import type { TilePoint } from './input/pathGeometry';
 import { bindPointerInput, bindWheelZoom } from './input/pointer';
 import { ToolController } from './input/tools';
 import { registerServiceWorker } from './pwa/registerSW';
-import { Camera } from './render/camera';
-import type { InkDryEffect } from './render/layers/roads';
-import { Renderer } from './render/renderer';
+import { CameraRig } from './render3d/cameraRig';
+import { Renderer } from './render3d/renderer';
 import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
 import { hashSeed } from './sim/rng';
@@ -24,16 +21,16 @@ import { mountHint, mountTopBar } from './ui/topBar';
 
 /**
  * Bootstrap and frame loop. This file wires modules together and owns nothing
- * except the ink-drying effect list, which is presentation state with no place
- * in the sim.
+ * itself — the sim owns the city, the renderer owns the scene, and the tool
+ * controller owns the stroke in progress.
  */
 const canvas = document.querySelector<HTMLCanvasElement>('#map');
 const ui = document.querySelector<HTMLElement>('#ui');
 if (!canvas || !ui) throw new Error('Game shell missing from index.html');
 
 const game = createGameState(hashSeed('kadastro'), Date.now());
-const camera = new Camera();
-const renderer = new Renderer(canvas, camera);
+const camera = new CameraRig();
+const renderer = new Renderer(canvas, camera, game);
 const clock = new Clock();
 const undo = new UndoStack();
 const systems = new Systems(game.world.size);
@@ -42,16 +39,17 @@ const home = startingCentre(game.world);
 camera.centreOn(home.x, home.y);
 camera.setBounds({ minX: 0, minY: 0, maxX: game.world.size, maxY: game.world.size });
 
-const inkDry: InkDryEffect[] = [];
-
 const tools = new ToolController(game, camera, undo, {
-  onBuilt: (tiles: readonly TilePoint[]) => {
-    inkDry.push({ tiles: [...tiles], startedAt: performance.now() });
+  onBuilt: () => {
     haptics.confirm();
     uiStore.getState().hideHint();
+    renderer.invalidateZones();
   },
   // Road access, and therefore land value, is derived from the road column.
-  onRoadsChanged: () => systems.invalidateFields(),
+  onRoadsChanged: () => {
+    systems.invalidateFields();
+    renderer.invalidateRoads();
+  },
   onChanged: () => syncUi(),
 });
 
@@ -64,6 +62,7 @@ const dock = mountToolDock(ui, {
   onUndo: () => {
     if (!tools.undoLast()) return;
     haptics.tap();
+    renderer.invalidateRoads();
   },
 });
 
@@ -73,6 +72,8 @@ const input = bindPointerInput(canvas, {
     camera.panByScreen(dx, dy);
   },
   onCameraZoom: (anchorX, anchorY, factor) => camera.zoomAt(anchorX, anchorY, factor),
+  onCameraTwist: (radians) => camera.orbitByAngle(radians),
+  onCameraOrbit: (dx, dy) => camera.orbitByScreen(dx, dy),
   onStrokeStart: (sample) => {
     // The invitation copy sits mid-screen; get it out of the way of the ink
     // the moment the player starts drawing, not once the road is paid for.
@@ -122,6 +123,7 @@ document.addEventListener('visibilitychange', () => {
 // --- Loop --------------------------------------------------------------------
 let lastFrame = performance.now();
 let readoutAccumulator = 0;
+let previousBuildingCount = game.buildings.size;
 
 function frame(now: number): void {
   const deltaMs = now - lastFrame;
@@ -135,10 +137,15 @@ function frame(now: number): void {
     const seconds = (budget.simTicks * clock.simStepMs) / 1000;
     const era = systems.step(game, seconds);
     if (era) {
-      // A new era unlocks tools and changes how the map is drawn; both are read
+      // A new era unlocks tools and changes how the city is built; both are read
       // from state, so the dock just needs to re-render its rows.
       dock.refresh();
       renderer.invalidateTerrain();
+    }
+    // A spawn or a demolition changes which tiles still show bare zoning.
+    if (game.buildings.size !== previousBuildingCount) {
+      previousBuildingCount = game.buildings.size;
+      renderer.onBuildingsChanged();
     }
   }
   if (budget.economyTicks > 0) {
@@ -147,22 +154,12 @@ function frame(now: number): void {
   game.playedMs = clock.playedMs;
 
   tools.update();
-  pruneInkDry(now);
-
-  renderer.render({ state: game, draft: tools.draft, inkDry, now }, deltaMs);
+  renderer.render({ state: game, draft: tools.draft, now }, deltaMs);
 
   updateCostLabel(tools.isDrawing ? tools.summary : null);
   publishReadout();
 
   requestAnimationFrame(frame);
-}
-
-function pruneInkDry(now: number): void {
-  // Splice from the front: effects are pushed in time order, so the expired
-  // ones are always the earliest.
-  while (inkDry.length > 0 && now - (inkDry[0] as InkDryEffect).startedAt > INK_DRY_MS) {
-    inkDry.shift();
-  }
 }
 
 function syncUi(): void {

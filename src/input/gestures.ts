@@ -29,6 +29,10 @@ export interface GestureHandlers {
   onLongPressEnd?(): void;
   onCameraPan?(dx: number, dy: number): void;
   onCameraZoom?(anchorX: number, anchorY: number, factor: number): void;
+  /** Two-finger twist, radians since the last sample. Rotates the view. */
+  onCameraTwist?(radians: number): void;
+  /** Screen-space orbit drag; desktop's right-button equivalent of a twist. */
+  onCameraOrbit?(dx: number, dy: number): void;
 }
 
 type Mode = 'idle' | 'pending' | 'stroke' | 'longPress' | 'camera';
@@ -47,6 +51,7 @@ export class GestureRecognizer {
   private mode: Mode = 'idle';
   private pinchDistance = 0;
   private pinchCentre = { x: 0, y: 0 };
+  private pinchAngle = 0;
 
   constructor(private readonly handlers: GestureHandlers) {}
 
@@ -178,6 +183,7 @@ export class GestureRecognizer {
     if (!a || !b) return;
     this.pinchDistance = distance(a.x, a.y, b.x, b.y);
     this.pinchCentre = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    this.pinchAngle = Math.atan2(b.y - a.y, b.x - a.x);
   }
 
   private captureSinglePanState(): void {
@@ -193,13 +199,19 @@ export class GestureRecognizer {
       if (!a || !b) return;
       const dist = distance(a.x, a.y, b.x, b.y);
       const centre = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
 
       this.handlers.onCameraPan?.(centre.x - this.pinchCentre.x, centre.y - this.pinchCentre.y);
       if (this.pinchDistance > 0 && dist > 0) {
         this.handlers.onCameraZoom?.(centre.x, centre.y, dist / this.pinchDistance);
+        // Twist turns the city. Wrapping through ±π would spin the camera a
+        // full turn on the frame the angle crosses over, so the delta is
+        // normalised before it is handed on.
+        this.handlers.onCameraTwist?.(normaliseAngle(angle - this.pinchAngle));
       }
       this.pinchDistance = dist;
       this.pinchCentre = centre;
+      this.pinchAngle = angle;
       return;
     }
 
@@ -212,4 +224,12 @@ export class GestureRecognizer {
 
 function distance(ax: number, ay: number, bx: number, by: number): number {
   return Math.hypot(bx - ax, by - ay);
+}
+
+/** Shortest signed rotation between two angles, in (-π, π]. */
+function normaliseAngle(radians: number): number {
+  let value = radians;
+  while (value > Math.PI) value -= Math.PI * 2;
+  while (value < -Math.PI) value += Math.PI * 2;
+  return value;
 }

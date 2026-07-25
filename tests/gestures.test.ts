@@ -19,6 +19,8 @@ function harness(): { recognizer: GestureRecognizer; handlers: SpiedHandlers } {
     onLongPressEnd: vi.fn(),
     onCameraPan: vi.fn(),
     onCameraZoom: vi.fn(),
+    onCameraTwist: vi.fn(),
+    onCameraOrbit: vi.fn(),
   };
   return { recognizer: new GestureRecognizer(handlers), handlers };
 }

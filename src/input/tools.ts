@@ -5,8 +5,8 @@ import type { GameState } from '../sim/state';
 import type { RoadKind, ZoneKind } from '../sim/tiles';
 import type { UndoStack } from '../sim/undo';
 import { brushTiles, estimateZone, paintZone, type ZoneEstimate } from '../sim/zoning';
-import type { Camera } from '../render/camera';
-import type { DraftRender } from '../render/layers/roads';
+import type { CameraRig } from '../render3d/cameraRig';
+import type { DraftRender } from './draft';
 import type { TilePoint } from './pathGeometry';
 import { buildRoadPath, type RoadPath } from './pathSmoothing';
 
@@ -61,7 +61,7 @@ export class ToolController {
 
   constructor(
     private readonly state: GameState,
-    private readonly camera: Camera,
+    private readonly camera: CameraRig,
     private readonly undo: UndoStack,
     private readonly events: ToolEvents = {},
   ) {}
