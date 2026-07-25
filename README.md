@@ -63,8 +63,6 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 
 Bunlar bilerek açık bırakıldı, unutulmadı:
 
-- **Yol çizimi köşegende basamaklı görünüyor.** Yollar kare kare çiziliyor;
-  düzgün bir şerit için çizginin kendisi boyunca üretilmeleri gerekir.
 - **Teknoloji ağacı yok.** `research` durumda tutuluyor ve `researchPerMinute`
   hesaplanabiliyor ama harcanacak bir yer yok.
 - **Kredi sistemi yok.** Bakiye sıfırın altına inmiyor; §7'nin faiz ve taksit
