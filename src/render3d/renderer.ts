@@ -3,6 +3,7 @@ import type { DraftRender } from '../input/draft';
 import type { GameState } from '../sim/state';
 import { createBuildings, type BuildingMeshes } from './buildings';
 import type { CameraRig } from './cameraRig';
+import { createIssues, type IssueLayer } from './issues';
 import { createOverlay, type OverlayLayer } from './overlay';
 import { createRoads, type RoadMesh } from './roads';
 import { createSky, updateSky, type SkyRig } from './sky';
@@ -47,6 +48,7 @@ export class Renderer {
   private readonly buildings: BuildingMeshes;
   private readonly trees: TreeLayer;
   private readonly traffic: TrafficLayer;
+  private readonly issues: IssueLayer;
   private readonly overlay: OverlayLayer;
 
   private zonesDirty = true;
@@ -83,6 +85,7 @@ export class Renderer {
     this.buildings = createBuildings();
     this.trees = createTrees(state.world);
     this.traffic = createTraffic(state.world);
+    this.issues = createIssues();
     this.overlay = createOverlay(state.world);
 
     this.scene.add(
@@ -92,6 +95,7 @@ export class Renderer {
       this.trees.group,
       this.buildings.group,
       this.traffic.group,
+      this.issues.group,
       this.overlay.group,
     );
 
@@ -151,6 +155,7 @@ export class Renderer {
     this.overlay.setDraft(frame.draft);
     this.buildings.sync(frame.state, frame.now);
     this.traffic.update(deltaMs / 1000, frame.state.population, this.camera.distance);
+    this.issues.sync(frame.state, this.camera.distance, frame.now);
 
     const targetY = sampleHeight(frame.state.world, this.camera.x, this.camera.y);
     updateSky(this.sky, this.camera.camera, this.camera.x, targetY, this.camera.y);
@@ -185,6 +190,7 @@ export class Renderer {
     this.roads.dispose();
     this.trees.dispose();
     this.traffic.dispose();
+    this.issues.dispose();
     this.buildings.dispose();
     this.overlay.dispose();
     this.renderer.dispose();

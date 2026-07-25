@@ -70,6 +70,7 @@ export const ISSUE = {
   traffic: 1 << 2,
   pollution: 1 << 3,
   noService: 1 << 4,
+  noise: 1 << 5,
 } as const;
 
 export interface RoadSegment {

@@ -5,6 +5,9 @@ import {
   BUILDING_SPAWN_THRESHOLD,
   FARM_JOBS_PER_TILE,
   DECAY_DURATION_S,
+  NOISE_ALARM,
+  NUISANCE_SENSITIVITY,
+  POLLUTION_ALARM,
   ROAD_ACCESS_MAX_WALK,
   SUITABILITY_WEIGHTS,
 } from '../data/balance';
@@ -62,8 +65,9 @@ export function suitability(
   const w = SUITABILITY_WEIGHTS;
   const roadAccess = 1 - distance / (ROAD_ACCESS_MAX_WALK + 1);
   const demand = state.demand[zone];
-  // Pollution and noise are Phase 3 systems; their terms are wired here so the
-  // weighting does not have to be re-derived when they arrive.
+  // Pollution and noise are live: the diffusion solver writes them, and their
+  // negative weights are what make a factory beside houses a measurable
+  // mistake rather than only an unpopular one.
   //
   // Services are Phase 3 too, and until they exist the honest baseline is 1,
   // not 0. The weights sum to 1.0 with serviceCoverage counted, so scoring an
@@ -77,14 +81,15 @@ export function suitability(
   const pollution = state.world.pollution[i] ?? 0;
   const noise = state.world.noise[i] ?? 0;
 
+  const minds = NUISANCE_SENSITIVITY[zone];
   const score =
     w.roadAccess * roadAccess +
     w.demand * demand +
     w.serviceCoverage * serviceCoverage +
     w.landValue * (landValue / 100) +
     w.neighbourFit * neighbourFit(state.world, x, y, zone) +
-    w.pollution * (pollution / 100) +
-    w.noise * (noise / 100);
+    w.pollution * (pollution / 100) * minds.pollution +
+    w.noise * (noise / 100) * minds.noise;
 
   return score < 0 ? 0 : score > 1 ? 1 : score;
 }
@@ -264,7 +269,14 @@ function diagnose(state: GameState, fields: Fields, building: Building): number 
   const i = index(state.world, building.x, building.y);
   if ((fields.roadDistance[i] ?? UNREACHABLE) > ROAD_ACCESS_MAX_WALK) issues |= ISSUE.noService;
   if (building.decayTimer > 0) issues |= ISSUE.noService;
-  if ((state.world.pollution[i] ?? 0) > 50) issues |= ISSUE.pollution;
+  // Only warn about a nuisance the building actually suffers from: a mark over
+  // every factory in the industrial estate tells the player nothing they did
+  // not already know, and buries the one over the houses downwind.
+  const minds = NUISANCE_SENSITIVITY[building.zone];
+  if (minds.pollution > 0 && (state.world.pollution[i] ?? 0) > POLLUTION_ALARM) {
+    issues |= ISSUE.pollution;
+  }
+  if (minds.noise > 0 && (state.world.noise[i] ?? 0) > NOISE_ALARM) issues |= ISSUE.noise;
   return issues;
 }
 

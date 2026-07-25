@@ -1,5 +1,6 @@
-import { BUILDING_EVAL_S } from '../data/balance';
+import { BUILDING_EVAL_S, FIELD_DIFFUSION_S } from '../data/balance';
 import { evaluateBuildings, totalBuildings } from './buildings';
+import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
 import { stepPopulation } from './population';
@@ -18,10 +19,13 @@ import type { Era } from './tiles';
 export class Systems {
   readonly fields: Fields;
   private buildingTimer = 0;
+  private diffusionTimer = FIELD_DIFFUSION_S; // solve once on the first step
   private fieldsDirty = true;
+  private readonly diffusion: DiffusionScratch;
 
   constructor(size: number) {
     this.fields = createFields(size);
+    this.diffusion = createDiffusionScratch(size);
   }
 
   /** Called when roads or parcels change; the derived fields must be redone. */
@@ -38,6 +42,14 @@ export class Systems {
       computeRoadDistance(state.world, this.fields.roadDistance);
       computeLandValue(state.world, this.fields);
       this.fieldsDirty = false;
+    }
+
+    // Pollution and noise before the building pass, so a factory that appeared
+    // last tick is already staining its neighbours when they are scored.
+    this.diffusionTimer += dt;
+    if (this.diffusionTimer >= FIELD_DIFFUSION_S) {
+      diffuseFields(state, this.diffusion);
+      this.diffusionTimer = 0;
     }
 
     this.buildingTimer += dt;

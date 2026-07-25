@@ -133,6 +133,48 @@ export const SUITABILITY_WEIGHTS = {
 } as const;
 export const ROAD_ACCESS_MAX_WALK = 4; // tiles
 
+// --- Pollution and noise (§10) -----------------------------------------------
+/**
+ * Passes of the relaxation solver. Each pass spreads roughly one tile, so this
+ * is also the practical reach of a factory's stain — far enough that industry
+ * is a planning problem, close enough that a green belt can hold it.
+ */
+export const DIFFUSION_ITERATIONS = 12;
+/** Fraction lost per pass. Higher fades faster and keeps the plume tight. */
+export const POLLUTION_DECAY = 0.12;
+/** Noise is tighter than smoke: it drops off within a couple of streets. */
+export const NOISE_DECAY = 0.35;
+/**
+ * Emission per job. Calibrated so a mature industrial district reaches the
+ * upper half of the 0..100 scale: at the -0.2 weight that is a real drag on a
+ * neighbouring plot without being an outright veto, which is what makes
+ * "where does the industry go" a decision instead of a rule.
+ */
+export const POLLUTION_PER_INDUSTRIAL_JOB = 1.8;
+export const NOISE_PER_INDUSTRIAL_JOB = 2;
+export const NOISE_PER_COMMERCIAL_JOB = 1;
+/** Share of a tile's load removed each pass by a park. */
+export const PARK_ABSORPTION = 0.3;
+/** Standing woodland does the same, less well than a planted park. */
+export const TREE_ABSORPTION = 0.16;
+/**
+ * How much each kind of building minds what it is standing in.
+ *
+ * The suitability weights are global, which would have a factory penalised by
+ * its own smoke and warned about it on the map — noise in both senses. Industry
+ * is indifferent, commerce minds a little, and homes mind all of it.
+ */
+export const NUISANCE_SENSITIVITY = {
+  res: { pollution: 1, noise: 1 },
+  com: { pollution: 0.65, noise: 0.5 },
+  ind: { pollution: 0, noise: 0 },
+} as const;
+
+/** Pollution above this puts a warning mark on the building standing in it. */
+export const POLLUTION_ALARM = 45;
+/** Noise above this does the same. */
+export const NOISE_ALARM = 55;
+
 // --- Consumption (§20) -------------------------------------------------------
 export const WATER_PER_CAPITA = 0.35; // m³/min — KİŞİ_BAŞI_SU
 export const POWER_PER_CAPITA = 0.012; // MW — KİŞİ_BAŞI_ELEKTRİK

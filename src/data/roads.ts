@@ -70,7 +70,7 @@ export const ROAD_SPECS: Readonly<Record<RoadKind, RoadSpec>> = {
     carriesUtilities: true,
     junctionOnly: false,
     landValueBonus: 0,
-    noise: 0,
+    noise: 9,
     underground: false,
   },
   boulevard: {
@@ -84,7 +84,7 @@ export const ROAD_SPECS: Readonly<Record<RoadKind, RoadSpec>> = {
     carriesUtilities: true,
     junctionOnly: false,
     landValueBonus: 8,
-    noise: 0,
+    noise: 15,
     underground: false,
   },
   highway: {
