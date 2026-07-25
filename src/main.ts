@@ -1,5 +1,6 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
+import { createSfx } from './audio/sfx';
 import { AUTOSAVE_INTERVAL_S, PARCEL_SIZE } from './data/balance';
 import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
@@ -56,6 +57,7 @@ const renderer = new Renderer(canvas, camera, game);
 const clock = new Clock();
 const undo = new UndoStack();
 const systems = new Systems(game.world.size);
+const sfx = createSfx();
 
 // Derived fields — road distance, land value — are not saved, so a loaded city
 // has to recompute them before its first tick.
@@ -68,6 +70,7 @@ camera.setBounds({ minX: 0, minY: 0, maxX: game.world.size, maxY: game.world.siz
 const tools = new ToolController(game, camera, undo, {
   onBuilt: () => {
     haptics.confirm();
+    sfx.play(tools.activeTool === 'erase' ? 'erase' : 'build');
     renderer.invalidateZones();
   },
   // Road access, and therefore land value, is derived from the road column.
@@ -95,6 +98,7 @@ const parcelPrompt = mountParcelPrompt(ui, {
   onBuy: (offer) => {
     if (!buyParcel(game, offer.px, offer.py)) return false;
     haptics.confirm();
+    sfx.play('coin');
     // New ground changes what may be built, what the map looks like, and where
     // trees stand — and it is worth writing down immediately.
     systems.invalidateFields();
@@ -112,6 +116,7 @@ const dock = mountToolDock(ui, {
   onUndo: () => {
     if (!tools.undoLast()) return;
     haptics.tap();
+    sfx.play('erase');
     renderer.invalidateRoads();
   },
 });
@@ -227,6 +232,8 @@ mountViewControls(ui, {
   // at when they reach for a button rather than a finger.
   onZoom: (factor) => camera.zoomAt(camera.viewportWidth / 2, camera.viewportHeight / 2, factor),
   onRotate: (radians) => camera.orbitByAngle(radians),
+  soundOn: () => sfx.enabled,
+  onToggleSound: () => sfx.setEnabled(!sfx.enabled),
 });
 bindAudioUnlock(canvas);
 registerServiceWorker();
@@ -245,10 +252,12 @@ function buildStation(tileX: number, tileY: number): void {
       : placePlant(game, systems.fields, facility.kind, tileX, tileY);
 
   if (!result.ok) {
+    sfx.play('blocked');
     toast.show(name, STR.serviceBlocked[result.reason ?? 'occupied']);
     return;
   }
   haptics.confirm();
+  sfx.play('build');
   // Coverage is derived from the list of facilities and from road access, so it
   // has to be redone before the next building pass scores anything.
   systems.invalidateFields();
@@ -318,10 +327,12 @@ function frame(now: number): void {
       // The biggest moment in the early game used to pass in total silence.
       toast.show(STR.era.reached(STR.eraName[era]), unlockedBy(era, before));
       haptics.confirm();
+      sfx.play('era');
       autosave.flush(game);
     }
     // A spawn or a demolition changes which tiles still show bare zoning.
     if (game.buildings.size !== previousBuildingCount) {
+      if (game.buildings.size > previousBuildingCount) sfx.play('spawn');
       previousBuildingCount = game.buildings.size;
       renderer.onBuildingsChanged();
     }
@@ -371,6 +382,7 @@ function announceMissions(finished: readonly Mission[]): void {
     );
   }
   haptics.confirm();
+  sfx.play('goal');
   syncUi();
   autosave.flush(game);
 }

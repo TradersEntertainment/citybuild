@@ -16,6 +16,9 @@ import { STR } from '../data/strings.tr';
 export interface ViewControlDeps {
   onZoom(factor: number): void;
   onRotate(radians: number): void;
+  /** Current sound setting, and the switch for it. */
+  soundOn(): boolean;
+  onToggleSound(): void;
 }
 
 export interface ViewControlsHandle {
@@ -50,10 +53,25 @@ export function mountViewControls(
     return button;
   };
 
+  // The mute switch lives here rather than behind a settings screen the game
+  // does not have. It is the one control a player reaches for in a hurry.
+  const sound = make('', STR.view.sound, () => {
+    deps.onToggleSound();
+    paintSound();
+  });
+  const paintSound = (): void => {
+    const on = deps.soundOn();
+    sound.textContent = on ? '♪' : '⃠';
+    sound.dataset['off'] = String(!on);
+    sound.setAttribute('aria-pressed', String(on));
+  };
+  paintSound();
+
   column.append(
     make('+', STR.view.zoomIn, () => deps.onZoom(ZOOM_STEP)),
     make('−', STR.view.zoomOut, () => deps.onZoom(1 / ZOOM_STEP)),
     make('⟲', STR.view.rotate, () => deps.onRotate(ROTATE_STEP)),
+    sound,
   );
   root.append(column);
 

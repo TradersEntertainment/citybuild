@@ -1113,3 +1113,9 @@ body {
   color: var(--pirinc);
   white-space: nowrap;
 }
+
+/* Sound is on by default, so the switch reads as "on" until it is pressed. */
+.view-button[data-off='true'] {
+  color: var(--sis);
+  border-color: color-mix(in srgb, var(--parsomen) 14%, transparent);
+}

@@ -57,7 +57,7 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
 | 4 | Çağlar, görevler, offline ilerleme | Tamam — teknoloji ağacı hariç |
 | 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme ve mimari tamam |
-| 6 | Prestij, alternatif haritalar, prosedürel ses | — |
+| 6 | Prestij, alternatif haritalar, prosedürel ses | Kısmen — ses ve haritalar tamam |
 
 ## Bilinen eksikler
 
@@ -65,8 +65,19 @@ Bunlar bilerek açık bırakıldı, unutulmadı:
 
 - **Teknoloji ağacı yok.** `research` durumda tutuluyor ve `researchPerMinute`
   hesaplanabiliyor ama harcanacak bir yer yok.
+- **Prestij / yeniden başlatma yok.** Bir şehri bırakıp kalıcı bir avantajla
+  yeniden başlamanın yolu yok.
 - **Kredi sistemi yok.** Bakiye sıfırın altına inmiyor; §7'nin faiz ve taksit
   kuralları `balance.ts` içinde duruyor, kullanılmıyor.
+
+## Bilinçli sapmalar
+
+Plandan bilerek ayrılan yerler:
+
+- **Ses varsayılan olarak açık** (§15 kapalı diyordu). Kapalı bir ses anahtarı
+  kimse bulamazsa oyun herkes için sessiz kalır; tarayıcının jest kilidi zaten
+  ilk dokunuştan önce hiçbir sesin çıkamayacağını garanti ediyor. Anahtar sağ
+  kenarda, tek dokunuş uzakta.
 
 ## Testler
 

@@ -237,6 +237,7 @@ export const STR = {
     zoomIn: 'Yaklaştır',
     zoomOut: 'Uzaklaştır',
     rotate: 'Kamerayı çevir',
+    sound: 'Sesi aç/kapat',
   },
 
   camera: {
