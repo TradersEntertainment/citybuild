@@ -6,6 +6,7 @@ import {
   INDUSTRIAL_TAX,
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
+import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
 import { serviceUpkeep } from './services';
 import { utilityUpkeep } from './utilities';
@@ -27,6 +28,8 @@ export interface Ledger {
   serviceUpkeep: number;
   /** Waterworks and power stations, billed the same way. */
   utilityUpkeep: number;
+  /** Loan instalments, which the bank takes whether or not the city agrees. */
+  debtService: number;
   net: number;
   /** Food produced per minute; consumption arrives with the food system. */
   farmYield: number;
@@ -58,12 +61,14 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
   const roads = roadUpkeep(state);
   const stations = serviceUpkeep(state);
   const plants = utilityUpkeep(state);
+  const debt = debtService(state);
   return {
     taxIncome,
     roadUpkeep: roads,
     serviceUpkeep: stations,
     utilityUpkeep: plants,
-    net: taxIncome - roads - stations - plants,
+    debtService: debt,
+    net: taxIncome - roads - stations - plants - debt,
     farmYield: farmTiles(state) * FARM_YIELD,
   };
 }
@@ -92,7 +97,12 @@ function farmTiles(state: GameState): number {
  */
 export function stepEconomy(state: GameState, fields: Fields, dt: number): Ledger {
   const ledger = computeLedger(state, fields);
-  state.money = Math.max(0, state.money + (ledger.net * dt) / 60);
+  // Income and running costs first, then the bank. A loan taken to cover a
+  // shortfall would otherwise be repaid out of money the city has not earned
+  // yet, and the instalment is already counted in `net`.
+  const operating = ledger.net + ledger.debtService;
+  state.money = Math.max(0, state.money + (operating * dt) / 60);
+  repayLoans(state, dt);
   state.ledger = ledger;
   return ledger;
 }

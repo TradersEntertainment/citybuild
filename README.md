@@ -67,8 +67,6 @@ Bunlar bilerek açık bırakıldı, unutulmadı:
   hesaplanabiliyor ama harcanacak bir yer yok.
 - **Prestij / yeniden başlatma yok.** Bir şehri bırakıp kalıcı bir avantajla
   yeniden başlamanın yolu yok.
-- **Kredi sistemi yok.** Bakiye sıfırın altına inmiyor; §7'nin faiz ve taksit
-  kuralları `balance.ts` içinde duruyor, kullanılmıyor.
 
 ## Bilinçli sapmalar
 

@@ -1,5 +1,6 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
+import type { Loan } from './credit';
 import type { ServiceBuilding } from './services';
 import type { UtilityPlant } from './utilities';
 import type { Ledger } from './economy';
@@ -19,8 +20,14 @@ export interface GameState {
   playedMs: number;
 
   money: number;
+  /** Outstanding across every loan; derived, kept for the UI to read. */
   debt: number;
   taxRate: number;
+  /** Loans being repaid (§7). */
+  loans: Loan[];
+  nextLoanId: number;
+  /** Loans settled since the UI last looked, so it can say so. */
+  loansClosed: number;
 
   population: number;
   happiness: number;
@@ -62,6 +69,9 @@ export function createGameState(seed: number, now: number): GameState {
     money: STARTING_MONEY,
     debt: 0,
     taxRate: STARTING_TAX_RATE,
+    loans: [],
+    nextLoanId: 1,
+    loansClosed: 0,
 
     population: 0,
     happiness: HAPPINESS_START,
@@ -80,7 +90,15 @@ export function createGameState(seed: number, now: number): GameState {
     nextBuildingId: 1,
     nextServiceId: 1,
     nextUtilityId: 1,
-    ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, utilityUpkeep: 0, net: 0, farmYield: 0 },
+    ledger: {
+      taxIncome: 0,
+      roadUpkeep: 0,
+      serviceUpkeep: 0,
+      utilityUpkeep: 0,
+      debtService: 0,
+      net: 0,
+      farmYield: 0,
+    },
     lastSeen: now,
   };
 }

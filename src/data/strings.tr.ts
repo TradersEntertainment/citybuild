@@ -146,6 +146,25 @@ export const STR = {
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
   },
 
+  /** Credit (§7): the bank, and what it will lend. */
+  bank: {
+    title: 'Banka',
+    /** Shown when the balance runs dry and there is an offer on the table. */
+    offer: (amount: number, rate: number): string =>
+      `₺${money.format(amount)} kredi · %${Math.round(rate * 100)} faiz`,
+    instalment: (perMinute: number): string =>
+      `${money.format(Math.round(perMinute))} ₺/dk taksit, 20 dakika`,
+    take: 'Krediyi al',
+    decline: 'Gerek yok',
+    taken: 'Kredi kullanıldı.',
+    cleared: 'Kredi kapandı.',
+    /** Why the bank said no. */
+    tooPoor: 'Banka bu şehre henüz kredi vermiyor. Vergi geliri artmalı.',
+    tooManyLoans: 'İki kredin var. Biri kapanmadan üçüncüsü açılmaz.',
+    /** The panel row. */
+    debt: 'Borç',
+  },
+
   /** Neighbourhoods, floating over the city. */
   district: {
     /** "1.240 kişi · 32 bina" */
@@ -228,6 +247,7 @@ export const STR = {
     tax: 'Vergi',
     roads: 'Yol bakımı',
     stations: 'Hizmet gideri',
+    debt: 'Kredi taksiti',
     plants: 'Şebeke gideri',
     gridTitle: 'Şebeke',
     water: 'Su',

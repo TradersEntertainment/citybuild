@@ -13,6 +13,8 @@ export type OverlayId = 'none' | 'traffic' | 'pollution' | 'landValue' | 'servic
 export interface UiState {
   era: Era;
   money: number;
+  /** Outstanding across every loan; zero hides the panel's debt row. */
+  debt: number;
   population: number;
   happiness: number;
   taxRate: number;
@@ -52,6 +54,8 @@ export interface LedgerView {
   roadUpkeep: number;
   serviceUpkeep: number;
   utilityUpkeep: number;
+  /** Loan instalments per minute. */
+  debtService: number;
   farmYield: number;
 }
 
@@ -77,6 +81,7 @@ export interface CityTotals {
 export interface SimSnapshot {
   era: Era;
   money: number;
+  debt: number;
   population: number;
   happiness: number;
   taxRate: number;
@@ -104,6 +109,7 @@ export interface UiActions {
 export const uiStore = createStore<UiState & UiActions>()((set) => ({
   era: 'founding',
   money: STARTING_MONEY,
+  debt: 0,
   population: 0,
   happiness: HAPPINESS_START,
   taxRate: STARTING_TAX_RATE,
@@ -111,7 +117,14 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   overlay: 'none',
   demand: { res: 0, com: 0, ind: 0 },
   net: 0,
-  ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, utilityUpkeep: 0, farmYield: 0 },
+  ledger: {
+    taxIncome: 0,
+    roadUpkeep: 0,
+    serviceUpkeep: 0,
+    utilityUpkeep: 0,
+    debtService: 0,
+    farmYield: 0,
+  },
   totals: { housing: 0, residents: 0, commercialJobs: 0, industrialJobs: 0, farmJobs: 0 },
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
@@ -126,6 +139,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       // Identity when nothing moved, so subscribers do not repaint on a tick
       // that changed nothing.
       current.money === snapshot.money &&
+      current.debt === snapshot.debt &&
       current.era === snapshot.era &&
       current.population === snapshot.population &&
       current.happiness === snapshot.happiness &&

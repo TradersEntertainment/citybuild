@@ -78,8 +78,9 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
+  const debt = row(STR.panel.debt);
   const net = row(STR.panel.net, true);
-  books.body.append(tax.el, roads.el, stations.el, plants.el, net.el);
+  books.body.append(tax.el, roads.el, stations.el, plants.el, debt.el, net.el);
 
   // Hidden until the era expects utilities at all, so a village is not shown a
   // shortfall in a system it is not meant to have.
@@ -171,6 +172,11 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
     roads.set(`−${money(s.ledger.roadUpkeep)}`);
     stations.set(`−${money(s.ledger.serviceUpkeep)}`);
     plants.set(`−${money(s.ledger.utilityUpkeep)}`);
+    // Hidden when there is nothing owed, so a city with no loans is not shown a
+    // row of zeroes about a system it has not met.
+    debt.el.hidden = s.debt <= 0;
+    debt.set(`−${money(s.ledger.debtService)}`);
+    debt.el.dataset['alarm'] = 'true';
     net.set(STR.hud.net(s.net));
     net.el.dataset['sign'] = s.net >= 0 ? 'positive' : 'negative';
 

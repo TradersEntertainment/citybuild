@@ -306,6 +306,18 @@ export const OFFLINE_MIN_REPORT_MS = 120_000;
 export const LOAN_INTEREST = 0.06; // KREDİ_FAİZ
 export const LOAN_INTEREST_STACKED = 0.11;
 export const LOAN_INSTALMENT_MIN = 20;
+/**
+ * What the bank lends, as minutes of the city's gross tax take.
+ *
+ * Twelve minutes is about what a district costs to lay out, which is the size
+ * of hole a player actually digs for themselves — enough to be a bridge across
+ * one bad decision, not enough to fund a second city on credit.
+ */
+export const LOAN_TO_INCOME = 12;
+/** Minutes to repay. Long enough to be survivable, short enough to be felt. */
+export const LOAN_TERM_MINUTES = 20;
+/** Below this the paperwork is worth more than the loan. */
+export const LOAN_MIN_PRINCIPAL = 500;
 export const AUSTERITY_SERVICE_CAPACITY = 0.5;
 
 // --- Research (§12.2, §20) ---------------------------------------------------

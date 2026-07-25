@@ -1193,3 +1193,11 @@ body {
     transition: none;
   }
 }
+
+/* The bank offer. Same panel as the land offer — both are the game asking for
+   a decision about the city, so both leave the city visible. */
+.bank-terms {
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--sis);
+}

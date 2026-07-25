@@ -14,6 +14,7 @@ import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
+import { borrow, loanOffer } from './sim/credit';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
@@ -27,6 +28,7 @@ import { parcelOfTile, startingCentre } from './sim/world';
 import { Autosave, loadCity, nextSeed } from './state/persistence';
 import { uiStore } from './state/store';
 import { mountChronicle } from './ui/chronicle';
+import { mountBankPrompt } from './ui/bankPrompt';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
@@ -125,6 +127,46 @@ const dock = mountToolDock(ui, {
 });
 
 const chronicle = mountChronicle(ui, { glance: () => cityAtAGlance(game) });
+
+const bank = mountBankPrompt(ui, {
+  onBorrow: () => {
+    const loan = borrow(game);
+    if (!loan) return false;
+    haptics.confirm();
+    sfx.play('coin');
+    syncUi();
+    autosave.flush(game);
+    toast.show(STR.bank.taken, STR.bank.instalment(loan.instalment));
+    return true;
+  },
+});
+
+/**
+ * Offers the bank when the city has run dry, and says so when a loan closes.
+ *
+ * Offered once per dry spell rather than whenever the balance is low: a prompt
+ * that returns every few seconds while the money sits at zero is nagging a
+ * player who has already declined it. The latch clears once the city is solvent
+ * again, so a second bad patch gets a second offer.
+ */
+let offeredWhileBroke = false;
+function checkBank(): void {
+  if (game.loansClosed > 0) {
+    game.loansClosed = 0;
+    toast.show(STR.bank.cleared);
+    sfx.play('coin');
+  }
+
+  if (game.money > BANK_PROMPT_FLOOR) {
+    offeredWhileBroke = false;
+    return;
+  }
+  if (offeredWhileBroke || bank.open) return;
+  const offer = loanOffer(game);
+  if (offer.principal <= 0) return;
+  offeredWhileBroke = true;
+  bank.offer(offer);
+}
 
 /**
  * Runs the city forward across an absence and shows what it did.
@@ -308,6 +350,12 @@ document.addEventListener('visibilitychange', () => {
 // --- Loop --------------------------------------------------------------------
 let lastFrame = performance.now();
 let readoutAccumulator = 0;
+/**
+ * Balance below which the bank speaks up. Not zero: by the time the city is
+ * actually at nothing the player has already spent a while unable to act, and
+ * the point of the offer is to reach them before that.
+ */
+const BANK_PROMPT_FLOOR = 400;
 /** Readout ticks between district sweeps — roughly every four seconds. */
 const DISTRICT_SWEEPS = 8;
 let districtSweep = DISTRICT_SWEEPS;
@@ -343,6 +391,7 @@ function frame(now: number): void {
       renderer.onBuildingsChanged();
     }
     announceGoals();
+    checkBank();
   }
   if (budget.economyTicks > 0) {
     systems.stepEconomy(game, (budget.economyTicks * clock.economyStepMs) / 1000);
@@ -416,6 +465,7 @@ function syncUi(): void {
   store.syncFromSim({
     era: game.era,
     money: game.money,
+    debt: game.debt,
     population: game.population,
     happiness: game.happiness,
     taxRate: game.taxRate,
@@ -426,6 +476,7 @@ function syncUi(): void {
       roadUpkeep: game.ledger.roadUpkeep,
       serviceUpkeep: game.ledger.serviceUpkeep,
       utilityUpkeep: game.ledger.utilityUpkeep,
+      debtService: game.ledger.debtService,
       farmYield: game.ledger.farmYield,
     },
     totals: {

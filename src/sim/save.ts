@@ -1,6 +1,7 @@
 import { SAVE_VERSION } from '../data/balance';
 import type { BuiltZone, Level } from '../data/buildings';
 import { missionById } from '../data/missions';
+import { totalDebt } from './credit';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
 import type { Building } from './buildings';
@@ -32,6 +33,9 @@ export interface SaveData {
   money: number;
   debt: number;
   taxRate: number;
+  /** Loans, flattened: id, principal, outstanding, instalment, rate. */
+  loans: number[];
+  nextLoanId: number;
   happiness: number;
   research: number;
   demand: { res: number; com: number; ind: number };
@@ -57,6 +61,7 @@ export interface SaveData {
 /** Fields packed per building, in order. Zone is stored as an index. */
 const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
 const BUILDING_FIELDS = 12;
+const LOAN_FIELDS = 5;
 const SERVICE_FIELDS = 4;
 const UTILITY_FIELDS = 4;
 
@@ -98,6 +103,14 @@ export function serialize(state: GameState): SaveData {
     money: state.money,
     debt: state.debt,
     taxRate: state.taxRate,
+    loans: state.loans.flatMap((loan) => [
+      loan.id,
+      Math.round(loan.principal),
+      Math.round(loan.outstanding * 100) / 100,
+      Math.round(loan.instalment * 100) / 100,
+      loan.rate,
+    ]),
+    nextLoanId: state.nextLoanId,
     happiness: state.happiness,
     research: state.research,
     demand: { ...state.demand },
@@ -135,6 +148,23 @@ export function deserialize(data: unknown): GameState | null {
   state.money = data.money;
   state.debt = data.debt;
   state.taxRate = data.taxRate;
+  // Loans arrived after the first saves existed; a file without them is a city
+  // that owes nothing rather than a corrupt one.
+  const loans = Array.isArray(data.loans) ? data.loans : [];
+  if (loans.length % LOAN_FIELDS !== 0) return null;
+  for (let i = 0; i < loans.length; i += LOAN_FIELDS) {
+    const outstanding = loans[i + 2] ?? 0;
+    if (outstanding <= 0) continue;
+    state.loans.push({
+      id: loans[i] ?? 0,
+      principal: loans[i + 1] ?? 0,
+      outstanding,
+      instalment: loans[i + 3] ?? 0,
+      rate: loans[i + 4] ?? 0,
+    });
+  }
+  state.nextLoanId = Math.max(1, data.nextLoanId ?? 1);
+  state.debt = totalDebt(state);
   state.happiness = data.happiness;
   state.research = data.research;
   state.demand = { ...data.demand };
