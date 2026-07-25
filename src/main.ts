@@ -10,7 +10,7 @@ import { CameraRig } from './render3d/cameraRig';
 import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
-import { creditAwayTime } from './sim/offline';
+import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { placeService, utilitiesExpected } from './sim/services';
 import { placePlant, utilityBalance } from './sim/utilities';
@@ -21,6 +21,7 @@ import { UndoStack } from './sim/undo';
 import { parcelOfTile, startingCentre } from './sim/world';
 import { Autosave, loadCity, nextSeed } from './state/persistence';
 import { uiStore } from './state/store';
+import { mountChronicle } from './ui/chronicle';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
@@ -110,6 +111,26 @@ const dock = mountToolDock(ui, {
     renderer.invalidateRoads();
   },
 });
+
+const chronicle = mountChronicle(ui, { glance: () => cityAtAGlance(game) });
+
+/**
+ * Runs the city forward across an absence and shows what it did.
+ *
+ * Both ways back into the game come through here: opening the app after a day
+ * away, and switching back to a tab left running. Only the length of the gap
+ * differs, and the efficiency bands already take care of that.
+ */
+function catchUp(): void {
+  const away = creditAwayTime(game.lastSeen, Date.now());
+  if (away.effectiveMs <= 0) return;
+  const report = applyOfflineProgress(game, systems, away);
+  renderer.onBuildingsChanged();
+  syncUi();
+  autosave.flush(game);
+  if (report.eraReached) dock.refresh();
+  chronicle.show(report);
+}
 
 // Mounted after the dock, because the coach points at its buttons and reads
 // whether its sheet is open.
@@ -255,12 +276,7 @@ document.addEventListener('visibilitychange', () => {
     autosave.flush(game);
     return;
   }
-  const away = creditAwayTime(game.lastSeen, Date.now());
-  if (away.rawMs > 1_000) {
-    // Phase 4 turns this into the City Chronicle; for now the measurement is
-    // simply kept honest.
-    game.playedMs += away.effectiveMs;
-  }
+  catchUp();
   game.lastSeen = Date.now();
   clock.resetAccumulators();
   lastFrame = performance.now();
@@ -407,4 +423,9 @@ function publishReadout(): void {
 }
 
 syncUi();
+// The other way back in: the app was closed rather than backgrounded, and the
+// gap is whatever the save last wrote down. A new city's lastSeen is now, so
+// this costs it nothing.
+catchUp();
+game.lastSeen = Date.now();
 requestAnimationFrame(frame);

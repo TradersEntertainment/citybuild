@@ -144,6 +144,33 @@ export const STR = {
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
   },
 
+  /** The returning card: what the city did while nobody was watching (§11). */
+  chronicle: {
+    title: 'Şehir günlüğü',
+    away: (hours: number, minutes: number): string => {
+      if (hours <= 0) return `${minutes} dakika yoktun. Şehir kendi işine baktı.`;
+      if (minutes === 0) return `${hours} saat yoktun. Şehir kendi işine baktı.`;
+      return `${hours} saat ${minutes} dakika yoktun. Şehir kendi işine baktı.`;
+    },
+    earned: 'Kasa',
+    moved: 'Taşınan',
+    built: 'Yeni bina',
+    city: 'Şehir',
+    resume: 'Devam et',
+    money: (amount: number): string =>
+      `${amount >= 0 ? '+' : '−'}₺${money.format(Math.abs(Math.round(amount)))}`,
+    people: (people: number): string =>
+      `${people >= 0 ? '+' : '−'}${plain.format(Math.abs(Math.round(people)))} kişi`,
+    buildings: (count: number): string =>
+      `${count >= 0 ? '+' : '−'}${plain.format(Math.abs(count))}`,
+    /** "4.200 konut · 3.100 iş" */
+    glance: (housing: number, jobs: number): string =>
+      `${plain.format(Math.round(housing))} konut · ${plain.format(Math.round(jobs))} iş`,
+    /** Long absences pay less; the card says so rather than letting it be found out. */
+    efficiency: (percent: number): string =>
+      `Yokluğun %${percent} verimle işledi — ilk iki saat tam, sonrası azalarak, 14 saatte durur.`,
+  },
+
   draft: {
     /** "₺2.340 · 26 kare" */
     cost: (amount: number, tiles: number): string =>
@@ -202,13 +229,6 @@ export const STR = {
     metro: 'Büyükşehir',
     metropolis: 'Metropol',
     megacity: 'Megakent',
-  },
-
-  chronicle: {
-    /** "8 sa 12 dk yoktun" */
-    away: (hours: number, minutes: number): string =>
-      hours === 0 ? `${minutes} dk yoktun` : `${hours} sa ${minutes} dk yoktun`,
-    back: 'Şehre dön',
   },
 
   system: {

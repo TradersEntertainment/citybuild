@@ -831,6 +831,37 @@ body {
   border-top: 1px solid color-mix(in srgb, var(--parsomen) 14%, transparent);
 }
 
+/* The returning card reuses the intro's sheet; only its rows are its own. */
+.chronicle-rows {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 9px 16px;
+  align-items: baseline;
+  margin: 2px 0 0;
+  font-size: 14px;
+}
+
+.chronicle-rows dt {
+  color: var(--sis);
+}
+
+.chronicle-rows dd {
+  margin: 0;
+  text-align: right;
+  font-size: 15px;
+  color: var(--parsomen);
+  font-variant-numeric: tabular-nums;
+}
+
+.chronicle-era {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pirinc);
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--pirinc) 12%, transparent);
+}
+
 .intro-start {
   min-height: var(--touch-min);
   margin-top: 4px;

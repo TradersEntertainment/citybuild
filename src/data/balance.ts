@@ -274,6 +274,33 @@ export const OFFLINE_EFFICIENCY_BANDS = [
 export const OFFLINE_VARIANCE = 0.08;
 export const OFFLINE_EVENTS_MIN = 1;
 export const OFFLINE_EVENTS_MAX = 4;
+/**
+ * Steps the catch-up is allowed to take, however long the absence.
+ *
+ * Away time is simulated rather than paid out from a formula — the city that
+ * greets a returning player has to be one the same rules could have produced,
+ * or the numbers on the card are a fiction. That means the real systems run,
+ * and the real systems cost milliseconds a pass, so the count is bounded and
+ * the step lengthens instead.
+ *
+ * Thirty is where the curve flattens. Measured against an hour lived a second
+ * at a time on a 450-building city: thirty steps lands within 1% on both
+ * population and balance and gets the level distribution right, in about half a
+ * second; sixteen is 4% out and visibly skews the mix toward taller blocks,
+ * because a longer step lets migration fill a whole district's vacancy at once.
+ * Going past thirty buys nothing and costs milliseconds a step.
+ */
+export const OFFLINE_STEPS = 30;
+/**
+ * Shortest catch-up step, so a brief absence is not charged the full thirty.
+ *
+ * A tab switched away for ten seconds is ten seconds the city really did not
+ * run — rAF stops with the tab — so it is simulated like any other gap, but it
+ * needs one step, not thirty. The count is the gap divided by this, capped.
+ */
+export const OFFLINE_STEP_MIN_S = 30;
+/** Below this, an absence is a glance at another tab and gets no card. */
+export const OFFLINE_MIN_REPORT_MS = 120_000;
 
 // --- Credit (§7, §20) --------------------------------------------------------
 export const LOAN_INTEREST = 0.06; // KREDİ_FAİZ

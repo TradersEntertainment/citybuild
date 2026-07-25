@@ -1,9 +1,17 @@
-import { OFFLINE_CAP_HOURS, OFFLINE_EFFICIENCY_BANDS } from '../data/balance';
+import {
+  OFFLINE_CAP_HOURS,
+  OFFLINE_EFFICIENCY_BANDS,
+  OFFLINE_MIN_REPORT_MS,
+  OFFLINE_STEP_MIN_S,
+  OFFLINE_STEPS,
+} from '../data/balance';
+import { totalBuildings } from './buildings';
+import type { GameState } from './state';
+import type { Systems } from './systems';
+import type { Era } from './tiles';
 
 /**
- * Away-time accounting (§11). Phase 0 wires only the measurement — the payout
- * and the City Chronicle land in Phase 4 — but the banding lives here now so
- * the visibility bookkeeping has a tested home from the start.
+ * Away time (§11): what it is worth, and what the city did with it.
  *
  * Pure: takes timestamps, returns numbers. No Date.now inside.
  */
@@ -60,4 +68,80 @@ export function creditAwayTime(lastSeenMs: number, nowMs: number): AwayTime {
 export function splitDuration(ms: number): { hours: number; minutes: number } {
   const totalMinutes = Math.floor(ms / 60_000);
   return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 };
+}
+
+/** What the city got up to while nobody was watching, for the Chronicle to read. */
+export interface OfflineReport {
+  away: AwayTime;
+  moneyEarned: number;
+  populationGained: number;
+  buildingsBuilt: number;
+  /** The furthest era reached while away, or null if the city stayed put. */
+  eraReached: Era | null;
+  /** True when the absence was long enough to be worth telling the player about. */
+  worthReporting: boolean;
+}
+
+/**
+ * Runs the city forward across an absence.
+ *
+ * The whole simulation runs, rather than a payout formula being applied to the
+ * balance: an idle game's returning card is the moment its numbers are read
+ * most carefully, and a city that could not have arrived at those numbers by
+ * its own rules is one the player will eventually catch out. Running the real
+ * systems also means every loop keeps working here for free — buildings level,
+ * people move in and out, congestion builds, an era can pass.
+ *
+ * The cost of that is bounded by taking a fixed number of long steps instead of
+ * many short ones. Growth, decay and migration are all linear in `dt`, so the
+ * long step lands in the same place; the one thing it cannot do is move a
+ * building more than one level per pass, which is why there are far more passes
+ * than there are levels.
+ */
+export function applyOfflineProgress(
+  state: GameState,
+  systems: Systems,
+  away: AwayTime,
+): OfflineReport {
+  const worthReporting = away.rawMs >= OFFLINE_MIN_REPORT_MS;
+  const report: OfflineReport = {
+    away,
+    moneyEarned: 0,
+    populationGained: 0,
+    buildingsBuilt: 0,
+    eraReached: null,
+    worthReporting,
+  };
+  if (away.effectiveMs <= 0) return report;
+
+  const moneyBefore = state.money;
+  const populationBefore = state.population;
+  const buildingsBefore = state.buildings.size;
+
+  // Charged against played time whether or not it is reported: the clock the
+  // save writes down has to agree with the city it is written beside.
+  state.playedMs += away.effectiveMs;
+
+  const seconds = away.effectiveMs / 1000;
+  const steps = Math.min(OFFLINE_STEPS, Math.max(1, Math.ceil(seconds / OFFLINE_STEP_MIN_S)));
+  const step = seconds / steps;
+  for (let i = 0; i < steps; i++) {
+    const era = systems.step(state, step);
+    if (era) report.eraReached = era;
+    systems.stepEconomy(state, step);
+  }
+
+  report.moneyEarned = state.money - moneyBefore;
+  report.populationGained = state.population - populationBefore;
+  report.buildingsBuilt = state.buildings.size - buildingsBefore;
+  return report;
+}
+
+/** Jobs and homes as they stand, for the Chronicle's second line. */
+export function cityAtAGlance(state: GameState): { jobs: number; housing: number } {
+  const totals = totalBuildings(state);
+  return {
+    jobs: totals.commercialJobs + totals.industrialJobs + totals.farmJobs,
+    housing: totals.housing,
+  };
 }
