@@ -1,5 +1,6 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
+import { AUTOSAVE_INTERVAL_S } from './data/balance';
 import { STR } from './data/strings.tr';
 import { bindPointerInput, bindWheelZoom } from './input/pointer';
 import { ToolController } from './input/tools';
@@ -9,12 +10,12 @@ import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
-import { hashSeed } from './sim/rng';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
 import { NONE } from './sim/tiles';
 import { UndoStack } from './sim/undo';
 import { startingCentre } from './sim/world';
+import { Autosave, loadCity, nextSeed } from './state/persistence';
 import { uiStore } from './state/store';
 import { mountCostLabel } from './ui/costLabel';
 import { guidanceFor } from './ui/guidance';
@@ -31,12 +32,19 @@ const canvas = document.querySelector<HTMLCanvasElement>('#map');
 const ui = document.querySelector<HTMLElement>('#ui');
 if (!canvas || !ui) throw new Error('Game shell missing from index.html');
 
-const game = createGameState(hashSeed('kadastro'), Date.now());
+// A returning player gets their city back; a new one gets their own map rather
+// than the single hard-coded island everybody used to share.
+const game = loadCity() ?? createGameState(nextSeed(), Date.now());
+const autosave = new Autosave(AUTOSAVE_INTERVAL_S);
 const camera = new CameraRig();
 const renderer = new Renderer(canvas, camera, game);
 const clock = new Clock();
 const undo = new UndoStack();
 const systems = new Systems(game.world.size);
+
+// Derived fields — road distance, land value — are not saved, so a loaded city
+// has to recompute them before its first tick.
+systems.invalidateFields();
 
 const home = startingCentre(game.world);
 camera.centreOn(home.x, home.y);
@@ -108,12 +116,22 @@ window.visualViewport?.addEventListener('resize', handleResize);
 window.visualViewport?.addEventListener('scroll', handleResize);
 renderer.resize();
 
+// iOS very often never fires unload, and may not fire visibilitychange either
+// when the app is swiped away; pagehide is the one that can be relied on.
+window.addEventListener('pagehide', () => {
+  game.lastSeen = Date.now();
+  autosave.flush(game);
+});
+
 // --- Away-time bookkeeping ---------------------------------------------------
 // rAF stops when the tab backgrounds, so the gap is measured on visibility
 // rather than counted in frames, and handed to the offline system (§11).
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'hidden') {
     game.lastSeen = Date.now();
+    // A backgrounded tab can be killed without warning, so this is the last
+    // reliable moment to write the city down.
+    autosave.flush(game);
     return;
   }
   const away = creditAwayTime(game.lastSeen, Date.now());
@@ -160,6 +178,7 @@ function frame(now: number): void {
     systems.stepEconomy(game, (budget.economyTicks * clock.economyStepMs) / 1000);
   }
   game.playedMs = clock.playedMs;
+  autosave.tick(game, deltaMs);
 
   tools.update();
   renderer.render({ state: game, draft: tools.draft, now }, deltaMs);
