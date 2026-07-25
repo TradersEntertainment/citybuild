@@ -44,6 +44,7 @@ export const STR = {
   hud: {
     population: (value: number): string => `${plain.format(Math.round(value))} kişi`,
     happiness: (value: number): string => `mutluluk ${Math.round(value)}`,
+    fps: (value: number): string => `${Math.round(value)} fps`,
     /** Net income per minute, signed. */
     net: (value: number): string =>
       `${value >= 0 ? '+' : '−'}${money.format(Math.abs(Math.round(value)))} ₺/dk`,
@@ -67,6 +68,7 @@ export const STR = {
 
   /** Locked entries always show what opens them (§1: no hidden locks). */
   lockedAt: (era: string): string => `${era} çağında açılır`,
+  unlocked: (what: string): string => `${what} açıldı`,
 
   draft: {
     /** "₺2.340 · 26 kare" */
@@ -77,9 +79,7 @@ export const STR = {
   },
 
   camera: {
-    hint: 'İki parmakla haritayı gez, yaklaştır.',
-    readout: (x: number, y: number, zoom: number): string =>
-      `${x.toFixed(0)}, ${y.toFixed(0)} · ${zoom.toFixed(2)}×`,
+    hint: 'İki parmakla gez ve yaklaştır, çevirmek için parmakları döndür.',
   },
 
   terrain: {

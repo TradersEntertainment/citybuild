@@ -16,7 +16,8 @@ export function mountTopBar(root: HTMLElement): () => void {
   const moneyElement = required(root, '#hud-money');
   const netElement = required(root, '#hud-net');
   const populationElement = required(root, '#hud-population');
-  const readout = required(root, '#hud-camera');
+  const happinessElement = required(root, '#hud-happiness');
+  const fpsElement = required(root, '#hud-fps');
   const demandBars = {
     res: required(root, '#demand-res'),
     com: required(root, '#demand-com'),
@@ -28,7 +29,7 @@ export function mountTopBar(root: HTMLElement): () => void {
   let from = shown;
   let startedAt = 0;
   let animating = false;
-  const last = { readout: '', population: '', net: '' };
+  const last = { happiness: '', population: '', net: '', fps: '' };
 
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -80,9 +81,18 @@ export function mountTopBar(root: HTMLElement): () => void {
     demandBars.com.style.height = `${Math.round(state.demand.com * 100)}%`;
     demandBars.ind.style.height = `${Math.round(state.demand.ind * 100)}%`;
 
-    const readoutText =
-      state.fps > 0 ? `${state.cameraReadout} · ${state.fps.toFixed(0)} fps` : state.cameraReadout;
-    write(readout, last, 'readout', readoutText);
+    // Happiness drives migration, and through it every other number on this
+    // bar. It used to be computed, decisive, and shown nowhere — a player could
+    // watch their city stall with no way to see why. Tile coordinates and a
+    // zoom factor, which is what this slot used to hold, told them nothing.
+    write(happinessElement, last, 'happiness', STR.hud.happiness(state.happiness));
+    happinessElement.dataset['mood'] = moodOf(state.happiness);
+
+    // Kept on screen deliberately: this is a realistic 3D city on a phone, and
+    // the frame budget is the constraint most likely to be broken by a change
+    // nobody thought was expensive.
+    write(fpsElement, last, 'fps', state.fps > 0 ? STR.hud.fps(state.fps) : '');
+    fpsElement.dataset['low'] = String(state.fps > 0 && state.fps < 30);
   };
 
   moneyElement.textContent = STR.format.money(shown);
@@ -105,6 +115,17 @@ export function mountHint(root: HTMLElement): () => void {
       hint.textContent = state.guidance;
     }
   });
+}
+
+/**
+ * Colour band for the happiness figure. The exodus threshold is 35, so "grim"
+ * has to start above it — a warning that arrives as people are already leaving
+ * is not a warning.
+ */
+function moodOf(happiness: number): string {
+  if (happiness < 45) return 'grim';
+  if (happiness < 65) return 'fair';
+  return 'good';
 }
 
 function write(

@@ -21,7 +21,6 @@ export interface UiState {
   demand: { res: number; com: number; ind: number };
   net: number;
   fps: number;
-  cameraReadout: string;
   /** Suppressed while the player is drawing, so ink is never under text. */
   hintVisible: boolean;
   /** What the game wants to say, or null when the city needs no advice. */
@@ -46,7 +45,6 @@ export interface UiActions {
   setTool(tool: ToolId): void;
   setOverlay(overlay: OverlayId): void;
   setFps(fps: number): void;
-  setCameraReadout(text: string): void;
   setGuidance(text: string | null): void;
   hideHint(): void;
   showHint(): void;
@@ -63,7 +61,6 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   demand: { res: 0, com: 0, ind: 0 },
   net: 0,
   fps: 0,
-  cameraReadout: '',
   hintVisible: true,
   guidance: null,
 
@@ -87,7 +84,6 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   setTool: (activeTool) => set({ activeTool }),
   setOverlay: (overlay) => set({ overlay }),
   setFps: (fps) => set({ fps }),
-  setCameraReadout: (cameraReadout) => set({ cameraReadout }),
   setGuidance: (guidance) =>
     set((current) => (current.guidance === guidance ? current : { ...current, guidance })),
   hideHint: () => set({ hintVisible: false }),

@@ -1,6 +1,7 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
 import { AUTOSAVE_INTERVAL_S } from './data/balance';
+import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
 import { bindPointerInput, bindWheelZoom } from './input/pointer';
 import { ToolController } from './input/tools';
@@ -12,7 +13,7 @@ import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
-import { NONE } from './sim/tiles';
+import { NONE, type Era } from './sim/tiles';
 import { UndoStack } from './sim/undo';
 import { startingCentre } from './sim/world';
 import { Autosave, loadCity, nextSeed } from './state/persistence';
@@ -20,6 +21,7 @@ import { uiStore } from './state/store';
 import { mountCostLabel } from './ui/costLabel';
 import { guidanceFor } from './ui/guidance';
 import * as haptics from './ui/haptics';
+import { mountToast } from './ui/toast';
 import { mountToolDock } from './ui/toolDock';
 import { mountHint, mountTopBar } from './ui/topBar';
 
@@ -66,6 +68,7 @@ const tools = new ToolController(game, camera, undo, {
 const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
 mountHint(ui);
+const toast = mountToast(ui);
 const dock = mountToolDock(ui, {
   tools,
   era: () => game.era,
@@ -167,6 +170,10 @@ function frame(now: number): void {
       // from state, so the dock just needs to re-render its rows.
       dock.refresh();
       renderer.invalidateTerrain();
+      // The biggest moment in the early game used to pass in total silence.
+      toast.show(STR.era.reached(STR.eraName[era]), unlockedBy(era));
+      haptics.confirm();
+      autosave.flush(game);
     }
     // A spawn or a demolition changes which tiles still show bare zoning.
     if (game.buildings.size !== previousBuildingCount) {
@@ -211,6 +218,17 @@ function syncUi(): void {
   );
 }
 
+/**
+ * What an era just handed the player, as the toast's second line. An
+ * announcement that only names the era tells them they achieved something;
+ * naming the road it unlocked tells them what to go and do with it.
+ */
+function unlockedBy(era: Era): string | undefined {
+  const unlocked = ROAD_TIERS.filter((kind) => ROAD_SPECS[kind].unlockedAt === era);
+  if (unlocked.length === 0) return undefined;
+  return STR.unlocked(unlocked.map((kind) => STR.road[kind]).join(', '));
+}
+
 /** Non-zero entries in a grid column — how much road or zoning exists at all. */
 function countColumn(column: Uint8Array): number {
   let count = 0;
@@ -227,9 +245,7 @@ function publishReadout(): void {
   if (readoutAccumulator < 15) return;
   readoutAccumulator = 0;
   syncUi();
-  const state = uiStore.getState();
-  state.setCameraReadout(STR.camera.readout(camera.x, camera.y, camera.zoom));
-  state.setFps(renderer.stats.fps);
+  uiStore.getState().setFps(renderer.stats.fps);
 }
 
 syncUi();
