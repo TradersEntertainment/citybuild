@@ -5,9 +5,10 @@ import {
   SERVICE_SPECS,
   type ServiceKind,
 } from '../data/services';
+import { UTILITIES_REQUIRED_FROM } from '../data/utilities';
 import type { Fields } from './fields';
 import type { GameState } from './state';
-import type { Era } from './tiles';
+import { SERVICE, type Era } from './tiles';
 import { index, inBounds, isTileOwned, type World } from './world';
 
 /**
@@ -133,12 +134,34 @@ export function computeServiceCoverage(state: GameState, fields: Fields): void {
  */
 export function serviceCoverageAt(world: World, era: Era, tileIndex: number): number {
   const required = requiredServices(era);
-  if (required.length === 0) return 1;
+  const utilities = utilitiesExpected(era);
+  const total = required.length + (utilities ? 2 : 0);
+  if (total === 0) return 1;
 
   const mask = world.serviceMask[tileIndex] ?? 0;
   let covered = 0;
   for (const kind of required) {
     if ((mask & SERVICE_SPECS[kind].bit) !== 0) covered++;
   }
-  return covered / required.length;
+  if (utilities) {
+    if ((mask & SERVICE.water) !== 0) covered++;
+    if ((mask & SERVICE.power) !== 0) covered++;
+  }
+  return covered / total;
 }
+
+/**
+ * Whether the era expects running water and electricity at all.
+ *
+ * Deliberately false for now. The solver that spreads utilities along the mains
+ * exists, but nothing in the UI can place a plant yet — and requiring a system
+ * the player cannot provide is precisely the fault that once pinned every plot
+ * below the growth threshold and stopped the city. This turns on in the same
+ * change that makes plants buildable, not before.
+ */
+export function utilitiesExpected(era: Era): boolean {
+  void era;
+  void UTILITIES_REQUIRED_FROM;
+  return false;
+}
+

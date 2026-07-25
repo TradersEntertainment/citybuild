@@ -24,6 +24,8 @@ export interface DockDeps {
 export interface DockHandle {
   /** Closes the sheet; the map calls this when the player starts drawing. */
   closeSheet(): void;
+  /** True while a tool's options are showing — the coach waits on this. */
+  readonly isSheetOpen: boolean;
   /** Re-reads tool state, e.g. after an era unlocked something. */
   refresh(): void;
   dispose(): void;
@@ -38,12 +40,16 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   const sheet: HTMLElement = sheetElement;
 
   dock.textContent = '';
+  // "Browse" comes first and is the resting state: with no tool selected, one
+  // finger drags the map. Without it a player who picks a tool has no way back
+  // to simply looking at their city.
+  const panButton = toolButton(STR.tools.pan);
   const roadButton = toolButton();
   const zoneButton = toolButton();
   const serviceButton = toolButton();
   const eraseButton = toolButton(STR.tools.erase);
   const undoButton = toolButton(STR.tools.undo);
-  dock.append(roadButton, zoneButton, serviceButton, eraseButton, spacer(), undoButton);
+  dock.append(panButton, roadButton, zoneButton, serviceButton, eraseButton, spacer(), undoButton);
 
   let openSheetFor: ToolId | null = null;
 
@@ -55,6 +61,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
 
   const refresh = (): void => {
     const tool = deps.tools.activeTool;
+    panButton.dataset['active'] = String(tool === 'none');
     roadButton.dataset['active'] = String(tool === 'road');
     zoneButton.dataset['active'] = String(tool === 'zone');
     serviceButton.dataset['active'] = String(tool === 'service');
@@ -171,9 +178,15 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   const selectTool = (tool: ToolId, withSheet: boolean): void => {
     haptics.tap();
     if (withSheet && deps.tools.activeTool === tool) {
-      // Second tap on the active tool toggles its sheet.
-      if (openSheetFor === tool) closeSheet();
-      else openSheet(tool);
+      // Second tap on the active tool toggles its sheet; a third puts the tool
+      // down, which is the escape hatch from painting everything you touch.
+      if (openSheetFor === tool) {
+        closeSheet();
+        deps.tools.setTool('none');
+        refresh();
+        return;
+      }
+      openSheet(tool);
       return;
     }
     deps.tools.setTool(tool);
@@ -182,6 +195,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     refresh();
   };
 
+  panButton.addEventListener('click', () => selectTool('none', false));
   roadButton.addEventListener('click', () => selectTool('road', true));
   zoneButton.addEventListener('click', () => selectTool('zone', true));
   serviceButton.addEventListener('click', () => selectTool('service', true));
@@ -194,6 +208,9 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   refresh();
   return {
     closeSheet,
+    get isSheetOpen() {
+      return openSheetFor !== null;
+    },
     refresh,
     dispose: () => {
       dock.textContent = '';

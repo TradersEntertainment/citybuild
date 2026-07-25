@@ -14,6 +14,29 @@ export const STR = {
     count: (value: number): string => plain.format(Math.round(value)),
   },
 
+  intro: {
+    title: 'Kadastro',
+    lede: 'Parmağınla yol çiziyorsun. Şehir o yolun kenarında kendi kendine büyüyor.',
+    steps: [
+      { verb: 'Sürükle', text: '— haritaya bir yol çizilir.' },
+      { verb: 'Bölge boya', text: '— alttan konut seç, yolun kenarına sür.' },
+      { verb: 'Bekle', text: '— evler kendiliğinden yükselir, insanlar taşınır.' },
+    ],
+    camera: 'İki parmak: gez ve yaklaştır. Parmakları döndür: kamerayı çevir.',
+    start: 'Şehri kur',
+  },
+
+  coach: {
+    road: 'Haritada parmağını sürükle — bir yol çiz.',
+    zoneTool: 'Şimdi "bölge" düğmesine bas.',
+    zonePick: '"Konut"u seç.',
+    zonePaint: 'Yolun hemen kenarına sürükle — konut alanı boya.',
+    wait: 'Bekle. Birazdan evler yükselecek.',
+    jobs: 'İnsanlara iş lazım. "bölge"den ticaret seçip biraz da onu boya.',
+    grow: 'Şehir büyüyor. Yol çizmeye devam et — gerisi kendiliğinden gelir.',
+    skip: 'geç',
+  },
+
   empty: {
     noRoads: 'Henüz yol yok. Bir hat çiz — şehir yolun kenarında büyür.',
     noZones: 'Bölge boyanmamış. Yolun kenarını konuta ayır.',
@@ -25,6 +48,7 @@ export const STR = {
   tools: {
     road: 'yol',
     zone: 'bölge',
+    pan: 'gez',
     erase: 'sil',
     undo: 'geri al',
     service: 'hizmet',
@@ -111,6 +135,12 @@ export const STR = {
       `${money.format(Math.round(amount))} ₺ · ${plain.format(tiles)} kare`,
     truncated: 'para yetmiyor',
     erase: (tiles: number) => `${plain.format(tiles)} kare siliniyor`,
+  },
+
+  view: {
+    zoomIn: 'Yaklaştır',
+    zoomOut: 'Uzaklaştır',
+    rotate: 'Kamerayı çevir',
   },
 
   camera: {

@@ -20,11 +20,14 @@ import { UndoStack } from './sim/undo';
 import { parcelOfTile, startingCentre } from './sim/world';
 import { Autosave, loadCity, nextSeed } from './state/persistence';
 import { uiStore } from './state/store';
+import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
 import { mountParcelPrompt } from './ui/parcelPrompt';
 import { guidanceFor } from './ui/guidance';
+import { mountIntro } from './ui/intro';
 import * as haptics from './ui/haptics';
 import { mountToast } from './ui/toast';
+import { mountViewControls } from './ui/viewControls';
 import { mountToolDock } from './ui/toolDock';
 import { mountHint, mountTopBar } from './ui/topBar';
 
@@ -72,6 +75,7 @@ const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
 mountHint(ui);
 const toast = mountToast(ui);
+
 const parcelPrompt = mountParcelPrompt(ui, {
   onBuy: (offer) => {
     if (!buyParcel(game, offer.px, offer.py)) return false;
@@ -97,6 +101,32 @@ const dock = mountToolDock(ui, {
   },
 });
 
+// Mounted after the dock, because the coach points at its buttons and reads
+// whether its sheet is open.
+const returning = game.buildings.size > 0 || countColumn(game.world.road) > 0;
+const coach = mountCoach(ui, false);
+const intro = mountIntro(ui, {
+  skip: returning,
+  onDismiss: () => coach.start(coachFacts()),
+});
+if (returning) coach.dismiss();
+// The card is shown once and remembered, so a player on their second run gets
+// no card — and the coach has to start itself rather than wait for a dismissal
+// that will never come.
+else if (!intro.open) coach.start(coachFacts());
+
+/**
+ * One-finger panning, used when no tool is selected.
+ *
+ * The original scheme was one finger for the tool and two for the camera, which
+ * assumes two fingers are always available and always reach the canvas. Neither
+ * holds: a mouse has one pointer, and an embedded page can swallow a pinch
+ * before it arrives. Leaving a player unable to move the map — or to stop
+ * painting — is worse than any purity about gestures, so "no tool" is now a
+ * real mode and one finger drags the city in it.
+ */
+let panFrom: { x: number; y: number } | null = null;
+
 const input = bindPointerInput(canvas, {
   onCameraPan: (dx, dy) => {
     dock.closeSheet();
@@ -110,14 +140,27 @@ const input = bindPointerInput(canvas, {
     // the player starts drawing, not once the road is paid for.
     uiStore.getState().hideHint();
     dock.closeSheet();
+    if (tools.activeTool === 'none') {
+      panFrom = { x: sample.x, y: sample.y };
+      return;
+    }
     tools.strokeStart(sample.x, sample.y);
   },
-  onStrokeMove: (sample) => tools.strokeMove(sample.x, sample.y),
+  onStrokeMove: (sample) => {
+    if (panFrom) {
+      camera.panByScreen(sample.x - panFrom.x, sample.y - panFrom.y);
+      panFrom = { x: sample.x, y: sample.y };
+      return;
+    }
+    tools.strokeMove(sample.x, sample.y);
+  },
   onStrokeEnd: () => {
+    panFrom = null;
     tools.strokeEnd();
     uiStore.getState().showHint();
   },
   onStrokeCancel: () => {
+    panFrom = null;
     tools.cancelStroke();
     uiStore.getState().showHint();
   },
@@ -138,6 +181,12 @@ const input = bindPointerInput(canvas, {
   },
 });
 bindWheelZoom(canvas, (x, y, factor) => camera.zoomAt(x, y, factor));
+mountViewControls(ui, {
+  // Anchored on the middle of the screen, which is what the player is looking
+  // at when they reach for a button rather than a finger.
+  onZoom: (factor) => camera.zoomAt(camera.viewportWidth / 2, camera.viewportHeight / 2, factor),
+  onRotate: (radians) => camera.orbitByAngle(radians),
+});
 bindAudioUnlock(canvas);
 registerServiceWorker();
 
@@ -247,9 +296,26 @@ function frame(now: number): void {
   renderer.render({ state: game, draft: tools.draft, now }, deltaMs);
 
   updateCostLabel(tools.isDrawing ? tools.summary : null);
+  // The dock relabels itself as tools change, so the ring is re-measured rather
+  // than cached against coordinates that may have moved.
+  coach.reposition();
   publishReadout();
 
   requestAnimationFrame(frame);
+}
+
+/** What the coach reads to decide which control to point at. */
+function coachFacts(): CoachFacts {
+  const totals = totalBuildings(game);
+  return {
+    roadTiles: countColumn(game.world.road),
+    zonedTiles: countColumn(game.world.zone),
+    buildings: game.buildings.size,
+    jobs: totals.commercialJobs + totals.industrialJobs,
+    population: game.population,
+    activeTool: tools.activeTool,
+    sheetOpen: dock.isSheetOpen,
+  };
 }
 
 function syncUi(): void {
@@ -263,6 +329,7 @@ function syncUi(): void {
     demand: { ...game.demand },
     net: game.ledger.net,
   });
+  coach.update(coachFacts());
   store.setGuidance(
     guidanceFor({
       roadTiles: countColumn(game.world.road),

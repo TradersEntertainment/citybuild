@@ -436,6 +436,253 @@ body {
   }
 }
 
+/*
+ * Camera buttons up the right edge. Pinch and twist still work; these are what
+ * a mouse — or an embedded page that eats the pinch — leaves the player with.
+ */
+.view-controls {
+  position: absolute;
+  right: calc(var(--safe-right) + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: auto;
+}
+
+.view-button {
+  width: var(--touch-min);
+  height: var(--touch-min);
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 20%, transparent);
+  background: color-mix(in srgb, var(--murekkep) 78%, transparent);
+  backdrop-filter: blur(6px);
+  color: var(--parsomen);
+  font: inherit;
+  font-size: 19px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.view-button:active {
+  background: color-mix(in srgb, var(--pirinc) 55%, transparent);
+}
+
+.view-button:focus-visible {
+  outline: 2px solid var(--pirinc);
+  outline-offset: 2px;
+}
+
+/*
+ * The coach: a ring around the control to press, and a line saying why.
+ * The ring never takes pointer events — it points at a button the player must
+ * actually be able to press through it.
+ */
+.coach-ring {
+  position: fixed;
+  z-index: 9;
+  pointer-events: none;
+  border-radius: 15px;
+  border: 2px solid var(--pirinc);
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--pirinc) 28%, transparent),
+    0 0 22px color-mix(in srgb, var(--pirinc) 45%, transparent);
+  opacity: 0;
+  transition:
+    opacity 200ms ease-out,
+    left 180ms ease-out,
+    top 180ms ease-out,
+    width 180ms ease-out,
+    height 180ms ease-out;
+  animation: coach-pulse 1900ms ease-in-out infinite;
+}
+
+.coach-ring[data-shown='true'] {
+  opacity: 1;
+}
+
+@keyframes coach-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--pirinc) 22%, transparent), 0 0 18px color-mix(in srgb, var(--pirinc) 34%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--pirinc) 30%, transparent), 0 0 28px color-mix(in srgb, var(--pirinc) 55%, transparent); }
+}
+
+.coach-bubble {
+  position: fixed;
+  z-index: 9;
+  left: 50%;
+  transform: translate(-50%, -100%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: max-content;
+  max-width: min(88vw, 380px);
+  padding: 11px 14px;
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--murekkep) 95%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pirinc) 40%, transparent);
+  box-shadow: 0 10px 26px rgb(0 0 0 / 40%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease-out;
+}
+
+.coach-bubble[data-shown='true'] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Pointing at the map rather than a control: park it above the tool dock. */
+.coach-bubble[data-anchored='false'] {
+  top: auto !important;
+  bottom: calc(var(--safe-bottom) + var(--bar-height) + 22px);
+  transform: translate(-50%, 0);
+}
+
+.coach-bubble[data-above='false'] {
+  transform: translate(-50%, 0);
+}
+
+.coach-text {
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--parsomen);
+}
+
+.coach-skip {
+  flex: none;
+  border: none;
+  background: transparent;
+  color: var(--sis);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .coach-ring {
+    animation: none;
+    transition: opacity 200ms ease-out;
+  }
+}
+
+/*
+ * Opening screen. Covers the map rather than sitting beside it: the first
+ * thing a player should read is what the one gesture does, not a HUD full of
+ * numbers that mean nothing yet.
+ */
+.intro {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--murekkep) 82%, transparent);
+  backdrop-filter: blur(10px);
+  animation: intro-in 320ms ease-out both;
+}
+
+.intro[data-closing='true'] {
+  animation: intro-out 240ms ease-in both;
+}
+
+@keyframes intro-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes intro-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.intro-card {
+  width: min(100%, 360px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px 24px 22px;
+  border-radius: 20px;
+  background: color-mix(in srgb, var(--murekkep) 94%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pirinc) 42%, transparent);
+  box-shadow: 0 20px 50px rgb(0 0 0 / 45%);
+}
+
+.intro-title {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--pirinc);
+  text-wrap: balance;
+}
+
+.intro-lede {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--parsomen);
+  text-wrap: pretty;
+}
+
+.intro-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  margin: 2px 0 0;
+  padding-left: 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--parsomen) 82%, transparent);
+}
+
+.intro-steps::marker,
+.intro-steps li::marker {
+  color: var(--cini);
+}
+
+.intro-steps strong {
+  color: var(--parsomen);
+  font-weight: 600;
+}
+
+.intro-camera {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--sis);
+  padding-top: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 14%, transparent);
+}
+
+.intro-start {
+  min-height: var(--touch-min);
+  margin-top: 4px;
+  border: none;
+  border-radius: 13px;
+  background: var(--pirinc);
+  color: var(--murekkep);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.intro-start:focus-visible {
+  outline: 3px solid var(--parsomen);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro[data-closing='true'] {
+    animation-duration: 1ms;
+  }
+}
+
 /* Happiness and the frame counter share the bar's last line. */
 .hud-line {
   display: flex;
