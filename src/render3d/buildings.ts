@@ -2,85 +2,28 @@ import * as THREE from 'three';
 import type { BuiltZone } from '../data/buildings';
 import type { Building } from '../sim/buildings';
 import type { GameState } from '../sim/state';
-import { createEmissiveTexture, createFacadeTexture, type FacadeOptions } from './facade';
+import { archetypeFor, periodOf, type Archetype, type Period } from './archetypes';
+import { createEmissiveTexture, createFacadeTexture } from './facade';
 import { sampleHeight } from './terrain';
 
 /**
- * The city itself: one InstancedMesh per (zone, level) archetype, fifteen draw
- * calls for however many thousand buildings stand. Per-building meshes are what
- * kill a city builder on a phone, so instancing is not an optimisation here —
- * it is the only reason the scene can hold a metropolis at all.
+ * The city itself: one InstancedMesh per (period, zone, level) archetype —
+ * fifteen draw calls for however many thousand buildings stand in a given era.
+ * Per-building meshes are what kill a city builder on a phone, so instancing is
+ * not an optimisation here; it is the only reason the scene can hold a
+ * metropolis at all.
  *
- * Archetype geometry and facades are built once at start-up. What changes per
- * frame is the instance matrix: position on the terrain, a seeded rotation, and
- * the spring the building rides in on.
+ * Buckets are made the first time something needs them rather than up front.
+ * Three periods would otherwise cost forty-five meshes and ninety generated
+ * textures at start-up, most of them for buildings the player will not see for
+ * an hour — and a settlement should pay for a settlement.
  */
-interface Archetype {
-  /** Footprint side as a fraction of a tile. */
-  footprint: number;
-  /** Height in world units; one unit is one tile width. */
-  height: number;
-  roof: string;
-  facade: FacadeOptions;
-}
+const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
+const PERIOD_SALT: Record<Period, number> = { early: 0, industrial: 61, modern: 127 };
+const INITIAL_CAPACITY = 256;
 
 /** Storey height in world units, used to scale facade UVs so windows stay put. */
 const STOREY = 0.16;
-
-const ARCHETYPES: Record<BuiltZone, readonly Archetype[]> = {
-  res: [
-    arch(0.46, 0.34, '#7C4436', wall('#D8CDBA', '#5C6E78', 3, 2, 0.22, false)),
-    arch(0.56, 0.55, '#7A4A3A', wall('#D2C4AC', '#576975', 4, 3, 0.26, false)),
-    arch(0.68, 1.15, '#6E6A62', wall('#C6BCAC', '#4E6472', 5, 7, 0.3, true)),
-    arch(0.78, 2.1, '#65625C', wall('#B9B4AA', '#46606F', 6, 13, 0.34, true)),
-    arch(0.86, 3.6, '#5C5A56', wall('#A9AEB2', '#3E5C6E', 7, 22, 0.38, true)),
-  ],
-  com: [
-    arch(0.44, 0.36, '#4A5A62', wall('#E0D9C8', '#3E6E86', 3, 2, 0.4, false)),
-    arch(0.56, 0.72, '#44545E', wall('#D2CFC4', '#37687F', 4, 4, 0.44, true)),
-    arch(0.68, 1.7, '#3C4C57', wall('#9FB0BA', '#2E6079', 6, 10, 0.5, true)),
-    arch(0.8, 3.2, '#36454F', wall('#8FA6B4', '#275872', 7, 20, 0.55, true)),
-    arch(0.88, 5.4, '#2F3E48', wall('#7E9BAD', '#1F5069', 8, 34, 0.6, true)),
-  ],
-  ind: [
-    arch(0.48, 0.4, '#6B5347', wall('#B9A992', '#5A6258', 3, 2, 0.14, false)),
-    arch(0.6, 0.62, '#63503F', wall('#AD9E88', '#555E54', 4, 3, 0.16, false)),
-    arch(0.72, 0.95, '#5C5750', wall('#9E9B88', '#4F584F', 5, 4, 0.18, false)),
-    arch(0.84, 1.35, '#55534E', wall('#96938A', '#4A534B', 6, 6, 0.2, false)),
-    arch(0.92, 1.8, '#4E4D4A', wall('#8D8B84', '#455049', 7, 8, 0.22, false)),
-  ],
-};
-
-function arch(
-  footprint: number,
-  height: number,
-  roof: string,
-  facade: FacadeOptions,
-): Archetype {
-  return { footprint, height, roof, facade };
-}
-
-function wall(
-  wallColour: string,
-  glass: string,
-  columns: number,
-  rows: number,
-  lit: number,
-  banded: boolean,
-): FacadeOptions {
-  return {
-    wall: wallColour,
-    glass,
-    columns,
-    rows,
-    lit,
-    litColour: '#FFE9BC',
-    banded,
-  };
-}
-
-const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
-const INITIAL_CAPACITY = 256;
 
 interface Bucket {
   mesh: THREE.InstancedMesh;
@@ -105,10 +48,16 @@ export function createBuildings(): BuildingMeshes {
   const materials: THREE.MeshStandardMaterial[] = [];
   const geometries: THREE.BufferGeometry[] = [];
   const textures: THREE.Texture[] = [];
+  let nightFactor = 0;
 
-  const makeBucket = (zone: BuiltZone, level: number, capacity: number): Bucket => {
-    const spec = ARCHETYPES[zone][level - 1] as Archetype;
-    const salt = ZONES.indexOf(zone) * 11 + level;
+  const makeBucket = (
+    period: Period,
+    zone: BuiltZone,
+    level: number,
+    capacity: number,
+  ): Bucket => {
+    const spec = archetypeFor(period, zone, level);
+    const salt = PERIOD_SALT[period] + ZONES.indexOf(zone) * 11 + level;
 
     const facadeMap = createFacadeTexture(spec.facade, salt);
     const emissiveMap = createEmissiveTexture(spec.facade, salt);
@@ -118,9 +67,11 @@ export function createBuildings(): BuildingMeshes {
       map: facadeMap,
       emissiveMap,
       emissive: new THREE.Color('#FFD9A0'),
-      emissiveIntensity: 0,
-      roughness: zone === 'com' ? 0.32 : 0.76,
-      metalness: zone === 'com' ? 0.28 : 0.04,
+      // A bucket built after dusk has to arrive already lit; starting at zero
+      // would leave a whole district dark until the next sunset.
+      emissiveIntensity: nightFactor,
+      roughness: period === 'modern' && zone === 'com' ? 0.32 : 0.76,
+      metalness: period === 'modern' && zone === 'com' ? 0.28 : 0.04,
     });
     const roofMaterial = new THREE.MeshStandardMaterial({
       color: spec.roof,
@@ -132,14 +83,10 @@ export function createBuildings(): BuildingMeshes {
     const geometry = buildArchetypeGeometry(spec);
     geometries.push(geometry);
 
-    // Box groups let one instanced mesh carry a facade on the walls and a
-    // different material on the roof, which is the whole difference between a
+    // Two material groups let one instanced mesh carry a facade on the walls and
+    // tile or asphalt on the roof, which is most of the difference between a
     // building and a textured cube.
-    const mesh = new THREE.InstancedMesh(
-      geometry,
-      [facadeMaterial, facadeMaterial, roofMaterial, roofMaterial, facadeMaterial, facadeMaterial],
-      capacity,
-    );
+    const mesh = new THREE.InstancedMesh(geometry, [facadeMaterial, roofMaterial], capacity);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false; // instances span the map; the bounds would be the map
@@ -148,12 +95,6 @@ export function createBuildings(): BuildingMeshes {
     group.add(mesh);
     return { mesh, capacity, count: 0 };
   };
-
-  for (const zone of ZONES) {
-    for (let level = 1; level <= 5; level++) {
-      buckets.set(`${zone}:${level}`, makeBucket(zone, level, INITIAL_CAPACITY));
-    }
-  }
 
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
@@ -165,16 +106,26 @@ export function createBuildings(): BuildingMeshes {
     void now;
     for (const bucket of buckets.values()) bucket.count = 0;
 
+    // One period is live at a time. The others keep their meshes — an era does
+    // not go backwards, but a save loaded mid-session can start anywhere — and
+    // are simply drawn with no instances.
+    const period = periodOf(game.era);
+
     for (const building of game.buildings.values()) {
-      const key = `${building.zone}:${building.level}`;
+      const key = `${period}:${building.zone}:${building.level}`;
       let bucket = buckets.get(key);
-      if (!bucket) continue;
+      if (!bucket) {
+        bucket = makeBucket(period, building.zone, building.level, INITIAL_CAPACITY);
+        buckets.set(key, bucket);
+      }
       if (bucket.count >= bucket.capacity) {
-        bucket = growBucket(group, bucket, makeBucket, building.zone, building.level);
+        bucket = growBucket(group, bucket, () =>
+          makeBucket(period, building.zone, building.level, bucket!.capacity * 2),
+        );
         buckets.set(key, bucket);
       }
 
-      const spec = ARCHETYPES[building.zone][building.level - 1] as Archetype;
+      const spec = archetypeFor(period, building.zone, building.level);
       const rise = riseFactor(building, game.playedMs);
       if (rise <= 0) continue;
 
@@ -185,7 +136,10 @@ export function createBuildings(): BuildingMeshes {
       const ground = sampleHeight(game.world, building.x + 0.5, building.y + 0.5);
 
       position.set(building.x + 0.5 + jitterX, ground, building.y + 0.5 + jitterY);
-      quaternion.setFromAxisAngle(axis, Math.round(hashUnit(building.x, building.y, 17) * 4) * (Math.PI / 2));
+      quaternion.setFromAxisAngle(
+        axis,
+        Math.round(hashUnit(building.x, building.y, 17) * 4) * (Math.PI / 2),
+      );
       const wobble = 0.92 + hashUnit(building.x, building.y, 19) * 0.16;
       scale.set(wobble, rise * wobble, wobble);
       matrix.compose(position, quaternion, scale);
@@ -195,11 +149,17 @@ export function createBuildings(): BuildingMeshes {
 
     for (const bucket of buckets.values()) {
       bucket.mesh.count = bucket.count;
+      // Hidden rather than merely emptied. An instanced mesh with no instances
+      // issues no GL draw, but it still costs a program bind and a uniform
+      // upload every frame — and after two era changes thirty of them are
+      // standing about with nothing in them.
+      bucket.mesh.visible = bucket.count > 0;
       bucket.mesh.instanceMatrix.needsUpdate = true;
     }
   };
 
   const setNightFactor = (factor: number): void => {
+    nightFactor = factor;
     for (const material of materials) {
       if (material.emissiveMap) material.emissiveIntensity = factor;
     }
@@ -224,45 +184,83 @@ export function createBuildings(): BuildingMeshes {
  * doubles rather than creeping — a linear grow would rebuild the mesh on almost
  * every spawn wave.
  */
-function growBucket(
-  group: THREE.Group,
-  old: Bucket,
-  make: (zone: BuiltZone, level: number, capacity: number) => Bucket,
-  zone: BuiltZone,
-  level: number,
-): Bucket {
+function growBucket(group: THREE.Group, old: Bucket, make: () => Bucket): Bucket {
   group.remove(old.mesh);
   old.mesh.dispose();
-  return make(zone, level, old.capacity * 2);
+  return make();
 }
 
 /**
- * Box sized to the archetype, with its origin on the ground so scaling Y makes
- * a building rise out of the terrain rather than grow from its own middle.
- * UVs are scaled to the building's real size so a window is the same size on a
- * cottage and on a tower.
+ * A building, as geometry: four walls, a floor, and a roof that is either flat
+ * or pitched. Origin on the ground so scaling Y makes it rise out of the
+ * terrain rather than grow from its own middle, and wall UVs scaled to the real
+ * size so a window is the same size on a cottage and on a tower.
+ *
+ * Two material groups — walls then roof — rather than the box's own six, so the
+ * pitched case can add faces without the group indices going out of step.
  */
-function buildArchetypeGeometry(spec: Archetype): THREE.BufferGeometry {
-  const w = spec.footprint;
-  const h = spec.height;
-  const geometry = new THREE.BoxGeometry(w, h, w);
-  geometry.translate(0, h / 2, 0);
+export function buildArchetypeGeometry(spec: Archetype): THREE.BufferGeometry {
+  const h = spec.footprint / 2;
+  const top = spec.height;
+  const positions: number[] = [];
+  const uvs: number[] = [];
 
-  const uv = geometry.getAttribute('uv') as THREE.BufferAttribute;
-  const across = Math.max(1, Math.round(w / (STOREY * 1.6)));
-  const up = Math.max(1, Math.round(h / STOREY));
-  // BoxGeometry lays out faces px, nx, py, ny, pz, nz with four vertices each;
-  // only the four side faces want the storey grid.
-  for (let face = 0; face < 6; face++) {
-    const vertical = face === 2 || face === 3;
-    for (let v = 0; v < 4; v++) {
-      const i = face * 4 + v;
-      if (vertical) continue;
-      uv.setXY(i, uv.getX(i) * across, uv.getY(i) * up);
-    }
+  const across = Math.max(1, Math.round(spec.footprint / (STOREY * 1.6)));
+  const up = Math.max(1, Math.round(top / STOREY));
+
+  /** One wall, wound so its outward face points away from the building. */
+  const wall = (x0: number, z0: number, x1: number, z1: number): void => {
+    positions.push(x0, 0, z0, x1, 0, z1, x1, top, z1);
+    positions.push(x0, 0, z0, x1, top, z1, x0, top, z0);
+    uvs.push(0, 0, across, 0, across, up, 0, 0, across, up, 0, up);
+  };
+
+  wall(-h, h, h, h); // +z
+  wall(h, h, h, -h); // +x
+  wall(h, -h, -h, -h); // -z
+  wall(-h, -h, -h, h); // -x
+
+  const wallVertices = positions.length / 3;
+
+  // The roof, in its own group. A flat roof is one quad; a pitched one is two
+  // slopes meeting at a ridge, with a gable triangle closing each end.
+  if (spec.roofPitch <= 0) {
+    quad(positions, uvs, [-h, top, -h], [-h, top, h], [h, top, h], [h, top, -h]);
+  } else {
+    const ridge = top + spec.roofPitch;
+    // Slopes run along z, so the ridge line is the building's long axis. Wound
+    // so each face's normal points away from the roof: the −x slope leans −x
+    // and up, the +x slope +x and up.
+    quad(positions, uvs, [-h, top, -h], [-h, top, h], [0, ridge, h], [0, ridge, -h]);
+    quad(positions, uvs, [h, top, h], [h, top, -h], [0, ridge, -h], [0, ridge, h]);
+    // Gables, facing out along z.
+    triangle(positions, uvs, [-h, top, h], [h, top, h], [0, ridge, h]);
+    triangle(positions, uvs, [h, top, -h], [-h, top, -h], [0, ridge, -h]);
   }
-  uv.needsUpdate = true;
+
+  // The underside, which shows on a slope steep enough to lift one corner.
+  quad(positions, uvs, [-h, 0, -h], [h, 0, -h], [h, 0, h], [-h, 0, h]);
+
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.computeVertexNormals();
+  geometry.computeBoundingSphere();
+  geometry.addGroup(0, wallVertices, 0);
+  geometry.addGroup(wallVertices, positions.length / 3 - wallVertices, 1);
   return geometry;
+}
+
+type Point = readonly [number, number, number];
+
+function quad(out: number[], uvs: number[], a: Point, b: Point, c: Point, d: Point): void {
+  triangle(out, uvs, a, b, c);
+  triangle(out, uvs, a, c, d);
+}
+
+function triangle(out: number[], uvs: number[], a: Point, b: Point, c: Point): void {
+  out.push(...a, ...b, ...c);
+  uvs.push(0, 0, 1, 0, 1, 1);
 }
 
 /**

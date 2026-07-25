@@ -116,6 +116,8 @@ export const STR = {
     reached: (name: string): string => `${name} çağına ulaşıldı.`,
     next: (name: string, remaining: number): string =>
       `${name} çağına ${plain.format(Math.round(remaining))} kişi kaldı`,
+    /** Said when the era crosses into a new architectural period. */
+    rebuilt: 'Şehir yeniden inşa ediliyor',
   },
 
   road: {

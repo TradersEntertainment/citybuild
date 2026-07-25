@@ -7,6 +7,7 @@ import { STR } from './data/strings.tr';
 import { bindPointerInput, bindWheelZoom } from './input/pointer';
 import { ToolController } from './input/tools';
 import { registerServiceWorker } from './pwa/registerSW';
+import { periodOf } from './render3d/archetypes';
 import { CameraRig } from './render3d/cameraRig';
 import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
@@ -307,6 +308,7 @@ function frame(now: number): void {
   if (budget.simTicks > 0) {
     game.tick += budget.simTicks;
     const seconds = (budget.simTicks * clock.simStepMs) / 1000;
+    const before = game.era;
     const era = systems.step(game, seconds);
     if (era) {
       // A new era unlocks tools and changes how the city is built; both are read
@@ -314,7 +316,7 @@ function frame(now: number): void {
       dock.refresh();
       renderer.invalidateTerrain();
       // The biggest moment in the early game used to pass in total silence.
-      toast.show(STR.era.reached(STR.eraName[era]), unlockedBy(era));
+      toast.show(STR.era.reached(STR.eraName[era]), unlockedBy(era, before));
       haptics.confirm();
       autosave.flush(game);
     }
@@ -443,10 +445,14 @@ function syncUi(): void {
  * announcement that only names the era tells them they achieved something;
  * naming the road it unlocked tells them what to go and do with it.
  */
-function unlockedBy(era: Era): string | undefined {
+function unlockedBy(era: Era, previous: Era): string | undefined {
+  const lines: string[] = [];
   const unlocked = ROAD_TIERS.filter((kind) => ROAD_SPECS[kind].unlockedAt === era);
-  if (unlocked.length === 0) return undefined;
-  return STR.unlocked(unlocked.map((kind) => STR.road[kind]).join(', '));
+  if (unlocked.length > 0) lines.push(STR.unlocked(unlocked.map((k) => STR.road[k]).join(', ')));
+  // The city rebuilding itself in a new style is the most visible thing an era
+  // does, and it would otherwise happen without a word.
+  if (periodOf(era) !== periodOf(previous)) lines.push(STR.era.rebuilt);
+  return lines.length > 0 ? lines.join(' · ') : undefined;
 }
 
 /** Non-zero entries in a grid column — how much road or zoning exists at all. */

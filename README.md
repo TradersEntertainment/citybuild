@@ -35,8 +35,10 @@ npm test         # vitest
 
 Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kalmalı:
 
-- Binalar (bölge × seviye başına), ağaçlar ve araçlar `InstancedMesh` ile çizilir.
-  Binlerce nesne, yirmi civarı çizim çağrısı.
+- Binalar (dönem × bölge × seviye başına), ağaçlar ve araçlar `InstancedMesh`
+  ile çizilir. Binlerce nesne, yirmi civarı çizim çağrısı. Bir çağda yalnızca
+  bir mimari dönem canlıdır; kovalar ilk gerektiğinde kurulur, boş olanlar
+  gizlenir.
 - Arazi parçalara bölünür, böylece GPU görüş alanı dışını atabilir.
 - Yol, bölge ve ağaç katmanları yalnızca oyuncu bir şey değiştirdiğinde yeniden kurulur.
 - Kare sayacı üst çubukta açık durur: bütçeyi bozan değişikliğin fark edilmesi gerekir.
@@ -54,7 +56,7 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 3c | Trafik sıkışıklığı | Tamam |
 | 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
 | 4 | Çağlar, görevler, offline ilerleme | Tamam — teknoloji ağacı hariç |
-| 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme zinciri tamam |
+| 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme ve mimari tamam |
 | 6 | Prestij, alternatif haritalar, prosedürel ses | — |
 
 ## Bilinen eksikler
@@ -63,8 +65,6 @@ Bunlar bilerek açık bırakıldı, unutulmadı:
 
 - **Yol çizimi köşegende basamaklı görünüyor.** Yollar kare kare çiziliyor;
   düzgün bir şerit için çizginin kendisi boyunca üretilmeleri gerekir.
-- **Mimari çağa göre değişmiyor.** Bina arketipleri tek bir modern set;
-  kuruluş çağının da metropolün de evleri aynı.
 - **Teknoloji ağacı yok.** `research` durumda tutuluyor ve `researchPerMinute`
   hesaplanabiliyor ama harcanacak bir yer yok.
 - **Kredi sistemi yok.** Bakiye sıfırın altına inmiyor; §7'nin faiz ve taksit
