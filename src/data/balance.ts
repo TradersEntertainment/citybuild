@@ -113,8 +113,13 @@ export const BRUSH_SIZES = [1, 3, 5] as const;
  * design (§1) — the "almost there" feeling has to stay constant.
  */
 export const BUILDING_GROWTH_S = [14, 35, 80, 170] as const;
-/** Fraction of capacity a building starts with when it appears. */
-export const BUILDING_SEED_OCCUPANCY = 0.35;
+/**
+ * Fraction of capacity a building starts with when it appears. A home only
+ * gets built because people were already coming, so it arrives part-full;
+ * seeding it nearly empty spikes the vacancy rate on every spawn wave and
+ * takes residential demand down with it.
+ */
+export const BUILDING_SEED_OCCUPANCY = 0.6;
 
 /** Suitability weights — §6.2 */
 export const SUITABILITY_WEIGHTS = {

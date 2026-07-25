@@ -59,19 +59,40 @@ function updateDemand(
   // Homes are wanted when there is work going spare, people are content, and
   // little stands empty.
   const jobSurplus = workers > 0 ? clamp((jobs - workers) / workers, -1, 1) : jobs > 0 ? 1 : 0;
+  // Empty homes suppress demand — that is what stops the city paving itself —
+  // but the coefficient has to survive the moment a district is built. A spawn
+  // wave arrives seeded well below capacity, so vacancy spikes by design; at
+  // 1.1 that spike alone was enough to drive the target to zero and leave it
+  // there, which turned "do not overbuild" into "never build twice".
   const resTarget = clamp(
-    0.35 + jobSurplus * 0.4 + (state.happiness - 50) / 140 - vacancyRate * 1.1,
+    0.35 + jobSurplus * 0.4 + (state.happiness - 50) / 140 - vacancyRate * 0.75,
     0,
     1,
   );
 
+  // People who cannot find work are themselves demand for somewhere to work.
+  //
+  // Without this term the two ratios below are the only thing that ever asks
+  // for a job, and they saturate at about a quarter of the workforce: shops
+  // want pop/14 and industry wants another pop/22, against a workforce of
+  // pop/2. Unemployment could therefore never fall below ~77% however well the
+  // city was built, which held happiness down, which held residential demand at
+  // zero, which stopped the city. Job pressure closes that loop — build work,
+  // people take it, the city becomes somewhere worth moving to.
+  const jobPressure = workers > 0 ? clamp((workers - jobs) / workers, 0, 1) : 0;
+
   // Shops follow people: every so many residents supports one more job.
   const wantedCommercial = state.population / RESIDENTS_PER_COMMERCIAL_JOB;
-  const comTarget = ratioDemand(wantedCommercial, totals.commercialJobs);
+  const comTarget = Math.max(ratioDemand(wantedCommercial, totals.commercialJobs), jobPressure);
 
-  // Industry follows the shops it supplies.
+  // Industry follows the shops it supplies, and takes up the slack when there
+  // is still work wanted — a little behind commerce, which a city would rather
+  // have next to its homes.
   const wantedIndustrial = totals.commercialJobs / COMMERCIAL_PER_INDUSTRIAL_JOB;
-  const indTarget = ratioDemand(wantedIndustrial, totals.industrialJobs);
+  const indTarget = Math.max(
+    ratioDemand(wantedIndustrial, totals.industrialJobs),
+    jobPressure * 0.8,
+  );
 
   const rate = Math.min(1, DEMAND_RESPONSE * dt);
   state.demand.res += (resTarget - state.demand.res) * rate;

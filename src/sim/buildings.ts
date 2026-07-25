@@ -62,9 +62,17 @@ export function suitability(
   const w = SUITABILITY_WEIGHTS;
   const roadAccess = 1 - distance / (ROAD_ACCESS_MAX_WALK + 1);
   const demand = state.demand[zone];
-  // Services, pollution and noise are Phase 3 systems; their terms are wired
-  // here so the weighting does not have to be re-derived when they arrive.
-  const serviceCoverage = 0;
+  // Pollution and noise are Phase 3 systems; their terms are wired here so the
+  // weighting does not have to be re-derived when they arrive.
+  //
+  // Services are Phase 3 too, and until they exist the honest baseline is 1,
+  // not 0. The weights sum to 1.0 with serviceCoverage counted, so scoring an
+  // unbuilt system as total failure caps every plot in the game at 0.8 while
+  // the growth curve below divides by a headroom that assumes 1.0 is reachable
+  // — which is what pinned the whole city just under the spawn threshold and
+  // stopped anything ever reaching level 2. A settlement cannot be marked down
+  // for lacking waterworks nobody has invented.
+  const serviceCoverage = 1;
   const landValue = fields.landValue[i] ?? 0;
   const pollution = state.world.pollution[i] ?? 0;
   const noise = state.world.noise[i] ?? 0;
