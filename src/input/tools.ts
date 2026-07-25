@@ -3,11 +3,12 @@ import { isRoadUnlocked } from '../data/roads';
 import { isServiceUnlocked, type ServiceKind } from '../data/services';
 import { isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 
-import { buildRoad, estimateRoad, removeRoad, type RoadEstimate } from '../sim/roads';
+import { demolishArea, didDemolish, isEmptyRemoval, touchedRoads } from '../sim/demolish';
+import { buildRoad, estimateRoad, type RoadEstimate } from '../sim/roads';
 import type { GameState } from '../sim/state';
 import type { RoadKind, ZoneKind } from '../sim/tiles';
 import type { UndoStack } from '../sim/undo';
-import { brushTiles, estimateZone, paintZone, type ZoneEstimate } from '../sim/zoning';
+import { brushArea, brushTiles, estimateZone, paintZone, type ZoneEstimate } from '../sim/zoning';
 import type { CameraRig } from '../render3d/cameraRig';
 import type { DraftRender } from './draft';
 import type { TilePoint } from './pathGeometry';
@@ -54,6 +55,8 @@ export interface ToolEvents {
   onBuilt?(tiles: readonly TilePoint[]): void;
   /** Fired when roads changed, so derived fields can be rebuilt. */
   onRoadsChanged?(): void;
+  /** Fired when a station or plant was removed, so its mesh can go with it. */
+  onFacilitiesChanged?(): void;
   onChanged?(): void;
 }
 
@@ -163,7 +166,12 @@ export class ToolController {
     this.recompute();
     this.drawing = false;
 
-    const spent = this.tool === 'zone' ? this.commitZone() : this.commitRoad();
+    const spent =
+      this.tool === 'zone'
+        ? this.commitZone()
+        : this.tool === 'erase'
+          ? this.commitErase()
+          : this.commitRoad();
     this.clearDraft();
     this.events.onChanged?.();
     return spent;
@@ -177,9 +185,9 @@ export class ToolController {
   undoLast(): boolean {
     const action = this.undo.undo(this.state);
     if (!action) return false;
-    if (action.changes.some((change) => change.layer === 'road')) {
-      this.events.onRoadsChanged?.();
-    }
+    if (touchedRoads(action.changes)) this.events.onRoadsChanged?.();
+    // A facility just came back; its coverage and its mast have to come with it.
+    if (!isEmptyRemoval(action.removed)) this.events.onFacilitiesChanged?.();
     this.events.onChanged?.();
     return true;
   }
@@ -192,15 +200,18 @@ export class ToolController {
   }
 
   get draft(): DraftRender | null {
-    if (this.tool === 'zone') {
+    if (this.tool === 'zone' || this.tool === 'erase') {
       if (this.painted.length === 0) return null;
       return {
         polyline: [],
         tiles: this.painted,
-        affordableTiles: this.zoneEstimate?.affordable ?? 0,
+        // Nothing about an erase is unaffordable, so the whole sweep is drawn in
+        // one colour rather than half of it flagged red.
+        affordableTiles:
+          this.tool === 'erase' ? this.painted.length : (this.zoneEstimate?.affordable ?? 0),
         kind: this.roadKind,
-        mode: 'zone',
-        zone: this.zoneKind,
+        mode: this.tool === 'erase' ? 'erase' : 'zone',
+        zone: this.tool === 'erase' ? null : this.zoneKind,
       };
     }
 
@@ -209,8 +220,7 @@ export class ToolController {
     return {
       polyline: path.polyline,
       tiles: path.tiles,
-      affordableTiles:
-        this.tool === 'erase' ? path.tiles.length : (this.roadEstimate?.affordable ?? 0),
+      affordableTiles: this.roadEstimate?.affordable ?? 0,
       kind: this.roadKind,
       mode: 'road',
       zone: null,
@@ -222,6 +232,11 @@ export class ToolController {
       labelX: this.pointerScreen.x,
       labelY: this.pointerScreen.y - COST_LABEL_OFFSET_PX,
     };
+
+    if (this.tool === 'erase') {
+      if (this.painted.length === 0) return null;
+      return { mode: 'erase', cost: 0, tiles: this.painted.length, truncated: false, ...label };
+    }
 
     if (this.tool === 'zone') {
       const estimate = this.zoneEstimate;
@@ -238,8 +253,8 @@ export class ToolController {
     const path = this.path;
     if (!path || path.tiles.length === 0) return null;
     return {
-      mode: this.tool === 'erase' ? 'erase' : 'build',
-      cost: this.tool === 'erase' ? 0 : (this.roadEstimate?.affordableCost ?? 0),
+      mode: 'build',
+      cost: this.roadEstimate?.affordableCost ?? 0,
       tiles: path.tiles.length,
       truncated: this.roadEstimate !== null && this.roadEstimate.truncatedAt !== -1,
       ...label,
@@ -248,15 +263,37 @@ export class ToolController {
 
   // --- Internals -------------------------------------------------------------
 
+  /**
+   * Erasing takes down every layer at once — pavement, zoning, whatever grew
+   * there and whatever the player placed. Anything narrower means a player who
+   * mis-paints a district finds it is permanent, which is the one outcome the
+   * tool exists to prevent.
+   */
+  private commitErase(): number {
+    if (this.painted.length === 0) return 0;
+
+    const result = demolishArea(this.state, this.painted);
+    // Demolition is free, but a knocked-down facility refunds — which arrives
+    // here as negative spending, so undo reverses it by sign like everything else.
+    this.state.money -= result.spent;
+    if (!didDemolish(result)) return 0;
+
+    this.undo.push({ changes: result.changes, spent: result.spent, removed: result.removed });
+    this.events.onBuilt?.(result.changes.map((c) => ({ x: c.x, y: c.y })));
+    if (touchedRoads(result.changes)) this.events.onRoadsChanged?.();
+    if (result.removed.services.length > 0 || result.removed.utilities.length > 0) {
+      // Coverage is derived from the facilities that exist, so it is stale the
+      // moment one comes down — and the mask is what buildings score against.
+      this.events.onFacilitiesChanged?.();
+    }
+    return result.spent;
+  }
+
   private commitRoad(): number {
     const path = this.path;
     if (!path || path.tiles.length === 0) return 0;
 
-    const result =
-      this.tool === 'erase'
-        ? removeRoad(this.state.world, path.tiles)
-        : buildRoad(this.state.world, path.tiles, this.roadKind, this.state.money);
-
+    const result = buildRoad(this.state.world, path.tiles, this.roadKind, this.state.money);
     this.state.money -= result.spent;
     this.undo.push({ changes: result.changes, spent: result.spent });
     if (result.changes.length > 0) {
@@ -308,10 +345,21 @@ export class ToolController {
     }
 
     this.path = buildRoadPath(this.raw);
-    this.roadEstimate =
-      this.tool === 'erase'
-        ? null
-        : estimateRoad(this.state.world, this.path.tiles, this.roadKind, this.state.money);
+    if (this.tool === 'erase') {
+      // A continuous line, then widened by the brush: the line is what stops a
+      // fast drag leaving un-erased gaps between frames, and the width is what
+      // lets a mis-painted block come out in one sweep rather than a tile at a
+      // time. Un-zonable ground is included — a bridge stands on water.
+      this.painted = brushArea(this.state.world, this.path.tiles, this.brush);
+      this.roadEstimate = null;
+      return;
+    }
+    this.roadEstimate = estimateRoad(
+      this.state.world,
+      this.path.tiles,
+      this.roadKind,
+      this.state.money,
+    );
   }
 
   private clearDraft(): void {

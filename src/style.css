@@ -249,6 +249,15 @@ body {
   color: var(--sis);
 }
 
+/* A tool whose rule is a sentence rather than a list of options. */
+.sheet-note {
+  margin: 0;
+  padding: 0 16px 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--sis);
+}
+
 .sheet-row {
   display: flex;
   align-items: center;

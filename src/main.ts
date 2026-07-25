@@ -70,6 +70,13 @@ const tools = new ToolController(game, camera, undo, {
     systems.invalidateFields();
     renderer.invalidateRoads();
   },
+  // A demolished station stops covering ground the moment it goes, and the mask
+  // is what the next building pass scores against.
+  onFacilitiesChanged: () => {
+    systems.invalidateFields();
+    renderer.invalidateServices();
+    autosave.flush(game);
+  },
   onChanged: () => syncUi(),
 });
 

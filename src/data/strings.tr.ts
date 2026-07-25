@@ -57,6 +57,10 @@ export const STR = {
     zoneSheetTitle: 'Bölge',
     serviceSheetTitle: 'Hizmet binası',
     utilitySheetTitle: 'Su ve elektrik',
+    eraseSheetTitle: 'Sil',
+    eraseNote:
+      'Fırçanın altındaki her şeyi kaldırır: yol, bölge, bina ve tesis. ' +
+      'Ücretsiz — tesislerin yarı parası geri gelir.',
     brushTitle: 'Fırça',
     brushSize: (size: number): string => `${size}×${size}`,
   },

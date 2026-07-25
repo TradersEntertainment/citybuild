@@ -21,6 +21,13 @@ const FOR_SALE_LIFT = 0.3;
 /** Boundary strip width, in tiles. */
 const FOR_SALE_WIDTH = 0.7;
 
+/** What the stroke under the finger is about to do to the ground it covers. */
+const DRAFT_COLOURS: Record<DraftRender['mode'], string> = {
+  road: '#F2EAD4',
+  zone: '#EADF9C',
+  erase: '#D9705A',
+};
+
 export interface OverlayLayer {
   readonly group: THREE.Group;
   /** Rebuilds the marked-zone layer from the world. */
@@ -93,7 +100,10 @@ export function createOverlay(world: World): OverlayLayer {
     const positions: number[] = [];
     const colours: number[] = [];
     if (current) {
-      const affordable = new THREE.Color(current.mode === 'road' ? '#F2EAD4' : '#EADF9C');
+      // Erasing gets its own colour rather than borrowing the paint's: the
+      // sweep is wide and the player has to be able to see what is about to go
+      // before they lift their finger.
+      const affordable = new THREE.Color(DRAFT_COLOURS[current.mode]);
       // The unaffordable tail is shown as part of the same stroke, so the player
       // sees the wall before they hit it rather than being told about it (§5.1).
       const denied = new THREE.Color('#C4463A');

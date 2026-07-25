@@ -73,12 +73,14 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     if (openSheetFor === 'road') fillRoadSheet();
     if (openSheetFor === 'zone') fillZoneSheet();
     if (openSheetFor === 'service') fillServiceSheet();
+    if (openSheetFor === 'erase') fillEraseSheet();
   };
 
   const openSheet = (tool: ToolId): void => {
     openSheetFor = tool;
     if (tool === 'road') fillRoadSheet();
     else if (tool === 'service') fillServiceSheet();
+    else if (tool === 'erase') fillEraseSheet();
     else fillZoneSheet();
     sheet.dataset['open'] = 'true';
     sheet.setAttribute('aria-hidden', 'false');
@@ -94,6 +96,18 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.textContent = '';
     sheet.append(sheetTitle(STR.tools.zoneSheetTitle));
     for (const kind of ZONE_ORDER) sheet.append(zoneRow(kind));
+    sheet.append(sheetTitle(STR.tools.brushTitle), brushRow());
+  }
+
+  /**
+   * The eraser shares the zone brush, because it is undoing zone-sized
+   * mistakes. It also says what it takes: a player who reads "sil" as "sil yol"
+   * will not reach for it when a district is painted wrong.
+   */
+  function fillEraseSheet(): void {
+    sheet.textContent = '';
+    sheet.append(sheetTitle(STR.tools.eraseSheetTitle));
+    sheet.append(sheetNote(STR.tools.eraseNote));
     sheet.append(sheetTitle(STR.tools.brushTitle), brushRow());
   }
 
@@ -227,7 +241,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   roadButton.addEventListener('click', () => selectTool('road', true));
   zoneButton.addEventListener('click', () => selectTool('zone', true));
   serviceButton.addEventListener('click', () => selectTool('service', true));
-  eraseButton.addEventListener('click', () => selectTool('erase', false));
+  eraseButton.addEventListener('click', () => selectTool('erase', true));
   undoButton.addEventListener('click', () => {
     haptics.tap();
     deps.onUndo();
@@ -315,4 +329,12 @@ function sheetTitle(text: string): HTMLElement {
   title.className = 'sheet-title';
   title.textContent = text;
   return title;
+}
+
+/** A line of prose in a sheet, for a tool whose rule is not a list of options. */
+function sheetNote(text: string): HTMLElement {
+  const note = document.createElement('p');
+  note.className = 'sheet-note';
+  note.textContent = text;
+  return note;
 }

@@ -1,4 +1,5 @@
 import { UNDO_STACK_SIZE } from '../data/balance';
+import { isEmptyRemoval, restoreRemoved, type RemovedEntities } from './demolish';
 import type { GameState } from './state';
 import { index } from './world';
 
@@ -22,8 +23,14 @@ export interface TileEdit {
 
 export interface EditAction {
   changes: TileEdit[];
-  /** Money spent, refunded on undo. */
+  /** Money spent, refunded on undo. Negative when the edit paid the player. */
   spent: number;
+  /**
+   * Things an erase took down that are not tiles: facilities and grown
+   * buildings. Kept whole, so undoing a mis-swipe over a district gives back
+   * the blocks that stood there rather than starting them again from huts.
+   */
+  removed?: RemovedEntities;
 }
 
 export function revertEdits(state: GameState, changes: readonly TileEdit[]): void {
@@ -47,7 +54,9 @@ export class UndoStack {
   }
 
   push(action: EditAction): void {
-    if (action.changes.length === 0) return; // nothing happened, nothing to undo
+    // Nothing happened, nothing to undo — but an erase that only took a station
+    // changed no tile at all, so the entity list has to be consulted too.
+    if (action.changes.length === 0 && isEmptyRemoval(action.removed)) return;
     this.actions.push(action);
     if (this.actions.length > UNDO_STACK_SIZE) this.actions.shift();
   }
@@ -58,6 +67,9 @@ export class UndoStack {
     if (!action) return null;
 
     revertEdits(state, action.changes);
+    // After the tiles, so a restored building lands on ground that is zoned for
+    // it again and the next building pass does not immediately pull it down.
+    if (action.removed) restoreRemoved(state, action.removed);
     state.money += action.spent;
     return action;
   }

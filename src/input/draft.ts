@@ -13,7 +13,7 @@ export interface DraftRender {
   affordableTiles: number;
   tiles: readonly TilePoint[];
   kind: RoadKind;
-  mode: 'road' | 'zone';
+  mode: 'road' | 'zone' | 'erase';
   /** Zone being painted, when mode is 'zone'. */
   zone: ZoneKind | null;
 }

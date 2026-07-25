@@ -109,6 +109,18 @@ export const ZONE_COST = {
 export const BRUSH_SIZES = [1, 3, 5] as const;
 
 /**
+ * Share of a facility's price returned when it is knocked down.
+ *
+ * Ground is cleared for nothing — charging to scrub off paint would make a
+ * player hesitate over fixing their own mistake — but a station is a single
+ * four-figure purchase, and getting nothing back for one placed a tile out of
+ * position is the punished mis-touch the brief bans (§24). Half is enough to
+ * make it an annoyance rather than a loss, and little enough that where a plant
+ * goes stays a decision.
+ */
+export const DEMOLITION_REFUND = 0.5;
+
+/**
  * Seconds at full suitability to gain the next level. Construction is short by
  * design (§1) — the "almost there" feeling has to stay constant.
  */

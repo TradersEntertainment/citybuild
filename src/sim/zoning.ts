@@ -41,8 +41,12 @@ export function canZone(world: World, x: number, y: number): boolean {
  * Expands a brush stroke into the distinct tiles it covers. The brush is a
  * square of `size` tiles centred on the finger — round brushes look better but
  * make it much harder to paint a block flush against a road.
+ *
+ * Bounds are the only filter, so this is also what the eraser sweeps with: a
+ * bridge stands on water, which may never be zoned but must certainly be
+ * removable.
  */
-export function brushTiles(
+export function brushArea(
   world: World,
   path: readonly TilePoint[],
   size: number,
@@ -56,7 +60,7 @@ export function brushTiles(
       for (let dx = -radius; dx <= radius; dx++) {
         const x = point.x + dx;
         const y = point.y + dy;
-        if (!canZone(world, x, y)) continue;
+        if (!inBounds(world, x, y)) continue;
         const key = y * 100_000 + x;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -65,6 +69,15 @@ export function brushTiles(
     }
   }
   return tiles;
+}
+
+/** The part of a brush stroke that may actually be painted. */
+export function brushTiles(
+  world: World,
+  path: readonly TilePoint[],
+  size: number,
+): TilePoint[] {
+  return brushArea(world, path, size).filter((tile) => canZone(world, tile.x, tile.y));
 }
 
 /** Prices a stroke, stopping at the balance rather than rejecting the whole. */
