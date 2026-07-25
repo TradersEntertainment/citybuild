@@ -12,6 +12,7 @@ import { periodOf } from './render3d/archetypes';
 import { CameraRig } from './render3d/cameraRig';
 import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
+import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
@@ -29,6 +30,7 @@ import { mountChronicle } from './ui/chronicle';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
+import { mountDistrictLabels } from './ui/districtLabels';
 import { describeGoal } from './ui/missionText';
 import { mountParcelPrompt } from './ui/parcelPrompt';
 import { guidanceFor } from './ui/guidance';
@@ -88,6 +90,7 @@ const tools = new ToolController(game, camera, undo, {
   onChanged: () => syncUi(),
 });
 
+const districtLabels = mountDistrictLabels(ui, camera);
 const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
 mountCityPanel(ui);
@@ -305,6 +308,9 @@ document.addEventListener('visibilitychange', () => {
 // --- Loop --------------------------------------------------------------------
 let lastFrame = performance.now();
 let readoutAccumulator = 0;
+/** Readout ticks between district sweeps — roughly every four seconds. */
+const DISTRICT_SWEEPS = 8;
+let districtSweep = DISTRICT_SWEEPS;
 let previousBuildingCount = game.buildings.size;
 
 function frame(now: number): void {
@@ -354,6 +360,9 @@ function frame(now: number): void {
   );
 
   updateCostLabel(tools.isDrawing ? tools.summary : null);
+  // Names get out of the way of the ink, the same as the hint does.
+  districtLabels.setHidden(tools.isDrawing);
+  districtLabels.reposition();
   // The dock relabels itself as tools change, so the ring is re-measured rather
   // than cached against coordinates that may have moved.
   coach.reposition();
@@ -484,6 +493,14 @@ function publishReadout(): void {
   readoutAccumulator = 0;
   syncUi();
   uiStore.getState().setFps(renderer.stats.fps);
+
+  // Clustering walks every building, so it runs on this timer rather than per
+  // frame; only the positions are refreshed with the camera.
+  districtSweep += 1;
+  if (districtSweep >= DISTRICT_SWEEPS) {
+    districtSweep = 0;
+    districtLabels.setDistricts(findDistricts(game));
+  }
 }
 
 syncUi();

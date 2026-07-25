@@ -236,11 +236,23 @@ export class CameraRig {
    * that has to sit over a place in the world.
    */
   worldToScreen(worldX: number, worldY: number): Vec2 {
+    const placed = this.placeOnScreen(worldX, worldY);
+    return { x: placed.x, y: placed.y };
+  }
+
+  /**
+   * The same projection, with the one fact a floating label needs and a cost
+   * tag does not: whether the point is behind the camera. Perspective division
+   * flips a point that is, so it lands on screen mirrored through the centre —
+   * a neighbourhood behind your shoulder labelled in front of you.
+   */
+  placeOnScreen(worldX: number, worldY: number): Vec2 & { behind: boolean } {
     this.targetVec.set(worldX, this.sampleHeight(worldX, worldY), worldY);
     this.targetVec.project(this.camera);
     return {
       x: ((this.targetVec.x + 1) / 2) * this.viewportWidth,
       y: ((1 - this.targetVec.y) / 2) * this.viewportHeight,
+      behind: this.targetVec.z > 1,
     };
   }
 

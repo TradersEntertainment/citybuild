@@ -1119,3 +1119,65 @@ body {
   color: var(--sis);
   border-color: color-mix(in srgb, var(--parsomen) 14%, transparent);
 }
+
+/* --- Neighbourhood names -------------------------------------------------- */
+
+.district-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  /* Under the panels and the dock: a name is context, never a control. */
+  z-index: 1;
+  transition: opacity 200ms ease-out;
+}
+
+.district-labels[data-hidden='true'] {
+  opacity: 0;
+}
+
+.district-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 240ms ease-out;
+  /* The label sits over terrain of any colour, so it carries its own contrast
+     rather than a background plate that would blank out the city under it. */
+  text-shadow:
+    0 1px 3px rgb(0 0 0 / 75%),
+    0 0 10px rgb(0 0 0 / 45%);
+}
+
+.district-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--parsomen);
+}
+
+.district-label[data-character='ind'] .district-name {
+  color: #d8b48c;
+}
+
+.district-label[data-character='com'] .district-name {
+  color: #a9d0e0;
+}
+
+.district-detail {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--parsomen) 68%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .district-labels,
+  .district-label {
+    transition: none;
+  }
+}

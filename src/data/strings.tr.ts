@@ -146,6 +146,13 @@ export const STR = {
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
   },
 
+  /** Neighbourhoods, floating over the city. */
+  district: {
+    /** "1.240 kişi · 32 bina" */
+    detail: (people: number, buildings: number): string =>
+      `${plain.format(Math.round(people))} kişi · ${plain.format(buildings)} bina`,
+  },
+
   /** Goals (§12.3): what the city is being asked for next. */
   mission: {
     title: 'Hedefler',

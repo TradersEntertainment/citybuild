@@ -56,7 +56,7 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 3c | Trafik sıkışıklığı | Tamam |
 | 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
 | 4 | Çağlar, görevler, offline ilerleme | Tamam — teknoloji ağacı hariç |
-| 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme ve mimari tamam |
+| 5 | Cila, mahalle isimleri, performans, öğretici | Tamam |
 | 6 | Prestij, alternatif haritalar, prosedürel ses | Kısmen — ses ve haritalar tamam |
 
 ## Bilinen eksikler
