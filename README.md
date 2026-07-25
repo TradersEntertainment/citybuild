@@ -2,8 +2,9 @@
 
 Parmağınla haritaya yol çiziyorsun, şehir o yolların etrafında kendi kendine büyüyor.
 
-Vite + TypeScript, framework yok, tek `<canvas>` + Canvas 2D, sunucu yok, hesap yok.
-Tüm grafikler prosedürel çizilir — projede sprite/ikon paketi yoktur.
+Vite + TypeScript + three.js. Sunucu yok, hesap yok, tek statik klasör.
+Tüm grafikler ve dokular kodla üretilir — projede sprite, model ya da doku
+dosyası yoktur; bina cepheleri bile açılışta canvas'a çizilip dokuya çevrilir.
 
 ## Çalıştırma
 
@@ -19,21 +20,60 @@ npm test         # vitest
 
 ## Mimari kuralları
 
-- `src/sim/` saf TypeScript. `canvas`, `document`, `window`, `Math.random`, `Date.now` yok.
-  Deterministik, seed'li, test edilebilir.
-- `src/render/` sim durumunu okur, asla yazmaz.
+- `src/sim/` saf TypeScript. `canvas`, `document`, `window`, `Math.random`,
+  `Date.now` yok. Deterministik, seed'li, test edilebilir.
+  Bu kural sunum katmanının 2D'den 3D'ye taşınmasını mümkün kılan şeydir:
+  sim tek satır değişmedi.
+- `src/render3d/` sim durumunu okur, asla yazmaz.
+- Sim ile kamera arasındaki tek bağ `screenToWorld` — bir ekran noktasını
+  kareye çeviren tek metot. Araç katmanı kameranın 3D olduğunu bilmez.
 - Tüm denge sayıları yalnızca `src/data/balance.ts` içinde.
 - Oyun içi metinler yalnızca `src/data/strings.tr.ts` içinde. Kod ve yorumlar İngilizce.
 - Hiçbir dosya 400 satırı geçmez.
+
+## Performans kuralları
+
+Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kalmalı:
+
+- Binalar (bölge × seviye başına), ağaçlar ve araçlar `InstancedMesh` ile çizilir.
+  Binlerce nesne, yirmi civarı çizim çağrısı.
+- Arazi parçalara bölünür, böylece GPU görüş alanı dışını atabilir.
+- Yol, bölge ve ağaç katmanları yalnızca oyuncu bir şey değiştirdiğinde yeniden kurulur.
+- Kare sayacı üst çubukta açık durur: bütçeyi bozan değişikliğin fark edilmesi gerekir.
 
 ## Faz durumu
 
 | Faz | Kapsam | Durum |
 | --- | --- | --- |
-| 0 | İskelet, PWA, Safari düzeltmeleri, kamera, sabit zamanlı döngü, boş ızgara | Tamam |
+| 0 | İskelet, PWA, kamera, sabit zamanlı döngü | Tamam |
 | 1 | Arazi üretimi ve yol çizimi | Tamam |
 | 2 | Bölgeler, binalar, temel ekonomi | Tamam |
-| 3 | Trafik, şebekeler, hizmetler, difüzyon | — |
-| 4 | Çağlar, teknoloji, görevler, olaylar, offline, kayıt | — |
-| 5 | Cila, mahalle isimleri, performans, öğretici | — |
+| 3D | Sunum katmanının three.js'e taşınması, araç trafiği | Tamam |
+| 3 | Şebekeler, hizmetler, kirlilik/gürültü difüzyonu, trafik sıkışıklığı | Sırada |
+| 4 | Çağlar, teknoloji, görevler, olaylar, offline ilerleme | Kısmen — kayıt ve çağ bildirimi tamam |
+| 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme zinciri tamam |
 | 6 | Prestij, alternatif haritalar, prosedürel ses | — |
+
+## Bilinen eksikler
+
+Bunlar bilerek açık bırakıldı, unutulmadı:
+
+- **Parsel satın alma yok.** `claimParcel` yalnızca başlangıç parselinde çağrılıyor,
+  bu yüzden oyun 48×48 kareye sıkışık. Bu haliyle `metro`, `metropolis` ve
+  `megacity` çağlarına matematiksel olarak ulaşılamaz.
+- **Offline ilerleme hesaplanıp atılıyor.** `creditAwayTime` doğru çalışıyor ama
+  sonucu yalnızca `playedMs`'e ekleniyor; ekonomi ve nüfus adımları işletilmiyor.
+- **Bölge silinemiyor.** Silme aracı yalnızca yol sütununa dokunuyor; yanlış
+  boyanan bir bölge 20 adımlık geri alma yığını dışında kalıcı.
+- **Yol çizimi köşegende basamaklı görünüyor.** Yollar kare kare çiziliyor;
+  düzgün bir şerit için çizginin kendisi boyunca üretilmeleri gerekir.
+- **Mimari çağa göre değişmiyor.** Bina arketipleri tek bir modern set;
+  kuruluş çağının da metropolün de evleri aynı.
+
+## Testler
+
+`tests/growth.test.ts` uzun vadeli testleri tutar ve özellikle önemlidir:
+kısa entegrasyon testlerinin hepsi *ölü* bir şehirde de geçer — üç saniye sonra
+ilk binalar doğmuş, vergi akmaya başlamıştır ve sonra hiçbir şey olmaz. Oyunun
+bir dönem tam olarak bu durumda olduğu için, denge değişiklikleri bu dosyaya
+karşı doğrulanmalıdır.
