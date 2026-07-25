@@ -1,6 +1,6 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
-import { AUTOSAVE_INTERVAL_S } from './data/balance';
+import { AUTOSAVE_INTERVAL_S, PARCEL_SIZE } from './data/balance';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
 import { bindPointerInput, bindWheelZoom } from './input/pointer';
@@ -11,14 +11,16 @@ import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
+import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
 import { NONE, type Era } from './sim/tiles';
 import { UndoStack } from './sim/undo';
-import { startingCentre } from './sim/world';
+import { parcelOfTile, startingCentre } from './sim/world';
 import { Autosave, loadCity, nextSeed } from './state/persistence';
 import { uiStore } from './state/store';
 import { mountCostLabel } from './ui/costLabel';
+import { mountParcelPrompt } from './ui/parcelPrompt';
 import { guidanceFor } from './ui/guidance';
 import * as haptics from './ui/haptics';
 import { mountToast } from './ui/toast';
@@ -69,6 +71,21 @@ const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
 mountHint(ui);
 const toast = mountToast(ui);
+const parcelPrompt = mountParcelPrompt(ui, {
+  onBuy: (offer) => {
+    if (!buyParcel(game, offer.px, offer.py)) return false;
+    haptics.confirm();
+    // New ground changes what may be built, what the map looks like, and where
+    // trees stand — and it is worth writing down immediately.
+    systems.invalidateFields();
+    renderer.invalidateTerrain();
+    renderer.invalidateZones();
+    syncUi();
+    autosave.flush(game);
+    toast.show(STR.parcel.bought, STR.parcel.boughtDetail(PARCEL_SIZE * PARCEL_SIZE));
+    return true;
+  },
+});
 const dock = mountToolDock(ui, {
   tools,
   era: () => game.era,
@@ -103,7 +120,14 @@ const input = bindPointerInput(canvas, {
     tools.cancelStroke();
     uiStore.getState().showHint();
   },
-  onTap: () => dock.closeSheet(),
+  onTap: (sample) => {
+    dock.closeSheet();
+    // A tap on land the player does not own is the only way to buy it. It costs
+    // nothing to try, and tapping their own city just dismisses the panel.
+    const world = camera.screenToWorld(sample.x, sample.y);
+    const { px, py } = parcelOfTile(Math.floor(world.x), Math.floor(world.y));
+    parcelPrompt.show(offerFor(game, px, py));
+  },
 });
 bindWheelZoom(canvas, (x, y, factor) => camera.zoomAt(x, y, factor));
 bindAudioUnlock(canvas);
@@ -188,6 +212,9 @@ function frame(now: number): void {
   autosave.tick(game, deltaMs);
 
   tools.update();
+  // Which land is on the market only changes when a parcel is bought, so this
+  // is driven by a flag rather than recomputed every frame.
+  if (renderer.needsForSaleRefresh) renderer.setForSale(parcelOffers(game));
   renderer.render({ state: game, draft: tools.draft, now }, deltaMs);
 
   updateCostLabel(tools.isDrawing ? tools.summary : null);

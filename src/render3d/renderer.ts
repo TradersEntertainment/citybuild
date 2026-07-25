@@ -50,6 +50,7 @@ export class Renderer {
   private readonly overlay: OverlayLayer;
 
   private zonesDirty = true;
+  private forSaleDirty = true;
   private lastZoneRebuild = 0;
   private fpsAccumulator = 0;
   private fpsFrames = 0;
@@ -110,6 +111,18 @@ export class Renderer {
   /** Terrain changed — an era restyle, or ground the player just bought. */
   invalidateTerrain(): void {
     this.terrain.rebuildAll();
+    this.forSaleDirty = true;
+  }
+
+  /** Marks the parcels currently on the market. */
+  setForSale(parcels: readonly { px: number; py: number }[]): void {
+    this.overlay.setForSale(parcels);
+    this.forSaleDirty = false;
+  }
+
+  /** True when a purchase changed which parcels are on offer. */
+  get needsForSaleRefresh(): boolean {
+    return this.forSaleDirty;
   }
 
   invalidateRoads(): void {

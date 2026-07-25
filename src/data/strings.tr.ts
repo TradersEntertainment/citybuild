@@ -70,6 +70,19 @@ export const STR = {
   lockedAt: (era: string): string => `${era} çağında açılır`,
   unlocked: (what: string): string => `${what} açıldı`,
 
+  parcel: {
+    title: 'Komşu parsel',
+    /** "₺120.000 · %78 kara" — money reads the same way as it does in the bar. */
+    detail: (price: number, landFraction: number): string =>
+      `₺${money.format(Math.round(price))} · %${Math.round(landFraction * 100)} kara`,
+    buy: 'Satın al',
+    tooDear: 'Bakiye yetmiyor',
+    cancel: 'Vazgeç',
+    bought: 'Yeni parsel alındı.',
+    /** Second line of the purchase toast. */
+    boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
+  },
+
   draft: {
     /** "₺2.340 · 26 kare" */
     cost: (amount: number, tiles: number): string =>
