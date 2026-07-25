@@ -22,7 +22,10 @@ export interface UiState {
   net: number;
   fps: number;
   cameraReadout: string;
+  /** Suppressed while the player is drawing, so ink is never under text. */
   hintVisible: boolean;
+  /** What the game wants to say, or null when the city needs no advice. */
+  guidance: string | null;
 }
 
 export interface SimSnapshot {
@@ -44,7 +47,9 @@ export interface UiActions {
   setOverlay(overlay: OverlayId): void;
   setFps(fps: number): void;
   setCameraReadout(text: string): void;
+  setGuidance(text: string | null): void;
   hideHint(): void;
+  showHint(): void;
 }
 
 export const uiStore = createStore<UiState & UiActions>()((set) => ({
@@ -60,6 +65,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   fps: 0,
   cameraReadout: '',
   hintVisible: true,
+  guidance: null,
 
   syncFromSim: (snapshot) =>
     set((current) =>
@@ -82,7 +88,10 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   setOverlay: (overlay) => set({ overlay }),
   setFps: (fps) => set({ fps }),
   setCameraReadout: (cameraReadout) => set({ cameraReadout }),
+  setGuidance: (guidance) =>
+    set((current) => (current.guidance === guidance ? current : { ...current, guidance })),
   hideHint: () => set({ hintVisible: false }),
+  showHint: () => set({ hintVisible: true }),
 }));
 
 export type UiStore = typeof uiStore;

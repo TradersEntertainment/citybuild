@@ -96,7 +96,14 @@ export function mountHint(root: HTMLElement): () => void {
   hint.textContent = STR.empty.noRoads;
 
   return uiStore.subscribe(() => {
-    hint.dataset['hidden'] = uiStore.getState().hintVisible ? 'false' : 'true';
+    const state = uiStore.getState();
+    // Nothing to say, or the player is mid-stroke: either way, get out of the
+    // way of the map.
+    const showing = state.hintVisible && state.guidance !== null;
+    hint.dataset['hidden'] = showing ? 'false' : 'true';
+    if (state.guidance !== null && hint.textContent !== state.guidance) {
+      hint.textContent = state.guidance;
+    }
   });
 }
 

@@ -15,9 +15,11 @@ export const STR = {
   },
 
   empty: {
-    noRoads: 'Henüz yol yok. Bir hat çiz, gerisi kendiliğinden gelir.',
+    noRoads: 'Henüz yol yok. Bir hat çiz — şehir yolun kenarında büyür.',
     noZones: 'Bölge boyanmamış. Yolun kenarını konuta ayır.',
     noPeople: 'Konut boyandı. İlk hane birazdan taşınır.',
+    noJobs: 'İşsizlik yüksek. Ticaret ya da sanayi bölgesi boya.',
+    noHomes: 'İş var, ev yok. Yol kenarına konut boya.',
   },
 
   tools: {

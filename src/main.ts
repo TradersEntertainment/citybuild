@@ -6,15 +6,18 @@ import { ToolController } from './input/tools';
 import { registerServiceWorker } from './pwa/registerSW';
 import { CameraRig } from './render3d/cameraRig';
 import { Renderer } from './render3d/renderer';
+import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
 import { hashSeed } from './sim/rng';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
+import { NONE } from './sim/tiles';
 import { UndoStack } from './sim/undo';
 import { startingCentre } from './sim/world';
 import { uiStore } from './state/store';
 import { mountCostLabel } from './ui/costLabel';
+import { guidanceFor } from './ui/guidance';
 import * as haptics from './ui/haptics';
 import { mountToolDock } from './ui/toolDock';
 import { mountHint, mountTopBar } from './ui/topBar';
@@ -42,7 +45,6 @@ camera.setBounds({ minX: 0, minY: 0, maxX: game.world.size, maxY: game.world.siz
 const tools = new ToolController(game, camera, undo, {
   onBuilt: () => {
     haptics.confirm();
-    uiStore.getState().hideHint();
     renderer.invalidateZones();
   },
   // Road access, and therefore land value, is derived from the road column.
@@ -75,15 +77,21 @@ const input = bindPointerInput(canvas, {
   onCameraTwist: (radians) => camera.orbitByAngle(radians),
   onCameraOrbit: (dx, dy) => camera.orbitByScreen(dx, dy),
   onStrokeStart: (sample) => {
-    // The invitation copy sits mid-screen; get it out of the way of the ink
-    // the moment the player starts drawing, not once the road is paid for.
+    // The advice sits mid-screen; get it out of the way of the ink the moment
+    // the player starts drawing, not once the road is paid for.
     uiStore.getState().hideHint();
     dock.closeSheet();
     tools.strokeStart(sample.x, sample.y);
   },
   onStrokeMove: (sample) => tools.strokeMove(sample.x, sample.y),
-  onStrokeEnd: () => tools.strokeEnd(),
-  onStrokeCancel: () => tools.cancelStroke(),
+  onStrokeEnd: () => {
+    tools.strokeEnd();
+    uiStore.getState().showHint();
+  },
+  onStrokeCancel: () => {
+    tools.cancelStroke();
+    uiStore.getState().showHint();
+  },
   onTap: () => dock.closeSheet(),
 });
 bindWheelZoom(canvas, (x, y, factor) => camera.zoomAt(x, y, factor));
@@ -163,7 +171,8 @@ function frame(now: number): void {
 }
 
 function syncUi(): void {
-  uiStore.getState().syncFromSim({
+  const store = uiStore.getState();
+  store.syncFromSim({
     era: game.era,
     money: game.money,
     population: game.population,
@@ -172,6 +181,24 @@ function syncUi(): void {
     demand: { ...game.demand },
     net: game.ledger.net,
   });
+  store.setGuidance(
+    guidanceFor({
+      roadTiles: countColumn(game.world.road),
+      zonedTiles: countColumn(game.world.zone),
+      buildings: game.buildings.size,
+      population: game.population,
+      totals: totalBuildings(game),
+    }),
+  );
+}
+
+/** Non-zero entries in a grid column — how much road or zoning exists at all. */
+function countColumn(column: Uint8Array): number {
+  let count = 0;
+  for (let i = 0; i < column.length; i++) {
+    if (column[i] !== NONE) count++;
+  }
+  return count;
 }
 
 function publishReadout(): void {
