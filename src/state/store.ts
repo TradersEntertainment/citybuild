@@ -22,6 +22,7 @@ export interface UiState {
   net: number;
   ledger: LedgerView;
   totals: CityTotals;
+  grid: GridView;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
   hintVisible: boolean;
@@ -34,7 +35,18 @@ export interface LedgerView {
   taxIncome: number;
   roadUpkeep: number;
   serviceUpkeep: number;
+  utilityUpkeep: number;
   farmYield: number;
+}
+
+/** Supply against demand for each grid, so a shortfall is visible before it bites. */
+export interface GridView {
+  waterSupply: number;
+  waterDemand: number;
+  powerSupply: number;
+  powerDemand: number;
+  /** False before the era expects utilities, which hides the section entirely. */
+  expected: boolean;
 }
 
 /** What the city is made of, for the panel's population section. */
@@ -57,6 +69,7 @@ export interface SimSnapshot {
   net: number;
   ledger: LedgerView;
   totals: CityTotals;
+  grid: GridView;
 }
 
 export interface UiActions {
@@ -81,8 +94,9 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   overlay: 'none',
   demand: { res: 0, com: 0, ind: 0 },
   net: 0,
-  ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, farmYield: 0 },
+  ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, utilityUpkeep: 0, farmYield: 0 },
   totals: { housing: 0, residents: 0, commercialJobs: 0, industrialJobs: 0, farmJobs: 0 },
+  grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
   hintVisible: true,
   guidance: null,
@@ -110,7 +124,13 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       current.totals.housing === snapshot.totals.housing &&
       current.totals.commercialJobs === snapshot.totals.commercialJobs &&
       current.totals.industrialJobs === snapshot.totals.industrialJobs &&
-      current.totals.farmJobs === snapshot.totals.farmJobs
+      current.totals.farmJobs === snapshot.totals.farmJobs &&
+      current.ledger.utilityUpkeep === snapshot.ledger.utilityUpkeep &&
+      current.grid.waterSupply === snapshot.grid.waterSupply &&
+      current.grid.waterDemand === snapshot.grid.waterDemand &&
+      current.grid.powerSupply === snapshot.grid.powerSupply &&
+      current.grid.powerDemand === snapshot.grid.powerDemand &&
+      current.grid.expected === snapshot.grid.expected
         ? current
         : { ...current, ...snapshot },
     ),

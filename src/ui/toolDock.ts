@@ -2,8 +2,9 @@ import { BRUSH_SIZES, ZONE_COST } from '../data/balance';
 import { ZONE_TINTS } from '../data/buildings';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
+import { UTILITY_ORDER, UTILITY_SPECS, isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 import { STR } from '../data/strings.tr';
-import type { ToolController, ToolId } from '../input/tools';
+import type { FacilitySelection, ToolController, ToolId } from '../input/tools';
 import { ZONE_ORDER, type Era, type RoadKind, type ZoneKind } from '../sim/tiles';
 import * as haptics from './haptics';
 
@@ -68,7 +69,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     eraseButton.dataset['active'] = String(tool === 'erase');
     setButtonLabel(roadButton, STR.tools.road, STR.road[deps.tools.activeRoadKind]);
     setButtonLabel(zoneButton, STR.tools.zone, STR.zone[deps.tools.activeZoneKind]);
-    setButtonLabel(serviceButton, STR.tools.service, STR.service[deps.tools.activeServiceKind]);
+    setButtonLabel(serviceButton, STR.tools.service, facilityName(deps.tools.activeFacility));
     if (openSheetFor === 'road') fillRoadSheet();
     if (openSheetFor === 'zone') fillZoneSheet();
     if (openSheetFor === 'service') fillServiceSheet();
@@ -100,6 +101,32 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.textContent = '';
     sheet.append(sheetTitle(STR.tools.serviceSheetTitle));
     for (const kind of SERVICE_ORDER) sheet.append(serviceRow(kind));
+    // Plants sit under the same heading because they are placed the same way;
+    // separating them into their own tool would double the dock to say so.
+    sheet.append(sheetTitle(STR.tools.utilitySheetTitle));
+    for (const kind of UTILITY_ORDER) sheet.append(utilityRow(kind));
+  }
+
+  function utilityRow(kind: UtilityKind): HTMLElement {
+    const spec = UTILITY_SPECS[kind];
+    const unlocked = isUtilityUnlocked(kind, deps.era());
+    const row = sheetRow(
+      STR.utility[kind],
+      unlocked
+        ? STR.serviceCost(spec.cost, spec.upkeep)
+        : STR.lockedAt(STR.eraName[spec.unlockedAt]),
+    );
+    row.dataset['locked'] = String(!unlocked);
+    row.disabled = !unlocked;
+    const active = deps.tools.activeFacility;
+    row.dataset['selected'] = String(active.type === 'utility' && active.kind === kind);
+    row.addEventListener('click', () => {
+      if (!deps.tools.setFacility({ type: 'utility', kind })) return;
+      haptics.tap();
+      refresh();
+      closeSheet();
+    });
+    return row;
   }
 
   function serviceRow(kind: ServiceKind): HTMLElement {
@@ -115,9 +142,10 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     );
     row.dataset['locked'] = String(!unlocked);
     row.disabled = !unlocked;
-    row.dataset['selected'] = String(deps.tools.activeServiceKind === kind);
+    const active = deps.tools.activeFacility;
+    row.dataset['selected'] = String(active.type === 'service' && active.kind === kind);
     row.addEventListener('click', () => {
-      if (!deps.tools.setServiceKind(kind)) return;
+      if (!deps.tools.setFacility({ type: 'service', kind })) return;
       haptics.tap();
       refresh();
       closeSheet();
@@ -217,6 +245,11 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
       sheet.textContent = '';
     },
   };
+}
+
+/** Label for whichever facility the tool is holding. */
+function facilityName(selection: FacilitySelection): string {
+  return selection.type === 'service' ? STR.service[selection.kind] : STR.utility[selection.kind];
 }
 
 function zoneCost(kind: ZoneKind): number {

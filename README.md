@@ -50,7 +50,8 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 2 | Bölgeler, binalar, temel ekonomi | Tamam |
 | 3D | Sunum katmanının three.js'e taşınması, araç trafiği | Tamam |
 | 3 | Kirlilik/gürültü difüzyonu, hizmet binaları | Tamam |
-| 3b | Su/elektrik şebekesi, trafik sıkışıklığı | Sırada |
+| 3b | Su/elektrik şebekesi | Tamam |
+| 3c | Trafik sıkışıklığı | Sırada |
 | 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
 | 4 | Çağlar, teknoloji, görevler, olaylar, offline ilerleme | Kısmen — kayıt ve çağ bildirimi tamam |
 | 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme zinciri tamam |
@@ -68,14 +69,11 @@ Bunlar bilerek açık bırakıldı, unutulmadı:
   düzgün bir şerit için çizginin kendisi boyunca üretilmeleri gerekir.
 - **Mimari çağa göre değişmiyor.** Bina arketipleri tek bir modern set;
   kuruluş çağının da metropolün de evleri aynı.
-- **Su ve elektrik şebekesi yok.** `SERVICE.water`/`SERVICE.power` bitleri ve
-  yol özelliklerindeki `carriesUtilities` duruyor ama hiçbir şey yazmıyor;
-  hizmet kapsamı şimdilik yalnızca dört sivil hizmeti sayıyor.
 - **Trafik sıkışıklığı simüle edilmiyor.** Araçlar yol ağını sürüyor ama
   `RoadSegment.flow`/`capacity` ve `CONGESTION_SLOWDOWN` hâlâ kullanılmıyor;
   `ISSUE.traffic` hiç kurulmuyor.
-- **Hizmet binası silinemiyor.** `removeService` var ama arayüzden çağrılmıyor;
-  yanlış yere kurulan istasyon kalıcı.
+- **Hizmet binası ve santral silinemiyor.** `removeService` var ama arayüzden
+  çağrılmıyor; yanlış yere kurulan tesis kalıcı.
 
 ## Testler
 

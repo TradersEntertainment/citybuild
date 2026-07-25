@@ -12,7 +12,8 @@ import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
-import { placeService } from './sim/services';
+import { placeService, utilitiesExpected } from './sim/services';
+import { placePlant, utilityBalance } from './sim/utilities';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
 import { NONE, type Era } from './sim/tiles';
@@ -197,20 +198,26 @@ registerServiceWorker();
  * silent: a tap that does nothing and explains nothing reads as a broken game.
  */
 function buildStation(tileX: number, tileY: number): void {
-  const kind = tools.activeServiceKind;
-  const result = placeService(game, systems.fields, kind, tileX, tileY);
+  const facility = tools.activeFacility;
+  const name =
+    facility.type === 'service' ? STR.service[facility.kind] : STR.utility[facility.kind];
+  const result =
+    facility.type === 'service'
+      ? placeService(game, systems.fields, facility.kind, tileX, tileY)
+      : placePlant(game, systems.fields, facility.kind, tileX, tileY);
+
   if (!result.ok) {
-    toast.show(STR.service[kind], STR.serviceBlocked[result.reason ?? 'occupied']);
+    toast.show(name, STR.serviceBlocked[result.reason ?? 'occupied']);
     return;
   }
   haptics.confirm();
-  // Coverage is derived from the station list and road access, so it has to be
-  // redone before the next building pass scores anything.
+  // Coverage is derived from the list of facilities and from road access, so it
+  // has to be redone before the next building pass scores anything.
   systems.invalidateFields();
   renderer.invalidateServices();
   syncUi();
   autosave.flush(game);
-  toast.show(STR.serviceBuilt, STR.service[kind]);
+  toast.show(STR.serviceBuilt, name);
 }
 
 // --- Viewport plumbing -------------------------------------------------------
@@ -335,6 +342,7 @@ function syncUi(): void {
       taxIncome: game.ledger.taxIncome,
       roadUpkeep: game.ledger.roadUpkeep,
       serviceUpkeep: game.ledger.serviceUpkeep,
+      utilityUpkeep: game.ledger.utilityUpkeep,
       farmYield: game.ledger.farmYield,
     },
     totals: {
@@ -344,6 +352,7 @@ function syncUi(): void {
       industrialJobs: totals.industrialJobs,
       farmJobs: totals.farmJobs,
     },
+    grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });
   coach.update(coachFacts());
   store.setGuidance(

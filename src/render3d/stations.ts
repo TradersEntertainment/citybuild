@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { SERVICE_ORDER, type ServiceKind } from '../data/services';
+import { UTILITY_ORDER, type UtilityKind } from '../data/utilities';
 import type { GameState } from '../sim/state';
 import { sampleHeight } from './terrain';
 
@@ -22,12 +23,22 @@ interface StationLook {
   mast: number;
 }
 
-const LOOKS: Readonly<Record<ServiceKind, StationLook>> = {
+type FacilityKind = ServiceKind | UtilityKind;
+
+const LOOKS: Readonly<Record<FacilityKind, StationLook>> = {
   fire: { body: '#B9AFA3', accent: '#B03A2B', width: 0.78, height: 0.58, mast: 0.5 },
   health: { body: '#E2DED4', accent: '#3E86A8', width: 0.72, height: 0.5, mast: 0.34 },
   education: { body: '#D6CDB6', accent: '#8A6B2E', width: 0.86, height: 0.44, mast: 0.28 },
   police: { body: '#C2C6CB', accent: '#2E4A7A', width: 0.74, height: 0.52, mast: 0.44 },
+  // Infrastructure reads as heavier and squatter than a civic building, except
+  // the chimneys — which are the tallest thing in a young city, and should be.
+  well: { body: '#9FA9A4', accent: '#3E86A8', width: 0.6, height: 0.36, mast: 0.62 },
+  waterworks: { body: '#93A0A6', accent: '#3E86A8', width: 0.94, height: 0.5, mast: 0.4 },
+  coalPlant: { body: '#7C7671', accent: '#4A4441', width: 0.96, height: 0.72, mast: 1.5 },
+  gasPlant: { body: '#8B8E92', accent: '#5B6166', width: 0.94, height: 0.66, mast: 1.1 },
 };
+
+const FACILITY_ORDER: readonly FacilityKind[] = [...SERVICE_ORDER, ...UTILITY_ORDER];
 
 const INITIAL_CAPACITY = 32;
 
@@ -50,9 +61,9 @@ export function createStations(): StationLayer {
 
   const geometries: THREE.BufferGeometry[] = [];
   const materials: THREE.Material[] = [];
-  const buckets = new Map<ServiceKind, Bucket>();
+  const buckets = new Map<FacilityKind, Bucket>();
 
-  const makeBucket = (kind: ServiceKind, capacity: number): Bucket => {
+  const makeBucket = (kind: FacilityKind, capacity: number): Bucket => {
     const look = LOOKS[kind];
 
     const bodyGeometry = new THREE.BoxGeometry(look.width, look.height, look.width);
@@ -89,19 +100,20 @@ export function createStations(): StationLayer {
     return { body, mast, capacity };
   };
 
-  for (const kind of SERVICE_ORDER) buckets.set(kind, makeBucket(kind, INITIAL_CAPACITY));
+  for (const kind of FACILITY_ORDER) buckets.set(kind, makeBucket(kind, INITIAL_CAPACITY));
 
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3(1, 1, 1);
   const axis = new THREE.Vector3(0, 1, 0);
-  const counts = new Map<ServiceKind, number>();
+  const counts = new Map<FacilityKind, number>();
 
   const rebuild = (state: GameState): void => {
-    for (const kind of SERVICE_ORDER) counts.set(kind, 0);
+    for (const kind of FACILITY_ORDER) counts.set(kind, 0);
 
-    for (const station of state.services.values()) {
+    const standing = [...state.services.values(), ...state.utilities.values()];
+    for (const station of standing) {
       let bucket = buckets.get(station.kind);
       if (!bucket) continue;
       const used = counts.get(station.kind) ?? 0;

@@ -10,6 +10,7 @@ import {
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import type { GameState } from './state';
+import { plantPollution } from './utilities';
 import { decodeRoad, decodeTerrain, decodeZone, NONE } from './tiles';
 import { index, type World } from './world';
 
@@ -107,6 +108,15 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
       noiseSource[i] = (noiseSource[i] ?? 0) + building.jobs * NOISE_PER_COMMERCIAL_JOB;
       note(building.x, building.y);
     }
+  }
+
+  // Cheap power is cheap because somebody downwind pays the rest of the price.
+  for (const plant of state.utilities.values()) {
+    const emission = plantPollution(plant);
+    if (emission <= 0) continue;
+    const i = index(world, plant.x, plant.y);
+    pollutionSource[i] = (pollutionSource[i] ?? 0) + emission;
+    note(plant.x, plant.y);
   }
 
   for (let y = 0; y < world.size; y++) {

@@ -1,10 +1,11 @@
 import { POWER_PER_CAPITA, ROAD_ACCESS_MAX_WALK, WATER_PER_CAPITA } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
-import { UTILITY_SPECS, type UtilityKind, type UtilitySpec } from '../data/utilities';
+import { isUtilityUnlocked, UTILITY_SPECS, type UtilityKind, type UtilitySpec } from '../data/utilities';
 import type { Fields } from './fields';
+import { serviceAt } from './services';
 import type { GameState } from './state';
 import { decodeRoad, NONE, SERVICE } from './tiles';
-import { index, type World } from './world';
+import { inBounds, index, isTileOwned, type World } from './world';
 
 /**
  * Water and power (§9).
@@ -160,4 +161,82 @@ function carries(world: World, x: number, y: number): boolean {
   if (x < 0 || y < 0 || x >= world.size || y >= world.size) return false;
   const kind = decodeRoad(world.road[index(world, x, y)] ?? NONE);
   return kind !== null && ROAD_SPECS[kind].carriesUtilities;
+}
+
+// --- Placing a plant ---------------------------------------------------------
+
+export interface PlantPlacement {
+  ok: boolean;
+  reason?: 'locked' | 'unowned' | 'occupied' | 'noRoad' | 'noMains' | 'tooDear';
+}
+
+/**
+ * Where a plant may stand.
+ *
+ * The extra rule over a fire station is `noMains`: a plant must touch a road
+ * that carries utilities. Without it a player could spend forty thousand lira
+ * on a power station that lights nothing, and only find out by reading a
+ * coverage overlay that does not exist yet.
+ */
+export function canPlacePlant(
+  state: GameState,
+  fields: Fields,
+  kind: UtilityKind,
+  x: number,
+  y: number,
+): PlantPlacement {
+  const world = state.world;
+  if (!isUtilityUnlocked(kind, state.era)) return { ok: false, reason: 'locked' };
+  if (!inBounds(world, x, y) || !isTileOwned(world, x, y)) {
+    return { ok: false, reason: 'unowned' };
+  }
+  const i = index(world, x, y);
+  if ((world.road[i] ?? 0) !== 0) return { ok: false, reason: 'occupied' };
+  if ((world.building[i] ?? 0) !== 0) return { ok: false, reason: 'occupied' };
+  if (plantAt(state, x, y)) return { ok: false, reason: 'occupied' };
+  if (serviceAt(state, x, y)) return { ok: false, reason: 'occupied' };
+  if ((fields.roadDistance[i] ?? 255) > ROAD_ACCESS_MAX_WALK) {
+    return { ok: false, reason: 'noRoad' };
+  }
+  if (!touchesMains(world, x, y)) return { ok: false, reason: 'noMains' };
+  if (state.money < UTILITY_SPECS[kind].cost) return { ok: false, reason: 'tooDear' };
+  return { ok: true };
+}
+
+export function placePlant(
+  state: GameState,
+  fields: Fields,
+  kind: UtilityKind,
+  x: number,
+  y: number,
+): PlantPlacement {
+  const check = canPlacePlant(state, fields, kind, x, y);
+  if (!check.ok) return check;
+
+  state.money -= UTILITY_SPECS[kind].cost;
+  const id = state.nextUtilityId++;
+  state.utilities.set(id, { id, kind, x, y });
+  return { ok: true };
+}
+
+export function plantAt(state: GameState, x: number, y: number): UtilityPlant | null {
+  for (const plant of state.utilities.values()) {
+    if (plant.x === x && plant.y === y) return plant;
+  }
+  return null;
+}
+
+/** True when one of the eight neighbours is a road that carries mains. */
+function touchesMains(world: World, x: number, y: number): boolean {
+  for (let dy = -1; dy <= 1; dy++) {
+    for (let dx = -1; dx <= 1; dx++) {
+      if (carries(world, x + dx, y + dy)) return true;
+    }
+  }
+  return false;
+}
+
+/** Pollution a plant emits at its own tile, for the diffusion pass to spread. */
+export function plantPollution(plant: UtilityPlant): number {
+  return (UTILITY_SPECS[plant.kind] as UtilitySpec).pollution;
 }

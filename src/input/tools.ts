@@ -1,6 +1,8 @@
 import { BRUSH_SIZES, COST_LABEL_OFFSET_PX } from '../data/balance';
 import { isRoadUnlocked } from '../data/roads';
 import { isServiceUnlocked, type ServiceKind } from '../data/services';
+import { isUtilityUnlocked, type UtilityKind } from '../data/utilities';
+
 import { buildRoad, estimateRoad, removeRoad, type RoadEstimate } from '../sim/roads';
 import type { GameState } from '../sim/state';
 import type { RoadKind, ZoneKind } from '../sim/tiles';
@@ -25,6 +27,15 @@ import { buildRoadPath, type RoadPath } from './pathSmoothing';
  * delivers dozens of coalesced points per frame, and re-deriving a 400-tile
  * stroke on each one would spend the budget on arithmetic nobody sees.
  */
+/**
+ * What the "service" tool is holding. Stations and plants are placed the same
+ * way — a tap on owned ground — so they share one tool and one selection rather
+ * than doubling the dock.
+ */
+export type FacilitySelection =
+  | { type: 'service'; kind: ServiceKind }
+  | { type: 'utility'; kind: UtilityKind };
+
 export type ToolId = 'none' | 'road' | 'zone' | 'erase' | 'service';
 
 export interface DraftSummary {
@@ -50,7 +61,7 @@ export class ToolController {
   private tool: ToolId = 'road';
   private roadKind: RoadKind = 'path';
   private zoneKind: ZoneKind = 'res';
-  private serviceKind: ServiceKind = 'fire';
+  private facility: FacilitySelection = { type: 'service', kind: 'fire' };
   private brush: number = BRUSH_SIZES[1];
   private raw: TilePoint[] = [];
   private path: RoadPath | null = null;
@@ -80,8 +91,9 @@ export class ToolController {
     return this.zoneKind;
   }
 
-  get activeServiceKind(): ServiceKind {
-    return this.serviceKind;
+  /** What the service tool will place: a civic station or a plant. */
+  get activeFacility(): FacilitySelection {
+    return this.facility;
   }
 
   get brushSize(): number {
@@ -112,9 +124,13 @@ export class ToolController {
     this.events.onChanged?.();
   }
 
-  setServiceKind(kind: ServiceKind): boolean {
-    if (!isServiceUnlocked(kind, this.state.era)) return false;
-    this.serviceKind = kind;
+  setFacility(selection: FacilitySelection): boolean {
+    const unlocked =
+      selection.type === 'service'
+        ? isServiceUnlocked(selection.kind, this.state.era)
+        : isUtilityUnlocked(selection.kind, this.state.era);
+    if (!unlocked) return false;
+    this.facility = selection;
     this.tool = 'service';
     this.events.onChanged?.();
     return true;

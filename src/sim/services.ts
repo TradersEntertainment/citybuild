@@ -153,15 +153,23 @@ export function serviceCoverageAt(world: World, era: Era, tileIndex: number): nu
 /**
  * Whether the era expects running water and electricity at all.
  *
- * Deliberately false for now. The solver that spreads utilities along the mains
- * exists, but nothing in the UI can place a plant yet — and requiring a system
- * the player cannot provide is precisely the fault that once pinned every plot
- * below the growth threshold and stopped the city. This turns on in the same
- * change that makes plants buildable, not before.
+ * Not before town, for the same reason the civic services wait: the opening was
+ * measured and tuned with none of this, and a settlement drawing its own water
+ * is not a failing one. It only became safe to count these at all once plants
+ * were placeable — requiring a system the player cannot provide is precisely
+ * the fault that once pinned every plot below the growth threshold.
  */
 export function utilitiesExpected(era: Era): boolean {
-  void era;
-  void UTILITIES_REQUIRED_FROM;
-  return false;
+  return ERA_RANK.indexOf(era) >= ERA_RANK.indexOf(UTILITIES_REQUIRED_FROM);
 }
+
+const ERA_RANK: readonly Era[] = [
+  'founding',
+  'village',
+  'town',
+  'city',
+  'metro',
+  'metropolis',
+  'megacity',
+];
 

@@ -13,6 +13,8 @@ import {
   serviceUpkeep,
 } from '../src/sim/services';
 import { createGameState, type GameState } from '../src/sim/state';
+import { SERVICE } from '../src/sim/tiles';
+import { canPlacePlant, computeUtilityCoverage, placePlant } from '../src/sim/utilities';
 import { Systems } from '../src/sim/systems';
 import { index, startingCentre } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
@@ -45,6 +47,7 @@ function refresh(): void {
   computeRoadDistance(game.world, fields.roadDistance);
   computeLandValue(game.world, fields);
   computeServiceCoverage(game, fields);
+  computeUtilityCoverage(game, fields);
 }
 
 beforeEach(() => {
@@ -83,10 +86,74 @@ describe('what the city expects', () => {
     const i = index(game.world, origin.x + 5, origin.y + 1);
     expect(serviceCoverageAt(game.world, 'town', i)).toBe(0);
 
+    // A town wants four things: fire, health, water, power. The two civic
+    // stations alone are half of it.
     placeService(game, fields, 'fire', origin.x + 5, origin.y + 2);
     placeService(game, fields, 'health', origin.x + 8, origin.y + 2);
     refresh();
-    expect(serviceCoverageAt(game.world, 'town', i)).toBe(1);
+    expect(serviceCoverageAt(game.world, 'town', i)).toBeCloseTo(0.5, 6);
+  });
+
+  it('is fully served only once the mains reach it too', () => {
+    game.era = 'town';
+    // Plants need a road that carries utilities; the dirt track does not.
+    buildRoad(game.world, row(20, 0), 'asphalt', 10_000_000);
+    refresh();
+    placeService(game, fields, 'fire', origin.x + 5, origin.y + 2);
+    placeService(game, fields, 'health', origin.x + 8, origin.y + 2);
+    expect(placePlant(game, fields, 'well', origin.x + 2, origin.y + 1).ok).toBe(true);
+    expect(placePlant(game, fields, 'coalPlant', origin.x + 12, origin.y + 1).ok).toBe(true);
+    refresh();
+
+    const i = index(game.world, origin.x + 5, origin.y + 1);
+    expect(serviceCoverageAt(game.world, 'town', i)).toBeCloseTo(1, 6);
+  });
+});
+
+describe('placing a plant', () => {
+  it('refuses ground with no mains under the road beside it', () => {
+    game.era = 'town';
+    // The road here is a dirt path, which carries nothing.
+    const result = canPlacePlant(game, fields, 'well', origin.x + 3, origin.y + 1);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toBe('noMains');
+  });
+
+  it('accepts the same spot once the road can carry mains', () => {
+    game.era = 'town';
+    buildRoad(game.world, row(20, 0), 'asphalt', 10_000_000);
+    refresh();
+    expect(canPlacePlant(game, fields, 'well', origin.x + 3, origin.y + 1).ok).toBe(true);
+  });
+
+  it('serves only what the mains reach', () => {
+    game.era = 'town';
+    buildRoad(game.world, row(20, 0), 'asphalt', 10_000_000);
+    refresh();
+    placePlant(game, fields, 'well', origin.x + 2, origin.y + 1);
+    refresh();
+
+    const near = index(game.world, origin.x + 5, origin.y + 1);
+    expect((game.world.serviceMask[near] ?? 0) & SERVICE.water).not.toBe(0);
+    // Far off the asphalt, past any walk from it: dry.
+    const far = index(game.world, origin.x + 5, origin.y + 18);
+    expect((game.world.serviceMask[far] ?? 0) & SERVICE.water).toBe(0);
+  });
+
+  it('cuts the whole grid out when supply falls short of demand', () => {
+    game.era = 'town';
+    buildRoad(game.world, row(20, 0), 'asphalt', 10_000_000);
+    refresh();
+    placePlant(game, fields, 'well', origin.x + 2, origin.y + 1);
+    refresh();
+    const i = index(game.world, origin.x + 5, origin.y + 1);
+    expect((game.world.serviceMask[i] ?? 0) & SERVICE.water).not.toBe(0);
+
+    // More people than one well can serve. A grid that cannot meet demand
+    // fails as a grid rather than browning out in patches nobody can read.
+    game.population = 1_000_000;
+    refresh();
+    expect((game.world.serviceMask[i] ?? 0) & SERVICE.water).toBe(0);
   });
 });
 

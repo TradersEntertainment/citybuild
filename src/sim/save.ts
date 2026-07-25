@@ -1,6 +1,7 @@
 import { SAVE_VERSION } from '../data/balance';
 import type { BuiltZone, Level } from '../data/buildings';
 import { SERVICE_ORDER } from '../data/services';
+import { UTILITY_ORDER } from '../data/utilities';
 import type { Building } from './buildings';
 import { createGameState, type GameState } from './state';
 import type { Era } from './tiles';
@@ -45,12 +46,16 @@ export interface SaveData {
   /** Stations, flattened: id, kind index, x, y. */
   services: number[];
   nextServiceId: number;
+  /** Waterworks and power stations, flattened the same way. */
+  utilities: number[];
+  nextUtilityId: number;
 }
 
 /** Fields packed per building, in order. Zone is stored as an index. */
 const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
 const BUILDING_FIELDS = 12;
 const SERVICE_FIELDS = 4;
+const UTILITY_FIELDS = 4;
 
 export function serialize(state: GameState): SaveData {
   const buildings: number[] = [];
@@ -76,6 +81,11 @@ export function serialize(state: GameState): SaveData {
     services.push(service.id, SERVICE_ORDER.indexOf(service.kind), service.x, service.y);
   }
 
+  const utilities: number[] = [];
+  for (const plant of state.utilities.values()) {
+    utilities.push(plant.id, UTILITY_ORDER.indexOf(plant.kind), plant.x, plant.y);
+  }
+
   return {
     version: SAVE_VERSION,
     seed: state.seed,
@@ -97,6 +107,8 @@ export function serialize(state: GameState): SaveData {
     buildings,
     services,
     nextServiceId: state.nextServiceId,
+    utilities,
+    nextUtilityId: state.nextUtilityId,
   };
 }
 
@@ -160,6 +172,19 @@ export function deserialize(data: unknown): GameState | null {
     state.services.set(id, { id, kind, x, y });
   }
   state.nextServiceId = Math.max(1, data.nextServiceId ?? 1);
+
+  const plants = Array.isArray(data.utilities) ? data.utilities : [];
+  if (plants.length % UTILITY_FIELDS !== 0) return null;
+  for (let i = 0; i < plants.length; i += UTILITY_FIELDS) {
+    const kind = UTILITY_ORDER[plants[i + 1] ?? -1];
+    if (!kind) return null;
+    const x = plants[i + 2] ?? 0;
+    const y = plants[i + 3] ?? 0;
+    if (x < 0 || y < 0 || x >= state.world.size || y >= state.world.size) return null;
+    const id = plants[i] ?? 0;
+    state.utilities.set(id, { id, kind, x, y });
+  }
+  state.nextUtilityId = Math.max(1, data.nextUtilityId ?? 1);
 
   state.population = 0;
   for (const building of state.buildings.values()) {

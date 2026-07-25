@@ -5,6 +5,7 @@ import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
 import { stepPopulation } from './population';
 import { computeServiceCoverage } from './services';
+import { computeUtilityCoverage } from './utilities';
 import { stepProgression } from './progression';
 import type { GameState } from './state';
 import type { Era } from './tiles';
@@ -45,6 +46,9 @@ export class Systems {
       // Coverage is gated on road access, so it is only valid once the road
       // distance field beside it has been rebuilt.
       computeServiceCoverage(state, this.fields);
+      // After the civic services, because it clears only the two bits it owns
+      // and would otherwise be wiped by the wholesale rebuild above.
+      computeUtilityCoverage(state, this.fields);
       this.fieldsDirty = false;
     }
 

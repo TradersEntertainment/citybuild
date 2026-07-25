@@ -56,6 +56,7 @@ export const STR = {
     roadSheetTitle: 'Yol tipi',
     zoneSheetTitle: 'Bölge',
     serviceSheetTitle: 'Hizmet binası',
+    utilitySheetTitle: 'Su ve elektrik',
     brushTitle: 'Fırça',
     brushSize: (size: number): string => `${size}×${size}`,
   },
@@ -67,16 +68,25 @@ export const STR = {
     police: 'Karakol',
   },
 
+  utility: {
+    well: 'Su kuyusu',
+    waterworks: 'Su arıtma',
+    coalPlant: 'Kömür santrali',
+    gasPlant: 'Doğalgaz santrali',
+  },
+
   /** "₺3.200 · 42 ₺/dk gider" */
   serviceCost: (cost: number, upkeep: number): string =>
     `₺${money.format(cost)} · ${money.format(upkeep)} ₺/dk gider`,
 
   serviceBuilt: 'Hizmet binası kuruldu.',
   serviceBlocked: {
-    locked: 'Bu hizmet henüz açılmadı.',
+    locked: 'Bu bina henüz açılmadı.',
     unowned: 'Burası senin arazin değil.',
     occupied: 'Bu kare dolu.',
     noRoad: 'Yola çok uzak. Yol kenarına kur.',
+    // Only asphalt and above carry mains; a dirt track cannot be dug up for pipe.
+    noMains: 'Şebeke taşıyan yol yok. Asfalt ya da bulvar kenarına kur.',
     tooDear: 'Bakiye yetmiyor.',
   },
 
@@ -149,6 +159,13 @@ export const STR = {
     tax: 'Vergi',
     roads: 'Yol bakımı',
     stations: 'Hizmet gideri',
+    plants: 'Şebeke gideri',
+    gridTitle: 'Şebeke',
+    water: 'Su',
+    power: 'Elektrik',
+    /** "820 / 1.400" — what the city has against what it draws. */
+    supply: (have: number, need: number): string =>
+      `${plain.format(Math.round(have))} / ${plain.format(Math.round(need))}`,
     net: 'Net',
     demandTitle: 'Talep',
     farmYield: 'Tarım ürünü',

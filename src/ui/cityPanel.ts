@@ -76,8 +76,16 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   const tax = row(STR.panel.tax);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
+  const plants = row(STR.panel.plants);
   const net = row(STR.panel.net, true);
-  books.body.append(tax.el, roads.el, stations.el, net.el);
+  books.body.append(tax.el, roads.el, stations.el, plants.el, net.el);
+
+  // Hidden until the era expects utilities at all, so a village is not shown a
+  // shortfall in a system it is not meant to have.
+  const grid = section(STR.panel.gridTitle);
+  const water = row(STR.panel.water);
+  const power = row(STR.panel.power);
+  grid.body.append(water.el, power.el);
 
   const trade = section(STR.panel.demandTitle);
   const demandRes = row(STR.zone.res);
@@ -86,7 +94,7 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   const farms = row(STR.panel.farmYield);
   trade.body.append(demandRes.el, demandCom.el, demandInd.el, farms.el);
 
-  detail.append(people.el, books.el, trade.el);
+  detail.append(people.el, books.el, grid.el, trade.el);
   panel.append(toggle, detail);
   root.append(panel);
 
@@ -123,8 +131,17 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
     tax.set(`+${money(s.ledger.taxIncome)}`);
     roads.set(`−${money(s.ledger.roadUpkeep)}`);
     stations.set(`−${money(s.ledger.serviceUpkeep)}`);
+    plants.set(`−${money(s.ledger.utilityUpkeep)}`);
     net.set(STR.hud.net(s.net));
     net.el.dataset['sign'] = s.net >= 0 ? 'positive' : 'negative';
+
+    grid.el.hidden = !s.grid.expected;
+    water.set(STR.panel.supply(s.grid.waterSupply, s.grid.waterDemand));
+    // A grid that cannot meet demand serves nobody, so the shortfall is the
+    // whole story rather than a percentage.
+    water.el.dataset['alarm'] = String(s.grid.waterSupply < s.grid.waterDemand);
+    power.set(STR.panel.supply(s.grid.powerSupply, s.grid.powerDemand));
+    power.el.dataset['alarm'] = String(s.grid.powerSupply < s.grid.powerDemand);
 
     demandRes.set(STR.format.percent(s.demand.res));
     demandCom.set(STR.format.percent(s.demand.com));

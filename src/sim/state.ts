@@ -77,7 +77,7 @@ export function createGameState(seed: number, now: number): GameState {
     nextBuildingId: 1,
     nextServiceId: 1,
     nextUtilityId: 1,
-    ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, net: 0, farmYield: 0 },
+    ledger: { taxIncome: 0, roadUpkeep: 0, serviceUpkeep: 0, utilityUpkeep: 0, net: 0, farmYield: 0 },
     lastSeen: now,
   };
 }
