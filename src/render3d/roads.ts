@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { decodeRoad, NONE, type RoadKind } from '../sim/tiles';
 import { index, type World } from '../sim/world';
-import { ROAD_LIFT } from './constants';
+import { ROAD_LIFT, ROAD_WIDTH } from './constants';
 import { sampleHeight } from './terrain';
 
 /**
@@ -106,7 +106,7 @@ function buildRoadGeometry(world: World): BuiltRoads {
       // Slight per-tile tonal drift: a kilometre of identical asphalt looks
       // like a solid, not a surface.
       const drift = 1 + (hash2(x, y) - 0.5) * 0.09;
-      pushTileQuad(positions, world, x, y, ROAD_LIFT);
+      pushCarriageway(positions, world, x, y, kind);
       for (let v = 0; v < 6; v++) {
         colours.push(colour.r * drift, colour.g * drift, colour.b * drift);
       }
@@ -129,25 +129,35 @@ function buildRoadGeometry(world: World): BuiltRoads {
 }
 
 /**
- * A tile-sized quad whose corners sit on the terrain. Full-tile rather than
- * inset: neighbouring road tiles then share an edge exactly, so a junction is
- * seamless without any special case for corners and crossings.
+ * The paved part of one road tile.
+ *
+ * A straight run is narrowed to the tier's carriageway width so the road has
+ * verges and reads as a road rather than a paved corridor a whole tile wide.
+ * Junctions, bends and stubs keep the full tile: that is where a real road
+ * spreads out anyway, and it means neighbouring tiles still meet edge to edge
+ * with no gap to special-case.
  */
-function pushTileQuad(
+function pushCarriageway(
   out: number[],
   world: World,
   x: number,
   y: number,
-  lift: number,
+  kind: RoadKind,
 ): void {
-  const h00 = sampleHeight(world, x, y) + lift;
-  const h10 = sampleHeight(world, x + 1, y) + lift;
-  const h01 = sampleHeight(world, x, y + 1) + lift;
-  const h11 = sampleHeight(world, x + 1, y + 1) + lift;
-  out.push(
-    x, h00, y, x, h01, y + 1, x + 1, h10, y,
-    x + 1, h10, y, x, h01, y + 1, x + 1, h11, y + 1,
-  );
+  const west = isRoad(world, x - 1, y);
+  const east = isRoad(world, x + 1, y);
+  const north = isRoad(world, x, y - 1);
+  const south = isRoad(world, x, y + 1);
+  const horizontal = west && east && !north && !south;
+  const vertical = north && south && !west && !east;
+
+  const width = ROAD_WIDTH[kind] ?? 0.7;
+  const inset = (1 - width) / 2;
+  const x0 = x + (vertical ? inset : 0);
+  const x1 = x + 1 - (vertical ? inset : 0);
+  const y0 = y + (horizontal ? inset : 0);
+  const y1 = y + 1 - (horizontal ? inset : 0);
+  pushQuad(out, world, x0, y0, x1, y1, ROAD_LIFT);
 }
 
 /**
