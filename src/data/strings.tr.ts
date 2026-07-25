@@ -144,6 +144,35 @@ export const STR = {
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
   },
 
+  /** Goals (§12.3): what the city is being asked for next. */
+  mission: {
+    title: 'Hedefler',
+    /** "4/19 tamam" */
+    done: (complete: number, total: number): string => `${complete}/${total} tamam`,
+    none: 'Şimdilik hepsi tamam. Bir sonraki çağ yenilerini açar.',
+    /** Toast when one lands. */
+    complete: 'Hedef tamamlandı',
+    reward: (amount: number): string => `+₺${money.format(amount)}`,
+    /** "18 / 24" — where the city is against what was asked. */
+    progress: (have: number, want: number): string =>
+      `${plain.format(Math.floor(have))} / ${plain.format(want)}`,
+    goal: {
+      roadTiles: (n: number): string => `${plain.format(n)} kare yol çiz`,
+      buildings: (n: number): string => `${plain.format(n)} bina yükselsin`,
+      population: (n: number): string => `${plain.format(n)} kişi yaşasın`,
+      jobs: (n: number): string => `${plain.format(n)} iş oluştur`,
+      housing: (n: number): string => `${plain.format(n)} konut kapasitesi kur`,
+      happiness: (n: number): string => `Mutluluğu ${n}'e çıkar`,
+      reserve: (n: number): string => `Kasada ₺${money.format(n)} biriktir`,
+      services: (n: number): string => `${plain.format(n)} hizmet binası kur`,
+      utilities: (n: number): string => `${plain.format(n)} su/elektrik tesisi kur`,
+      parcels: (n: number): string => `${plain.format(n)} parsele sahip ol`,
+      farmTiles: (n: number): string => `${plain.format(n)} kare tarım boya`,
+      atLevel: (level: number, n: number): string =>
+        `${plain.format(n)} bina ${level}. seviyeye çıksın`,
+    },
+  },
+
   /** The returning card: what the city did while nobody was watching (§11). */
   chronicle: {
     title: 'Şehir günlüğü',

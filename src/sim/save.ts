@@ -1,5 +1,6 @@
 import { SAVE_VERSION } from '../data/balance';
 import type { BuiltZone, Level } from '../data/buildings';
+import { missionById } from '../data/missions';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
 import type { Building } from './buildings';
@@ -35,6 +36,8 @@ export interface SaveData {
   research: number;
   demand: { res: number; com: number; ind: number };
   farmTiles: number;
+  /** Ids of goals already paid out; a file without them is simply an early city. */
+  missionsDone: string[];
   nextBuildingId: number;
   lastSeen: number;
   /** Run-length encoded grid columns: [value, runLength, value, runLength, …]. */
@@ -99,6 +102,7 @@ export function serialize(state: GameState): SaveData {
     research: state.research,
     demand: { ...state.demand },
     farmTiles: state.farmTiles,
+    missionsDone: [...state.missionsDone],
     nextBuildingId: state.nextBuildingId,
     lastSeen: state.lastSeen,
     road: encodeRuns(state.world.road),
@@ -135,6 +139,11 @@ export function deserialize(data: unknown): GameState | null {
   state.research = data.research;
   state.demand = { ...data.demand };
   state.farmTiles = data.farmTiles;
+  // Goals arrived after the first saves existed. A file without them is a city
+  // that has not claimed any yet — not a corrupt one — but the ids are filtered
+  // so a save carrying a goal this build no longer has cannot block the chain.
+  state.missionsDone = (Array.isArray(data.missionsDone) ? data.missionsDone : [])
+    .filter((id): id is string => typeof id === 'string' && missionById(id) !== undefined);
   state.nextBuildingId = data.nextBuildingId;
   state.lastSeen = data.lastSeen;
 

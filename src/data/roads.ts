@@ -1,4 +1,4 @@
-import type { Era, RoadKind } from '../sim/tiles';
+import { eraReached, type Era, type RoadKind } from '../sim/tiles';
 
 /**
  * Road table, §5.2 verbatim. Order matters: a later entry is a strict upgrade
@@ -127,20 +127,10 @@ export const ROAD_TIERS: readonly RoadKind[] = [
   'metro',
 ];
 
-const ERA_ORDER: readonly Era[] = [
-  'founding',
-  'village',
-  'town',
-  'city',
-  'metro',
-  'metropolis',
-  'megacity',
-];
-
 export function tierOf(kind: RoadKind): number {
   return ROAD_TIERS.indexOf(kind);
 }
 
 export function isRoadUnlocked(kind: RoadKind, era: Era): boolean {
-  return ERA_ORDER.indexOf(era) >= ERA_ORDER.indexOf(ROAD_SPECS[kind].unlockedAt);
+  return eraReached(era, ROAD_SPECS[kind].unlockedAt);
 }

@@ -1,4 +1,4 @@
-import { SERVICE, type Era } from '../sim/tiles';
+import { eraReached, SERVICE, type Era } from '../sim/tiles';
 
 /**
  * Civic services (§9).
@@ -67,22 +67,8 @@ export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
 
 export const SERVICE_ORDER: readonly ServiceKind[] = ['fire', 'health', 'education', 'police'];
 
-const ERA_RANK: readonly Era[] = [
-  'founding',
-  'village',
-  'town',
-  'city',
-  'metro',
-  'metropolis',
-  'megacity',
-];
-
-function rank(era: Era): number {
-  return ERA_RANK.indexOf(era);
-}
-
 export function isServiceUnlocked(kind: ServiceKind, era: Era): boolean {
-  return rank(era) >= rank(SERVICE_SPECS[kind].unlockedAt);
+  return eraReached(era, SERVICE_SPECS[kind].unlockedAt);
 }
 
 /**
@@ -91,5 +77,5 @@ export function isServiceUnlocked(kind: ServiceKind, era: Era): boolean {
  * part of the game that was already tuned and tested — exactly as it was.
  */
 export function requiredServices(era: Era): readonly ServiceKind[] {
-  return SERVICE_ORDER.filter((kind) => rank(era) >= rank(SERVICE_SPECS[kind].requiredFrom));
+  return SERVICE_ORDER.filter((kind) => eraReached(era, SERVICE_SPECS[kind].requiredFrom));
 }

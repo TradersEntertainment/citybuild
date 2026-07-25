@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { STARTING_MONEY, STARTING_TAX_RATE, HAPPINESS_START } from '../data/balance';
+import type { MissionGoal } from '../data/missions';
 import type { Era } from '../sim/tiles';
 
 /**
@@ -28,6 +29,21 @@ export interface UiState {
   hintVisible: boolean;
   /** What the game wants to say, or null when the city needs no advice. */
   guidance: string | null;
+  /** The goals on offer, nearest to done first (§12.3). */
+  missions: MissionView[];
+  missionsDone: number;
+  missionsTotal: number;
+}
+
+/** One goal as the panel draws it — already measured, so the UI does no sums. */
+export interface MissionView {
+  id: string;
+  goal: MissionGoal;
+  reward: number;
+  have: number;
+  want: number;
+  /** 0..1, for the bar. */
+  fraction: number;
 }
 
 /** The city's books, as the panel shows them. All figures are per minute. */
@@ -80,6 +96,7 @@ export interface UiActions {
   setOverlay(overlay: OverlayId): void;
   setFps(fps: number): void;
   setGuidance(text: string | null): void;
+  setMissions(missions: MissionView[], done: number, total: number): void;
   hideHint(): void;
   showHint(): void;
 }
@@ -100,6 +117,9 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   fps: 0,
   hintVisible: true,
   guidance: null,
+  missions: [],
+  missionsDone: 0,
+  missionsTotal: 0,
 
   syncFromSim: (snapshot) =>
     set((current) =>
@@ -140,6 +160,20 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   setFps: (fps) => set({ fps }),
   setGuidance: (guidance) =>
     set((current) => (current.guidance === guidance ? current : { ...current, guidance })),
+  // Compared by what is drawn rather than by reference: this is rebuilt twice a
+  // second from fresh objects, and repainting every row each time would undo
+  // the point of the store's identity check.
+  setMissions: (missions, missionsDone, missionsTotal) =>
+    set((current) =>
+      current.missionsDone === missionsDone &&
+      current.missions.length === missions.length &&
+      current.missions.every((row, i) => {
+        const next = missions[i];
+        return next !== undefined && row.id === next.id && row.have === next.have;
+      })
+        ? current
+        : { ...current, missions, missionsDone, missionsTotal },
+    ),
   hideHint: () => set({ hintVisible: false }),
   showHint: () => set({ hintVisible: true }),
 }));

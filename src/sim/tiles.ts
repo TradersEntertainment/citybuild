@@ -25,6 +25,30 @@ export const ROAD_ORDER: readonly RoadKind[] = [
   'metro',
 ];
 export const ZONE_ORDER: readonly ZoneKind[] = ['res', 'com', 'ind', 'farm', 'park'];
+/**
+ * Eras in the order they arrive. Everything that gates on an era compares ranks
+ * from this one list — three separate copies of it had already accumulated, and
+ * an era added to one and missed in another is a silent unlock bug rather than
+ * a type error.
+ */
+export const ERA_ORDER: readonly Era[] = [
+  'founding',
+  'village',
+  'town',
+  'city',
+  'metro',
+  'metropolis',
+  'megacity',
+];
+
+export function eraRank(era: Era): number {
+  return ERA_ORDER.indexOf(era);
+}
+
+/** True when the city has reached `required` or gone past it. */
+export function eraReached(era: Era, required: Era): boolean {
+  return eraRank(era) >= eraRank(required);
+}
 
 /** Zone and road columns use 0 for "none", so kinds are stored offset by one. */
 export const NONE = 0;

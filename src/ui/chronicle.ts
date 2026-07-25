@@ -1,6 +1,7 @@
 import { STR } from '../data/strings.tr';
 import type { OfflineReport } from '../sim/offline';
 import { splitDuration } from '../sim/offline';
+import { describeGoal } from './missionText';
 
 /**
  * The returning card (§11): what the city did while nobody was watching.
@@ -26,6 +27,14 @@ export interface ChronicleDeps {
   /** Jobs and homes as they now stand, for the closing line. */
   glance(): { jobs: number; housing: number };
   onDismiss?(): void;
+}
+
+/** A small heading inside the card, for a list that is not a row of figures. */
+function sectionLabel(text: string): HTMLElement {
+  const label = document.createElement('h2');
+  label.className = 'chronicle-label';
+  label.textContent = text;
+  return label;
 }
 
 export function mountChronicle(root: HTMLElement, deps: ChronicleDeps): ChronicleHandle {
@@ -89,6 +98,24 @@ export function mountChronicle(root: HTMLElement, deps: ChronicleDeps): Chronicl
     const glance = deps.glance();
     add(STR.chronicle.city, STR.chronicle.glance(glance.housing, glance.jobs));
     card.append(rows);
+
+    // Goals are listed by name: "+₺12.000" in the earnings row does not say
+    // that the city hit five thousand people while its owner was asleep.
+    if (report.missionsDone.length > 0) {
+      const claimed = document.createElement('ul');
+      claimed.className = 'chronicle-goals';
+      for (const mission of report.missionsDone) {
+        const item = document.createElement('li');
+        const name = document.createElement('span');
+        name.textContent = describeGoal(mission.goal);
+        const paid = document.createElement('span');
+        paid.className = 'mono';
+        paid.textContent = STR.mission.reward(mission.reward);
+        item.append(name, paid);
+        claimed.append(item);
+      }
+      card.append(sectionLabel(STR.mission.title), claimed);
+    }
 
     // An era passed while they were away is the headline, not a row.
     if (report.eraReached) {

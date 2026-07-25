@@ -5,6 +5,7 @@ import {
   OFFLINE_STEP_MIN_S,
   OFFLINE_STEPS,
 } from '../data/balance';
+import type { Mission } from '../data/missions';
 import { totalBuildings } from './buildings';
 import type { GameState } from './state';
 import type { Systems } from './systems';
@@ -70,6 +71,8 @@ export function splitDuration(ms: number): { hours: number; minutes: number } {
   return { hours: Math.floor(totalMinutes / 60), minutes: totalMinutes % 60 };
 }
 
+const EMPTY_MISSIONS: readonly Mission[] = [];
+
 /** What the city got up to while nobody was watching, for the Chronicle to read. */
 export interface OfflineReport {
   away: AwayTime;
@@ -78,6 +81,8 @@ export interface OfflineReport {
   buildingsBuilt: number;
   /** The furthest era reached while away, or null if the city stayed put. */
   eraReached: Era | null;
+  /** Goals the city claimed while nobody was watching. */
+  missionsDone: readonly Mission[];
   /** True when the absence was long enough to be worth telling the player about. */
   worthReporting: boolean;
 }
@@ -110,6 +115,7 @@ export function applyOfflineProgress(
     populationGained: 0,
     buildingsBuilt: 0,
     eraReached: null,
+    missionsDone: EMPTY_MISSIONS,
     worthReporting,
   };
   if (away.effectiveMs <= 0) return report;
@@ -131,6 +137,10 @@ export function applyOfflineProgress(
     systems.stepEconomy(state, step);
   }
 
+  // Goals settled inside the loop above, on the simulation's own clock. Drained
+  // here so the returning card lists them rather than the frame loop toasting
+  // eight of them at once a moment later.
+  report.missionsDone = systems.drainCompletedMissions();
   report.moneyEarned = state.money - moneyBefore;
   report.populationGained = state.population - populationBefore;
   report.buildingsBuilt = state.buildings.size - buildingsBefore;

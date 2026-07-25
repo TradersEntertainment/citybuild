@@ -1,4 +1,4 @@
-import type { Era } from '../sim/tiles';
+import { eraReached, type Era } from '../sim/tiles';
 
 /**
  * Waterworks and power stations (§9).
@@ -76,18 +76,8 @@ export const UTILITY_ORDER: readonly UtilityKind[] = [
   'gasPlant',
 ];
 
-const ERA_RANK: readonly Era[] = [
-  'founding',
-  'village',
-  'town',
-  'city',
-  'metro',
-  'metropolis',
-  'megacity',
-];
-
 export function isUtilityUnlocked(kind: UtilityKind, era: Era): boolean {
-  return ERA_RANK.indexOf(era) >= ERA_RANK.indexOf(UTILITY_SPECS[kind].unlockedAt);
+  return eraReached(era, UTILITY_SPECS[kind].unlockedAt);
 }
 
 /**

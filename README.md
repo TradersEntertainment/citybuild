@@ -51,9 +51,9 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 3D | Sunum katmanının three.js'e taşınması, araç trafiği | Tamam |
 | 3 | Kirlilik/gürültü difüzyonu, hizmet binaları | Tamam |
 | 3b | Su/elektrik şebekesi | Tamam |
-| 3c | Trafik sıkışıklığı | Sırada |
+| 3c | Trafik sıkışıklığı | Tamam |
 | 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
-| 4 | Çağlar, teknoloji, görevler, olaylar, offline ilerleme | Kısmen — kayıt ve çağ bildirimi tamam |
+| 4 | Çağlar, görevler, offline ilerleme | Tamam — teknoloji ağacı hariç |
 | 5 | Cila, mahalle isimleri, performans, öğretici | Kısmen — yönlendirme zinciri tamam |
 | 6 | Prestij, alternatif haritalar, prosedürel ses | — |
 
@@ -61,19 +61,14 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 
 Bunlar bilerek açık bırakıldı, unutulmadı:
 
-- **Offline ilerleme hesaplanıp atılıyor.** `creditAwayTime` doğru çalışıyor ama
-  sonucu yalnızca `playedMs`'e ekleniyor; ekonomi ve nüfus adımları işletilmiyor.
-- **Bölge silinemiyor.** Silme aracı yalnızca yol sütununa dokunuyor; yanlış
-  boyanan bir bölge 20 adımlık geri alma yığını dışında kalıcı.
 - **Yol çizimi köşegende basamaklı görünüyor.** Yollar kare kare çiziliyor;
   düzgün bir şerit için çizginin kendisi boyunca üretilmeleri gerekir.
 - **Mimari çağa göre değişmiyor.** Bina arketipleri tek bir modern set;
   kuruluş çağının da metropolün de evleri aynı.
-- **Trafik sıkışıklığı simüle edilmiyor.** Araçlar yol ağını sürüyor ama
-  `RoadSegment.flow`/`capacity` ve `CONGESTION_SLOWDOWN` hâlâ kullanılmıyor;
-  `ISSUE.traffic` hiç kurulmuyor.
-- **Hizmet binası ve santral silinemiyor.** `removeService` var ama arayüzden
-  çağrılmıyor; yanlış yere kurulan tesis kalıcı.
+- **Teknoloji ağacı yok.** `research` durumda tutuluyor ve `researchPerMinute`
+  hesaplanabiliyor ama harcanacak bir yer yok.
+- **Kredi sistemi yok.** Bakiye sıfırın altına inmiyor; §7'nin faiz ve taksit
+  kuralları `balance.ts` içinde duruyor, kullanılmıyor.
 
 ## Testler
 

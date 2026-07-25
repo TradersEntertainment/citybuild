@@ -1,6 +1,7 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
 import { AUTOSAVE_INTERVAL_S, PARCEL_SIZE } from './data/balance';
+import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
 import { bindPointerInput, bindWheelZoom } from './input/pointer';
@@ -11,6 +12,7 @@ import { Renderer } from './render3d/renderer';
 import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
+import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { placeService, utilitiesExpected } from './sim/services';
 import { placePlant, utilityBalance } from './sim/utilities';
@@ -25,6 +27,7 @@ import { mountChronicle } from './ui/chronicle';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
+import { describeGoal } from './ui/missionText';
 import { mountParcelPrompt } from './ui/parcelPrompt';
 import { guidanceFor } from './ui/guidance';
 import { mountIntro } from './ui/intro';
@@ -129,7 +132,13 @@ function catchUp(): void {
   syncUi();
   autosave.flush(game);
   if (report.eraReached) dock.refresh();
-  chronicle.show(report);
+  if (report.worthReporting) {
+    chronicle.show(report);
+    return;
+  }
+  // Too short for a card, but the goals were still drained off the queue — so
+  // they are announced the ordinary way rather than disappearing.
+  announceMissions(report.missionsDone);
 }
 
 // Mounted after the dock, because the coach points at its buttons and reads
@@ -314,6 +323,7 @@ function frame(now: number): void {
       previousBuildingCount = game.buildings.size;
       renderer.onBuildingsChanged();
     }
+    announceGoals();
   }
   if (budget.economyTicks > 0) {
     systems.stepEconomy(game, (budget.economyTicks * clock.economyStepMs) / 1000);
@@ -337,6 +347,30 @@ function frame(now: number): void {
   publishReadout();
 
   requestAnimationFrame(frame);
+}
+
+/**
+ * Says so when a goal lands, and banks the reward it already paid.
+ *
+ * Drained rather than polled: the simulation settles goals on its own clock, so
+ * this is the same list whether the city crossed the line this second or during
+ * an eight-hour absence.
+ */
+function announceGoals(): void {
+  announceMissions(systems.drainCompletedMissions());
+}
+
+function announceMissions(finished: readonly Mission[]): void {
+  if (finished.length === 0) return;
+  for (const mission of finished) {
+    toast.show(
+      STR.mission.complete,
+      `${describeGoal(mission.goal)} · ${STR.mission.reward(mission.reward)}`,
+    );
+  }
+  haptics.confirm();
+  syncUi();
+  autosave.flush(game);
 }
 
 /** What the coach reads to decide which control to point at. */
@@ -380,6 +414,18 @@ function syncUi(): void {
     },
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });
+  store.setMissions(
+    activeMissions(game).map((view) => ({
+      id: view.mission.id,
+      goal: view.mission.goal,
+      reward: view.mission.reward,
+      have: view.have,
+      want: view.want,
+      fraction: view.fraction,
+    })),
+    missionsCompleted(game),
+    missionsTotal(),
+  );
   coach.update(coachFacts());
   store.setGuidance(
     guidanceFor({

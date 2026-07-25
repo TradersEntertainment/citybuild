@@ -8,7 +8,7 @@ import {
 import { UTILITIES_REQUIRED_FROM } from '../data/utilities';
 import type { Fields } from './fields';
 import type { GameState } from './state';
-import { SERVICE, type Era } from './tiles';
+import { eraReached, SERVICE, type Era } from './tiles';
 import { index, inBounds, isTileOwned, type World } from './world';
 
 /**
@@ -160,16 +160,6 @@ export function serviceCoverageAt(world: World, era: Era, tileIndex: number): nu
  * the fault that once pinned every plot below the growth threshold.
  */
 export function utilitiesExpected(era: Era): boolean {
-  return ERA_RANK.indexOf(era) >= ERA_RANK.indexOf(UTILITIES_REQUIRED_FROM);
+  return eraReached(era, UTILITIES_REQUIRED_FROM);
 }
-
-const ERA_RANK: readonly Era[] = [
-  'founding',
-  'village',
-  'town',
-  'city',
-  'metro',
-  'metropolis',
-  'megacity',
-];
 

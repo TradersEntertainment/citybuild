@@ -3,6 +3,8 @@ import { evaluateBuildings, totalBuildings } from './buildings';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
+import type { Mission } from '../data/missions';
+import { settleMissions } from './missions';
 import { stepPopulation } from './population';
 import { computeServiceCoverage } from './services';
 import { computeTraffic, createTrafficField, type TrafficField } from './traffic';
@@ -10,6 +12,9 @@ import { computeUtilityCoverage } from './utilities';
 import { stepProgression } from './progression';
 import type { GameState } from './state';
 import type { Era } from './tiles';
+
+/** Shared empty result, so the common no-goals-finished frame allocates nothing. */
+const EMPTY_MISSIONS: readonly Mission[] = [];
 
 /**
  * Runs the simulation's systems at their own cadences (§11). Heavy passes are
@@ -26,6 +31,7 @@ export class Systems {
   private diffusionTimer = FIELD_DIFFUSION_S; // solve once on the first step
   private trafficTimer = TRAFFIC_REFRESH_S;
   private fieldsDirty = true;
+  private readonly completedMissions: Mission[] = [];
   private readonly diffusion: DiffusionScratch;
 
   constructor(size: number) {
@@ -82,7 +88,20 @@ export class Systems {
 
     const totals = totalBuildings(state);
     stepPopulation(state, totals, dt);
-    return stepProgression(state);
+    const era = stepProgression(state);
+
+    // Goals settle on the simulation's clock rather than the frame loop's, so
+    // the offline catch-up completes them exactly as a live session would — the
+    // city really did the work while nobody was watching. The caller drains the
+    // list; nothing here waits on it.
+    this.completedMissions.push(...settleMissions(state));
+    return era;
+  }
+
+  /** Goals finished since the last drain, for the UI to announce. */
+  drainCompletedMissions(): readonly Mission[] {
+    if (this.completedMissions.length === 0) return EMPTY_MISSIONS;
+    return this.completedMissions.splice(0, this.completedMissions.length);
   }
 
   /** Called at the economy cadence (1 Hz), separately from the sim step. */

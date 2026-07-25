@@ -1,6 +1,7 @@
 import { LABOUR_PARTICIPATION } from '../data/balance';
 import { STR } from '../data/strings.tr';
-import { uiStore } from '../state/store';
+import { uiStore, type MissionView } from '../state/store';
+import { describeGoal } from './missionText';
 
 /**
  * The city's books, always on screen.
@@ -94,7 +95,17 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   const farms = row(STR.panel.farmYield);
   trade.body.append(demandRes.el, demandCom.el, demandInd.el, farms.el);
 
-  detail.append(people.el, books.el, grid.el, trade.el);
+  // Goals first: a player who opens the panel wanting to know what to do next
+  // should not have to read four sections of bookkeeping to find out.
+  const goals = section(STR.mission.title);
+  const goalCount = document.createElement('span');
+  goalCount.className = 'panel-heading-count mono';
+  goals.el.querySelector('.panel-heading')?.append(goalCount);
+  const goalRows = document.createElement('div');
+  goalRows.className = 'mission-rows';
+  goals.body.append(goalRows);
+
+  detail.append(goals.el, people.el, books.el, grid.el, trade.el);
   panel.append(toggle, detail);
   root.append(panel);
 
@@ -108,9 +119,28 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   const money = STR.format.money;
   const count = STR.format.count;
 
+  /**
+   * Goals are rebuilt wholesale, which is safe because the store only publishes
+   * a new list when a reading actually moved — and because there are three of
+   * them, not three hundred.
+   */
+  const paintGoals = (s: ReturnType<typeof uiStore.getState>): void => {
+    goalCount.textContent = STR.mission.done(s.missionsDone, s.missionsTotal);
+    goalRows.textContent = '';
+    if (s.missions.length === 0) {
+      const empty = document.createElement('p');
+      empty.className = 'mission-empty';
+      empty.textContent = STR.mission.none;
+      goalRows.append(empty);
+      return;
+    }
+    for (const view of s.missions) goalRows.append(missionRow(view));
+  };
+
   const paint = (): void => {
     const s = uiStore.getState();
     const t = s.totals;
+    paintGoals(s);
     const jobs = t.commercialJobs + t.industrialJobs + t.farmJobs;
     const workforce = s.population * LABOUR_PARTICIPATION;
     const idle = workforce > 0 ? Math.max(0, (workforce - jobs) / workforce) : 0;
@@ -158,6 +188,42 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
       panel.remove();
     },
   };
+}
+
+/**
+ * One goal: what is being asked, how far along the city is, and what it pays.
+ *
+ * The bar carries the reading, not a percentage — "18 / 24 kare yol" says both
+ * where the city is and what the next thing to do is, which a percentage does
+ * not.
+ */
+function missionRow(view: MissionView): HTMLElement {
+  const el = document.createElement('div');
+  el.className = 'mission-row';
+
+  const head = document.createElement('div');
+  head.className = 'mission-head';
+  const name = document.createElement('span');
+  name.className = 'mission-name';
+  name.textContent = describeGoal(view.goal);
+  const reward = document.createElement('span');
+  reward.className = 'mission-reward mono';
+  reward.textContent = STR.mission.reward(view.reward);
+  head.append(name, reward);
+
+  const track = document.createElement('div');
+  track.className = 'mission-track';
+  const fill = document.createElement('span');
+  fill.className = 'mission-fill';
+  fill.style.width = `${Math.round(view.fraction * 100)}%`;
+  track.append(fill);
+
+  const count = document.createElement('span');
+  count.className = 'mission-count mono';
+  count.textContent = STR.mission.progress(view.have, view.want);
+
+  el.append(head, track, count);
+  return el;
 }
 
 interface StatLine {
