@@ -1,5 +1,6 @@
 import { BRUSH_SIZES, COST_LABEL_OFFSET_PX } from '../data/balance';
 import { isRoadUnlocked } from '../data/roads';
+import { isServiceUnlocked, type ServiceKind } from '../data/services';
 import { buildRoad, estimateRoad, removeRoad, type RoadEstimate } from '../sim/roads';
 import type { GameState } from '../sim/state';
 import type { RoadKind, ZoneKind } from '../sim/tiles';
@@ -24,7 +25,7 @@ import { buildRoadPath, type RoadPath } from './pathSmoothing';
  * delivers dozens of coalesced points per frame, and re-deriving a 400-tile
  * stroke on each one would spend the budget on arithmetic nobody sees.
  */
-export type ToolId = 'none' | 'road' | 'zone' | 'erase';
+export type ToolId = 'none' | 'road' | 'zone' | 'erase' | 'service';
 
 export interface DraftSummary {
   mode: 'build' | 'erase';
@@ -49,6 +50,7 @@ export class ToolController {
   private tool: ToolId = 'road';
   private roadKind: RoadKind = 'path';
   private zoneKind: ZoneKind = 'res';
+  private serviceKind: ServiceKind = 'fire';
   private brush: number = BRUSH_SIZES[1];
   private raw: TilePoint[] = [];
   private path: RoadPath | null = null;
@@ -76,6 +78,10 @@ export class ToolController {
 
   get activeZoneKind(): ZoneKind {
     return this.zoneKind;
+  }
+
+  get activeServiceKind(): ServiceKind {
+    return this.serviceKind;
   }
 
   get brushSize(): number {
@@ -106,6 +112,14 @@ export class ToolController {
     this.events.onChanged?.();
   }
 
+  setServiceKind(kind: ServiceKind): boolean {
+    if (!isServiceUnlocked(kind, this.state.era)) return false;
+    this.serviceKind = kind;
+    this.tool = 'service';
+    this.events.onChanged?.();
+    return true;
+  }
+
   setBrush(size: number): void {
     this.brush = size;
     this.events.onChanged?.();
@@ -114,7 +128,9 @@ export class ToolController {
   // --- Stroke lifecycle ------------------------------------------------------
 
   strokeStart(screenX: number, screenY: number): void {
-    if (this.tool === 'none') return;
+    // A station is placed with a tap, not dragged out, so the stroke machinery
+    // stays out of its way entirely.
+    if (this.tool === 'none' || this.tool === 'service') return;
     this.drawing = true;
     this.raw = [];
     this.addSample(screenX, screenY);

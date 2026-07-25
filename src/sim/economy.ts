@@ -7,6 +7,7 @@ import {
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import type { Fields } from './fields';
+import { serviceUpkeep } from './services';
 import type { GameState } from './state';
 import { decodeRoad, decodeZone, NONE } from './tiles';
 import { index } from './world';
@@ -21,6 +22,8 @@ export interface Ledger {
   /** ₺ per minute. */
   taxIncome: number;
   roadUpkeep: number;
+  /** Stations cost the same every minute whether or not anyone needed them. */
+  serviceUpkeep: number;
   net: number;
   /** Food produced per minute; consumption arrives with the food system. */
   farmYield: number;
@@ -49,10 +52,13 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
     }
   }
 
+  const roads = roadUpkeep(state);
+  const stations = serviceUpkeep(state);
   return {
     taxIncome,
-    roadUpkeep: roadUpkeep(state),
-    net: taxIncome - roadUpkeep(state),
+    roadUpkeep: roads,
+    serviceUpkeep: stations,
+    net: taxIncome - roads - stations,
     farmYield: farmTiles(state) * FARM_YIELD,
   };
 }

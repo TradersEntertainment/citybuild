@@ -27,10 +27,32 @@ export const STR = {
     zone: 'bölge',
     erase: 'sil',
     undo: 'geri al',
+    service: 'hizmet',
     roadSheetTitle: 'Yol tipi',
     zoneSheetTitle: 'Bölge',
+    serviceSheetTitle: 'Hizmet binası',
     brushTitle: 'Fırça',
     brushSize: (size: number): string => `${size}×${size}`,
+  },
+
+  service: {
+    fire: 'İtfaiye',
+    health: 'Sağlık ocağı',
+    education: 'Okul',
+    police: 'Karakol',
+  },
+
+  /** "₺3.200 · 42 ₺/dk gider" */
+  serviceCost: (cost: number, upkeep: number): string =>
+    `₺${money.format(cost)} · ${money.format(upkeep)} ₺/dk gider`,
+
+  serviceBuilt: 'Hizmet binası kuruldu.',
+  serviceBlocked: {
+    locked: 'Bu hizmet henüz açılmadı.',
+    unowned: 'Burası senin arazin değil.',
+    occupied: 'Bu kare dolu.',
+    noRoad: 'Yola çok uzak. Yol kenarına kur.',
+    tooDear: 'Bakiye yetmiyor.',
   },
 
   zone: {

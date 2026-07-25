@@ -7,6 +7,7 @@ import { createIssues, type IssueLayer } from './issues';
 import { createOverlay, type OverlayLayer } from './overlay';
 import { createRoads, type RoadMesh } from './roads';
 import { createSky, updateSky, type SkyRig } from './sky';
+import { createStations, type StationLayer } from './stations';
 import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
 import { createTraffic, type TrafficLayer } from './traffic';
 import { createTrees, type TreeLayer } from './trees';
@@ -49,10 +50,12 @@ export class Renderer {
   private readonly trees: TreeLayer;
   private readonly traffic: TrafficLayer;
   private readonly issues: IssueLayer;
+  private readonly stations: StationLayer;
   private readonly overlay: OverlayLayer;
 
   private zonesDirty = true;
   private forSaleDirty = true;
+  private stationsDirty = false;
   private lastZoneRebuild = 0;
   private fpsAccumulator = 0;
   private fpsFrames = 0;
@@ -86,6 +89,8 @@ export class Renderer {
     this.trees = createTrees(state.world);
     this.traffic = createTraffic(state.world);
     this.issues = createIssues();
+    this.stations = createStations();
+    this.stations.rebuild(state);
     this.overlay = createOverlay(state.world);
 
     this.scene.add(
@@ -96,6 +101,7 @@ export class Renderer {
       this.buildings.group,
       this.traffic.group,
       this.issues.group,
+      this.stations.group,
       this.overlay.group,
     );
 
@@ -129,6 +135,11 @@ export class Renderer {
     return this.forSaleDirty;
   }
 
+  /** A station was built or removed. */
+  invalidateServices(): void {
+    this.stationsDirty = true;
+  }
+
   invalidateRoads(): void {
     this.roads.rebuild();
     this.traffic.rebuildNetwork();
@@ -150,6 +161,11 @@ export class Renderer {
       this.trees.rebuild();
       this.zonesDirty = false;
       this.lastZoneRebuild = frame.now;
+    }
+
+    if (this.stationsDirty) {
+      this.stations.rebuild(frame.state);
+      this.stationsDirty = false;
     }
 
     this.overlay.setDraft(frame.draft);
@@ -191,6 +207,7 @@ export class Renderer {
     this.trees.dispose();
     this.traffic.dispose();
     this.issues.dispose();
+    this.stations.dispose();
     this.buildings.dispose();
     this.overlay.dispose();
     this.renderer.dispose();

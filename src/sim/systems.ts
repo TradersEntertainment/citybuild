@@ -4,6 +4,7 @@ import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
 import { stepPopulation } from './population';
+import { computeServiceCoverage } from './services';
 import { stepProgression } from './progression';
 import type { GameState } from './state';
 import type { Era } from './tiles';
@@ -41,6 +42,9 @@ export class Systems {
     if (this.fieldsDirty) {
       computeRoadDistance(state.world, this.fields.roadDistance);
       computeLandValue(state.world, this.fields);
+      // Coverage is gated on road access, so it is only valid once the road
+      // distance field beside it has been rebuilt.
+      computeServiceCoverage(state, this.fields);
       this.fieldsDirty = false;
     }
 

@@ -1,6 +1,7 @@
 import { BRUSH_SIZES, ZONE_COST } from '../data/balance';
 import { ZONE_TINTS } from '../data/buildings';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
+import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
 import { STR } from '../data/strings.tr';
 import type { ToolController, ToolId } from '../input/tools';
 import { ZONE_ORDER, type Era, type RoadKind, type ZoneKind } from '../sim/tiles';
@@ -39,9 +40,10 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   dock.textContent = '';
   const roadButton = toolButton();
   const zoneButton = toolButton();
+  const serviceButton = toolButton();
   const eraseButton = toolButton(STR.tools.erase);
   const undoButton = toolButton(STR.tools.undo);
-  dock.append(roadButton, zoneButton, eraseButton, spacer(), undoButton);
+  dock.append(roadButton, zoneButton, serviceButton, eraseButton, spacer(), undoButton);
 
   let openSheetFor: ToolId | null = null;
 
@@ -55,16 +57,20 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     const tool = deps.tools.activeTool;
     roadButton.dataset['active'] = String(tool === 'road');
     zoneButton.dataset['active'] = String(tool === 'zone');
+    serviceButton.dataset['active'] = String(tool === 'service');
     eraseButton.dataset['active'] = String(tool === 'erase');
     setButtonLabel(roadButton, STR.tools.road, STR.road[deps.tools.activeRoadKind]);
     setButtonLabel(zoneButton, STR.tools.zone, STR.zone[deps.tools.activeZoneKind]);
+    setButtonLabel(serviceButton, STR.tools.service, STR.service[deps.tools.activeServiceKind]);
     if (openSheetFor === 'road') fillRoadSheet();
     if (openSheetFor === 'zone') fillZoneSheet();
+    if (openSheetFor === 'service') fillServiceSheet();
   };
 
   const openSheet = (tool: ToolId): void => {
     openSheetFor = tool;
     if (tool === 'road') fillRoadSheet();
+    else if (tool === 'service') fillServiceSheet();
     else fillZoneSheet();
     sheet.dataset['open'] = 'true';
     sheet.setAttribute('aria-hidden', 'false');
@@ -81,6 +87,35 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.append(sheetTitle(STR.tools.zoneSheetTitle));
     for (const kind of ZONE_ORDER) sheet.append(zoneRow(kind));
     sheet.append(sheetTitle(STR.tools.brushTitle), brushRow());
+  }
+
+  function fillServiceSheet(): void {
+    sheet.textContent = '';
+    sheet.append(sheetTitle(STR.tools.serviceSheetTitle));
+    for (const kind of SERVICE_ORDER) sheet.append(serviceRow(kind));
+  }
+
+  function serviceRow(kind: ServiceKind): HTMLElement {
+    const spec = SERVICE_SPECS[kind];
+    const unlocked = isServiceUnlocked(kind, deps.era());
+    // Upkeep is on the row beside the price: a station is a standing cost, and
+    // finding that out after building four of them is not a fair surprise.
+    const row = sheetRow(
+      STR.service[kind],
+      unlocked
+        ? STR.serviceCost(spec.cost, spec.upkeep)
+        : STR.lockedAt(STR.eraName[spec.unlockedAt]),
+    );
+    row.dataset['locked'] = String(!unlocked);
+    row.disabled = !unlocked;
+    row.dataset['selected'] = String(deps.tools.activeServiceKind === kind);
+    row.addEventListener('click', () => {
+      if (!deps.tools.setServiceKind(kind)) return;
+      haptics.tap();
+      refresh();
+      closeSheet();
+    });
+    return row;
   }
 
   function roadRow(kind: RoadKind): HTMLElement {
@@ -149,6 +184,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
 
   roadButton.addEventListener('click', () => selectTool('road', true));
   zoneButton.addEventListener('click', () => selectTool('zone', true));
+  serviceButton.addEventListener('click', () => selectTool('service', true));
   eraseButton.addEventListener('click', () => selectTool('erase', false));
   undoButton.addEventListener('click', () => {
     haptics.tap();

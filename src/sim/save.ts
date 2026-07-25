@@ -1,5 +1,6 @@
 import { SAVE_VERSION } from '../data/balance';
 import type { BuiltZone, Level } from '../data/buildings';
+import { SERVICE_ORDER } from '../data/services';
 import type { Building } from './buildings';
 import { createGameState, type GameState } from './state';
 import type { Era } from './tiles';
@@ -41,11 +42,15 @@ export interface SaveData {
   parcelsOwned: number[];
   /** Buildings, flattened; see BUILDING_FIELDS for the column order. */
   buildings: number[];
+  /** Stations, flattened: id, kind index, x, y. */
+  services: number[];
+  nextServiceId: number;
 }
 
 /** Fields packed per building, in order. Zone is stored as an index. */
 const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
 const BUILDING_FIELDS = 12;
+const SERVICE_FIELDS = 4;
 
 export function serialize(state: GameState): SaveData {
   const buildings: number[] = [];
@@ -64,6 +69,11 @@ export function serialize(state: GameState): SaveData {
       b.builtAt,
       b.variantSeed,
     );
+  }
+
+  const services: number[] = [];
+  for (const service of state.services.values()) {
+    services.push(service.id, SERVICE_ORDER.indexOf(service.kind), service.x, service.y);
   }
 
   return {
@@ -85,6 +95,8 @@ export function serialize(state: GameState): SaveData {
     zone: encodeRuns(state.world.zone),
     parcelsOwned: encodeRuns(state.world.parcelsOwned),
     buildings,
+    services,
+    nextServiceId: state.nextServiceId,
   };
 }
 
@@ -133,6 +145,21 @@ export function deserialize(data: unknown): GameState | null {
     // stored and risked going out of step with the map.
     state.world.building[index(state.world, building.x, building.y)] = building.id;
   }
+
+  // Services were added after the first saves existed; a file without them is
+  // a city with no stations, not a corrupt one.
+  const services = Array.isArray(data.services) ? data.services : [];
+  if (services.length % SERVICE_FIELDS !== 0) return null;
+  for (let i = 0; i < services.length; i += SERVICE_FIELDS) {
+    const kind = SERVICE_ORDER[services[i + 1] ?? -1];
+    if (!kind) return null;
+    const x = services[i + 2] ?? 0;
+    const y = services[i + 3] ?? 0;
+    if (x < 0 || y < 0 || x >= state.world.size || y >= state.world.size) return null;
+    const id = services[i] ?? 0;
+    state.services.set(id, { id, kind, x, y });
+  }
+  state.nextServiceId = Math.max(1, data.nextServiceId ?? 1);
 
   state.population = 0;
   for (const building of state.buildings.values()) {

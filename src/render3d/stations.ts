@@ -1,0 +1,150 @@
+import * as THREE from 'three';
+import { SERVICE_ORDER, type ServiceKind } from '../data/services';
+import type { GameState } from '../sim/state';
+import { sampleHeight } from './terrain';
+
+/**
+ * Service buildings on the map.
+ *
+ * These are the only structures the player places by hand, so they have to be
+ * findable at a glance among a thousand grown ones. Each kind gets its own
+ * silhouette and a mast in its own colour: a station reads as civic
+ * infrastructure from across the district rather than as one more block.
+ */
+interface StationLook {
+  /** Body colour of the shed. */
+  body: string;
+  /** Roof and mast colour — the part that identifies the service. */
+  accent: string;
+  width: number;
+  height: number;
+  /** Height of the mast above the roof; 0 for none. */
+  mast: number;
+}
+
+const LOOKS: Readonly<Record<ServiceKind, StationLook>> = {
+  fire: { body: '#B9AFA3', accent: '#B03A2B', width: 0.78, height: 0.58, mast: 0.5 },
+  health: { body: '#E2DED4', accent: '#3E86A8', width: 0.72, height: 0.5, mast: 0.34 },
+  education: { body: '#D6CDB6', accent: '#8A6B2E', width: 0.86, height: 0.44, mast: 0.28 },
+  police: { body: '#C2C6CB', accent: '#2E4A7A', width: 0.74, height: 0.52, mast: 0.44 },
+};
+
+const INITIAL_CAPACITY = 32;
+
+interface Bucket {
+  body: THREE.InstancedMesh;
+  mast: THREE.InstancedMesh;
+  capacity: number;
+}
+
+export interface StationLayer {
+  readonly group: THREE.Group;
+  /** Re-places every station. Called when one is built or removed. */
+  rebuild(state: GameState): void;
+  dispose(): void;
+}
+
+export function createStations(): StationLayer {
+  const group = new THREE.Group();
+  group.name = 'stations';
+
+  const geometries: THREE.BufferGeometry[] = [];
+  const materials: THREE.Material[] = [];
+  const buckets = new Map<ServiceKind, Bucket>();
+
+  const makeBucket = (kind: ServiceKind, capacity: number): Bucket => {
+    const look = LOOKS[kind];
+
+    const bodyGeometry = new THREE.BoxGeometry(look.width, look.height, look.width);
+    bodyGeometry.translate(0, look.height / 2, 0);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+      color: look.body,
+      roughness: 0.72,
+      metalness: 0.04,
+    });
+
+    // A tapered mast rather than a box: nothing else in the city is a spike, so
+    // the eye finds it immediately.
+    const mastGeometry = new THREE.ConeGeometry(0.09, Math.max(0.08, look.mast), 5);
+    mastGeometry.translate(0, look.height + look.mast / 2, 0);
+    const mastMaterial = new THREE.MeshStandardMaterial({
+      color: look.accent,
+      emissive: new THREE.Color(look.accent),
+      emissiveIntensity: 0.18,
+      roughness: 0.5,
+    });
+
+    geometries.push(bodyGeometry, mastGeometry);
+    materials.push(bodyMaterial, mastMaterial);
+
+    const body = new THREE.InstancedMesh(bodyGeometry, bodyMaterial, capacity);
+    const mast = new THREE.InstancedMesh(mastGeometry, mastMaterial, capacity);
+    for (const mesh of [body, mast]) {
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+      mesh.frustumCulled = false;
+      mesh.count = 0;
+      group.add(mesh);
+    }
+    return { body, mast, capacity };
+  };
+
+  for (const kind of SERVICE_ORDER) buckets.set(kind, makeBucket(kind, INITIAL_CAPACITY));
+
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3(1, 1, 1);
+  const axis = new THREE.Vector3(0, 1, 0);
+  const counts = new Map<ServiceKind, number>();
+
+  const rebuild = (state: GameState): void => {
+    for (const kind of SERVICE_ORDER) counts.set(kind, 0);
+
+    for (const station of state.services.values()) {
+      let bucket = buckets.get(station.kind);
+      if (!bucket) continue;
+      const used = counts.get(station.kind) ?? 0;
+      if (used >= bucket.capacity) {
+        group.remove(bucket.body, bucket.mast);
+        bucket.body.dispose();
+        bucket.mast.dispose();
+        bucket = makeBucket(station.kind, bucket.capacity * 2);
+        buckets.set(station.kind, bucket);
+      }
+
+      const x = station.x + 0.5;
+      const z = station.y + 0.5;
+      position.set(x, sampleHeight(state.world, x, z), z);
+      // Squared off to the grid: civic buildings are the one thing in this city
+      // that should look deliberately placed rather than grown.
+      quaternion.setFromAxisAngle(axis, 0);
+      matrix.compose(position, quaternion, scale);
+      bucket.body.setMatrixAt(used, matrix);
+      bucket.mast.setMatrixAt(used, matrix);
+      counts.set(station.kind, used + 1);
+    }
+
+    for (const [kind, bucket] of buckets) {
+      const used = counts.get(kind) ?? 0;
+      bucket.body.count = used;
+      bucket.mast.count = used;
+      bucket.body.instanceMatrix.needsUpdate = true;
+      bucket.mast.instanceMatrix.needsUpdate = true;
+    }
+  };
+
+  return {
+    group,
+    rebuild,
+    dispose: () => {
+      for (const bucket of buckets.values()) {
+        bucket.body.dispose();
+        bucket.mast.dispose();
+      }
+      for (const geometry of geometries) geometry.dispose();
+      for (const material of materials) material.dispose();
+      group.clear();
+    },
+  };
+}

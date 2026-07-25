@@ -12,6 +12,7 @@ import { totalBuildings } from './sim/buildings';
 import { Clock } from './sim/clock';
 import { creditAwayTime } from './sim/offline';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
+import { placeService } from './sim/services';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
 import { NONE, type Era } from './sim/tiles';
@@ -122,16 +123,44 @@ const input = bindPointerInput(canvas, {
   },
   onTap: (sample) => {
     dock.closeSheet();
-    // A tap on land the player does not own is the only way to buy it. It costs
-    // nothing to try, and tapping their own city just dismisses the panel.
     const world = camera.screenToWorld(sample.x, sample.y);
-    const { px, py } = parcelOfTile(Math.floor(world.x), Math.floor(world.y));
+    const tileX = Math.floor(world.x);
+    const tileY = Math.floor(world.y);
+
+    // With the service tool up, a tap builds. Otherwise it is the only way to
+    // buy land: free to try, and tapping their own city just dismisses.
+    if (tools.activeTool === 'service') {
+      buildStation(tileX, tileY);
+      return;
+    }
+    const { px, py } = parcelOfTile(tileX, tileY);
     parcelPrompt.show(offerFor(game, px, py));
   },
 });
 bindWheelZoom(canvas, (x, y, factor) => camera.zoomAt(x, y, factor));
 bindAudioUnlock(canvas);
 registerServiceWorker();
+
+/**
+ * Places a station, or says why it could not. Refusals are spoken rather than
+ * silent: a tap that does nothing and explains nothing reads as a broken game.
+ */
+function buildStation(tileX: number, tileY: number): void {
+  const kind = tools.activeServiceKind;
+  const result = placeService(game, systems.fields, kind, tileX, tileY);
+  if (!result.ok) {
+    toast.show(STR.service[kind], STR.serviceBlocked[result.reason ?? 'occupied']);
+    return;
+  }
+  haptics.confirm();
+  // Coverage is derived from the station list and road access, so it has to be
+  // redone before the next building pass scores anything.
+  systems.invalidateFields();
+  renderer.invalidateServices();
+  syncUi();
+  autosave.flush(game);
+  toast.show(STR.serviceBuilt, STR.service[kind]);
+}
 
 // --- Viewport plumbing -------------------------------------------------------
 // Safari fires resize during the address-bar animation with stale metrics, so
