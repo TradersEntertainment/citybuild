@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { ROAD_SPECS } from '../data/roads';
 import { FLYING_YEAR, SHUTTLE_YEAR } from '../data/timeline';
+import { vehicleAgeFor, type VehicleAge, type VehicleEra } from '../data/vehicles';
 import { transitFlow } from '../sim/highway';
 import type { GameState } from '../sim/state';
 import { decodeRoad, NONE } from '../sim/tiles';
@@ -82,9 +83,18 @@ export interface TrafficLayer {
 export function createTraffic(initialWorld: World): TrafficLayer {
   const group = new THREE.Group();
   group.name = 'traffic';
-  const carGeometry = buildCarGeometry();
+  // One body per age, built once at start-up. Three extra geometries is a few
+  // hundred triangles held in memory against swapping them in on the frame a
+  // city crosses a decade; building them on demand would stutter exactly then.
+  const carGeometries: Record<VehicleEra, THREE.BufferGeometry> = {
+    cart: buildCartGeometry(),
+    early: buildEarlyCarGeometry(),
+    modern: buildCarGeometry(),
+    flying: buildCarGeometry(),
+  };
+  let drawnAge: VehicleEra = 'modern';
   const truckGeometry = buildTruckGeometry();
-  const cars = new THREE.InstancedMesh(carGeometry, TRIM_MATERIALS, MAX_CARS);
+  const cars = new THREE.InstancedMesh(carGeometries.modern, TRIM_MATERIALS, MAX_CARS);
   const trucks = new THREE.InstancedMesh(truckGeometry, TRIM_MATERIALS, MAX_TRUCKS);
   cars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   trucks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -165,6 +175,14 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     const jamLoad = load ?? NO_LOAD;
     const seconds = nowMs / 1000;
     const year = yearOf(state.playedMs);
+    const age = vehicleAgeFor(year);
+    // The body changes with the century. Swapping the geometry on the existing
+    // mesh keeps it one draw call and costs nothing per frame — only on the
+    // handful of frames where a city crosses into 1920, 1960 or 2050.
+    if (age.id !== drawnAge) {
+      drawnAge = age.id;
+      cars.geometry = carGeometries[age.id];
+    }
     const flying = year >= FLYING_YEAR;
     updateShuttles(year, seconds);
     frames++;
@@ -200,7 +218,7 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     const hidden = cameraDistance > LOD_TRAFFIC_DISTANCE;
     for (let i = fleet.length - 1; i >= 0; i--) {
       const v = fleet[i] as Vehicle;
-      if (v.path.length === 0 || !advance(v, deltaSeconds, g, jamLoad)) {
+      if (v.path.length === 0 || !advance(v, deltaSeconds * age.speed, g, jamLoad)) {
         // Trip finished, or the road died under the wheels: next trip. A
         // vehicle with nowhere new to go leaves the pool rather than idling
         // on a phantom road.
@@ -217,7 +235,7 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       if (hidden) continue;
       const pose = poseOf(v, g);
       const matrix = composeMatrix(pose, v, state.world, flying, seconds);
-      const color = vehicleColor(v);
+      const color = vehicleColor(v, age);
       if (v.truck) {
         if (truckCount >= MAX_TRUCKS) continue;
         trucks.setMatrixAt(truckCount, matrix);
@@ -376,7 +394,9 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     group.remove(cars, trucks);
     cars.dispose();
     trucks.dispose();
-    carGeometry.dispose();
+    // Every age's body, not just the one on screen — a Set because two ages
+    // share the modern geometry and disposing it twice is not free.
+    for (const geometry of new Set(Object.values(carGeometries))) geometry.dispose();
     truckGeometry.dispose();
     shuttleGeometry.dispose();
     shuttleMaterial.dispose();
@@ -739,16 +759,19 @@ function composeMatrix(
   return scratchMatrix.compose(scratchPosition, scratchQuaternion, scratchScale);
 }
 
-/** Palette a car park would actually show, picked stably by seed. */
-const CAR_PAINTS = [
-  0xb03a2e, 0x2e4053, 0x7d3c98, 0x1d8348, 0xca6f1e, 0xeceded, 0x5d6d7e, 0xf1c40f, 0x34495e,
-];
 /** Haulage-firm colours for cabs; the trailer stays cargo-dark either way. */
 const TRUCK_PAINTS = [0xeceded, 0x2e4053, 0xca6f1e, 0x1d8348, 0xb03a2e];
 const scratchColor = new THREE.Color();
 
-function vehicleColor(v: Vehicle): THREE.Color {
-  const palette = v.truck ? TRUCK_PAINTS : CAR_PAINTS;
+/**
+ * Body colour, from the age the city is in.
+ *
+ * Trucks keep their haulage palette throughout: a firm's livery is a firm's
+ * livery, and a black-only fleet of lorries reads as a rendering fault rather
+ * than as 1925.
+ */
+function vehicleColor(v: Vehicle, age: VehicleAge): THREE.Color {
+  const palette = v.truck ? TRUCK_PAINTS : age.paints;
   return scratchColor.setHex(palette[Math.floor(v.seed * 997) % palette.length] as number);
 }
 
@@ -780,6 +803,39 @@ function buildCarGeometry(): THREE.BufferGeometry {
     { box: [0.23, 0.0, -0.36, 0.37, 0.14, -0.16], paint: false },
     { box: [-0.37, 0.0, 0.16, -0.23, 0.14, 0.36], paint: false },
     { box: [0.23, 0.0, 0.16, 0.37, 0.14, 0.36], paint: false },
+  ]);
+}
+
+/**
+ * A cart: bed, two big wheels, and the animal in front as one dark block. No
+ * cabin and no glass, which is most of what makes it read as pre-motor at a
+ * glance.
+ */
+function buildCartGeometry(): THREE.BufferGeometry {
+  return mergeBoxes([
+    { box: [-0.3, 0.12, -0.14, 0.3, 0.28, 0.3], paint: true }, // bed
+    { box: [-0.26, 0.28, -0.1, 0.26, 0.34, 0.26], paint: true }, // load
+    { box: [-0.33, 0.0, 0.04, -0.21, 0.24, 0.16], paint: false }, // wheels
+    { box: [0.21, 0.0, 0.04, 0.33, 0.24, 0.16], paint: false },
+    { box: [-0.28, 0.0, -0.16, -0.19, 0.16, -0.07], paint: false },
+    { box: [0.19, 0.0, -0.16, 0.28, 0.16, -0.07], paint: false },
+    { box: [-0.16, 0.1, -0.5, 0.16, 0.36, -0.18], paint: false }, // the horse
+  ]);
+}
+
+/**
+ * An early motor car: tall, narrow, upright cabin, wheels that stand proud of
+ * the body. The silhouette is the period, not the paint.
+ */
+function buildEarlyCarGeometry(): THREE.BufferGeometry {
+  return mergeBoxes([
+    { box: [-0.26, 0.08, -0.34, 0.26, 0.22, 0.3], paint: true }, // body
+    { box: [-0.22, 0.22, -0.02, 0.22, 0.42, 0.24], paint: true }, // upright cabin
+    { box: [-0.23, 0.26, 0.0, 0.23, 0.38, 0.21], paint: false }, // glass
+    { box: [-0.33, 0.0, -0.34, -0.19, 0.2, -0.14], paint: false }, // proud wheels
+    { box: [0.19, 0.0, -0.34, 0.33, 0.2, -0.14], paint: false },
+    { box: [-0.33, 0.0, 0.1, -0.19, 0.2, 0.3], paint: false },
+    { box: [0.19, 0.0, 0.1, 0.33, 0.2, 0.3], paint: false },
   ]);
 }
 
