@@ -9,6 +9,7 @@ import { createOverlay, type OverlayLayer } from './overlay';
 import { createRoads, type RoadMesh } from './roads';
 import { dayFraction, nightAmount } from '../sim/daytime';
 import { createSky, updateSky, type SkyRig } from './sky';
+import { createStreetlights, type StreetlightLayer } from './streetlights';
 import { createStations, type StationLayer } from './stations';
 import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
 import { createTraffic, type TrafficLayer } from './traffic';
@@ -50,6 +51,7 @@ export class Renderer {
   private readonly terrain: TerrainMesh;
   private readonly water: THREE.Mesh;
   private readonly roads: RoadMesh;
+  private readonly streetlights: StreetlightLayer;
   private readonly buildings: BuildingMeshes;
   private readonly trees: TreeLayer;
   private readonly traffic: TrafficLayer;
@@ -96,6 +98,7 @@ export class Renderer {
     this.terrain = createTerrain(state.world);
     this.water = createWater(state.world);
     this.roads = createRoads(state.world);
+    this.streetlights = createStreetlights(state.world);
     this.buildings = createBuildings();
     this.trees = createTrees(state.world);
     this.traffic = createTraffic(state.world);
@@ -109,6 +112,7 @@ export class Renderer {
       this.terrain.group,
       this.water,
       this.roads.group,
+      this.streetlights.group,
       this.trees.group,
       this.buildings.group,
       this.traffic.group,
@@ -155,6 +159,7 @@ export class Renderer {
 
   invalidateRoads(): void {
     this.roads.rebuild();
+    this.streetlights.rebuild();
     this.traffic.rebuildNetwork();
     this.zonesDirty = true;
   }
@@ -199,7 +204,9 @@ export class Renderer {
     this.sky.setDayFraction(dayFrac);
     // setNightFactor has existed since the facades were written and was never
     // once called — the windows had an emissive map and no reason to glow.
-    this.buildings.setNightFactor(nightAmount(dayFrac));
+    const night = nightAmount(dayFrac);
+    this.buildings.setNightFactor(night);
+    this.streetlights.update(night, frame.state.playedMs, this.camera.distance);
 
     // The sky anchors on whoever is looking: the rig's orbit target normally,
     // the walker's own feet while the camera is on loan.
@@ -239,6 +246,7 @@ export class Renderer {
     this.water.geometry.dispose();
     (this.water.material as THREE.Material).dispose();
     this.roads.dispose();
+    this.streetlights.dispose();
     this.trees.dispose();
     this.traffic.dispose();
     this.issues.dispose();
