@@ -33,6 +33,13 @@ export interface World {
   serviceMask: Uint8Array;
   /** One flag per parcel: has the player bought it (fog cleared)? */
   parcelsOwned: Uint8Array;
+  /**
+   * 1 where the state-owned national highway runs. Regenerated from the seed
+   * on load alongside the terrain, never saved, and never the player's road.
+   */
+  highway: Uint8Array;
+  /** The highway's tiles in edge-to-edge order; empty until the route is laid. */
+  highwayRoute: { x: number; y: number }[];
 }
 
 export const PARCELS_PER_SIDE = WORLD_SIZE / PARCEL_SIZE;
@@ -55,6 +62,8 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     noise: new Float32Array(cells),
     serviceMask: new Uint8Array(cells),
     parcelsOwned: new Uint8Array(parcelSide * parcelSide),
+    highway: new Uint8Array(cells),
+    highwayRoute: [],
   };
   claimStartingParcel(world);
   return world;

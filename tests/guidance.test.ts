@@ -26,6 +26,7 @@ function facts(over: Partial<CityFacts> = {}): CityFacts {
     buildings: 0,
     population: 0,
     totals: totals(),
+    interchanges: 0,
     ...over,
   };
 }
@@ -77,7 +78,7 @@ describe('player guidance', () => {
     ).toBe(STR.empty.noHomes);
   });
 
-  it('falls silent when the city is working', () => {
+  it('points at the national highway once the town works but has no junction', () => {
     expect(
       guidanceFor(
         facts({
@@ -86,6 +87,22 @@ describe('player guidance', () => {
           buildings: 80,
           population: 400,
           totals: totals({ housing: 460, commercialJobs: 120, industrialJobs: 80 }),
+          interchanges: 0,
+        }),
+      ),
+    ).toBe(STR.highway.connectHint);
+  });
+
+  it('falls silent when the city is working and joined to the motorway', () => {
+    expect(
+      guidanceFor(
+        facts({
+          roadTiles: 60,
+          zonedTiles: 200,
+          buildings: 80,
+          population: 400,
+          totals: totals({ housing: 460, commercialJobs: 120, industrialJobs: 80 }),
+          interchanges: 1,
         }),
       ),
     ).toBeNull();

@@ -4,6 +4,7 @@ import { buildRoadGeometry, classifyRoads, SHAPE } from '../src/render3d/roadGeo
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
+import { NONE } from '../src/sim/tiles';
 import { index, startingCentre, type World } from '../src/sim/world';
 
 /**
@@ -38,9 +39,24 @@ function shapeAt(shapes: Uint8Array, x: number, y: number): number {
   return shapes[index(world, x, y)] ?? SHAPE.none;
 }
 
+/**
+ * These fixtures draw their own roads and count every vertex the builder
+ * makes; the national highway would add a map's worth of surface they did not
+ * ask about, so it is stripped. Its presence in the road column needs no
+ * special casing here — it renders like any highway tier.
+ */
+function stripHighway(w: World): void {
+  for (let i = 0; i < w.road.length; i++) {
+    if ((w.highway[i] ?? 0) === 1) w.road[i] = NONE;
+  }
+  w.highway.fill(0);
+  w.highwayRoute = [];
+}
+
 beforeEach(() => {
   game = createGameState(hashSeed('roads3d'), 0);
   world = game.world;
+  stripHighway(world);
   const centre = startingCentre(world);
   origin = { x: Math.floor(centre.x) - 8, y: Math.floor(centre.y) - 4 };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 20);

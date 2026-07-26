@@ -15,6 +15,7 @@ import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
 import { borrow, loanOffer } from './sim/credit';
+import { highwayInterchanges } from './sim/highway';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
@@ -240,7 +241,7 @@ function catchUp(): void {
 
 // Mounted after the dock, because the coach points at its buttons and reads
 // whether its sheet is open.
-const returning = game.buildings.size > 0 || countColumn(game.world.road) > 0;
+const returning = game.buildings.size > 0 || playerRoadTiles() > 0;
 const coach = mountCoach(ui, false);
 const intro = mountIntro(ui, {
   skip: returning,
@@ -495,7 +496,7 @@ function announceMissions(finished: readonly Mission[]): void {
 function coachFacts(): CoachFacts {
   const totals = totalBuildings(game);
   return {
-    roadTiles: countColumn(game.world.road),
+    roadTiles: playerRoadTiles(),
     zonedTiles: countColumn(game.world.zone),
     buildings: game.buildings.size,
     jobs: totals.commercialJobs + totals.industrialJobs,
@@ -526,6 +527,8 @@ function syncUi(): void {
       utilityUpkeep: game.ledger.utilityUpkeep,
       debtService: game.ledger.debtService,
       farmYield: game.ledger.farmYield,
+      farmIncome: game.ledger.farmIncome,
+      transitIncome: game.ledger.transitIncome,
     },
     totals: {
       housing: totals.housing,
@@ -551,11 +554,12 @@ function syncUi(): void {
   coach.update(coachFacts());
   store.setGuidance(
     guidanceFor({
-      roadTiles: countColumn(game.world.road),
+      roadTiles: playerRoadTiles(),
       zonedTiles: countColumn(game.world.zone),
       buildings: game.buildings.size,
       population: game.population,
       totals: totalBuildings(game),
+      interchanges: highwayInterchanges(game.world),
     }),
   );
 }
@@ -580,6 +584,20 @@ function countColumn(column: Uint8Array): number {
   let count = 0;
   for (let i = 0; i < column.length; i++) {
     if (column[i] !== NONE) count++;
+  }
+  return count;
+}
+
+/**
+ * Pavement the player laid, which is the only pavement that counts as playing:
+ * the national highway is in the same column and would otherwise make a
+ * brand-new city read as a returning one.
+ */
+function playerRoadTiles(): number {
+  const { road, highway } = game.world;
+  let count = 0;
+  for (let i = 0; i < road.length; i++) {
+    if ((road[i] ?? NONE) !== NONE && (highway[i] ?? 0) === 0) count++;
   }
   return count;
 }

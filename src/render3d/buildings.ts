@@ -97,6 +97,7 @@ export function createBuildings(): BuildingMeshes {
   };
 
   const matrix = new THREE.Matrix4();
+  const tint = new THREE.Color();
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
@@ -144,6 +145,18 @@ export function createBuildings(): BuildingMeshes {
       scale.set(wobble, rise * wobble, wobble);
       matrix.compose(position, quaternion, scale);
       bucket.mesh.setMatrixAt(bucket.count, matrix);
+      // Per-building tint: the archetype is shared by thousands of houses, and
+      // an untinted row of them reads as one house photocopied. A stable
+      // brightness/warmth wobble per plot breaks the monotony for free — no
+      // extra draw calls, just the instance colour buffer.
+      const shade = 0.84 + hashUnit(building.x, building.y, 23) * 0.3;
+      const warm = hashUnit(building.x, building.y, 29) - 0.5;
+      tint.setRGB(
+        Math.min(1, shade * (1 + warm * 0.1)),
+        shade,
+        Math.min(1, shade * (1 - warm * 0.12)),
+      );
+      bucket.mesh.setColorAt(bucket.count, tint);
       bucket.count++;
     }
 
@@ -155,6 +168,7 @@ export function createBuildings(): BuildingMeshes {
       // standing about with nothing in them.
       bucket.mesh.visible = bucket.count > 0;
       bucket.mesh.instanceMatrix.needsUpdate = true;
+      if (bucket.mesh.instanceColor) bucket.mesh.instanceColor.needsUpdate = true;
     }
   };
 

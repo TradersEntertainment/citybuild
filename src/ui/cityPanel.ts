@@ -80,12 +80,14 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
 
   const books = section(STR.panel.books);
   const tax = row(STR.panel.tax);
+  const transit = row(STR.panel.transit);
+  const farmIncome = row(STR.panel.farmIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
   const debt = row(STR.panel.debt);
   const net = row(STR.panel.net, true);
-  books.body.append(tax.el, roads.el, stations.el, plants.el, debt.el, net.el);
+  books.body.append(tax.el, transit.el, farmIncome.el, roads.el, stations.el, plants.el, debt.el, net.el);
 
   // Hidden until the era expects utilities at all, so a village is not shown a
   // shortfall in a system it is not meant to have.
@@ -193,6 +195,12 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     unemployment.el.dataset['alarm'] = String(idle > 0.35 && s.population > 30);
 
     tax.set(`+${money(s.ledger.taxIncome)}`);
+    // Income sources that are zero stay hidden: a village with no junction yet
+    // should not read a row about money it has no way to make.
+    transit.el.hidden = s.ledger.transitIncome <= 0;
+    transit.set(`+${money(s.ledger.transitIncome)}`);
+    farmIncome.el.hidden = s.ledger.farmIncome <= 0;
+    farmIncome.set(`+${money(s.ledger.farmIncome)}`);
     roads.set(`−${money(s.ledger.roadUpkeep)}`);
     stations.set(`−${money(s.ledger.serviceUpkeep)}`);
     plants.set(`−${money(s.ledger.utilityUpkeep)}`);

@@ -26,7 +26,34 @@ const SKY_FRAGMENT = /* glsl */ `
   uniform vec3 groundColor;
   uniform vec3 sunDirection;
   uniform vec3 sunColor;
+  uniform float time;
   varying vec3 vWorldDirection;
+
+  // Cheap value noise, four octaves — enough for cloud shapes that read as
+  // weather rather than as wallpaper.
+  float hash21(vec2 p) {
+    return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+  }
+  float vnoise(vec2 p) {
+    vec2 i = floor(p);
+    vec2 f = fract(p);
+    vec2 u = f * f * (3.0 - 2.0 * f);
+    return mix(
+      mix(hash21(i), hash21(i + vec2(1.0, 0.0)), u.x),
+      mix(hash21(i + vec2(0.0, 1.0)), hash21(i + vec2(1.0, 1.0)), u.x),
+      u.y
+    );
+  }
+  float fbm(vec2 p) {
+    float v = 0.0;
+    float a = 0.55;
+    for (int i = 0; i < 4; i++) {
+      v += a * vnoise(p);
+      p = p * 2.03 + vec2(17.0, 9.0);
+      a *= 0.5;
+    }
+    return v;
+  }
 
   void main() {
     vec3 dir = normalize(vWorldDirection);
@@ -42,7 +69,26 @@ const SKY_FRAGMENT = /* glsl */ `
     float cosAngle = dot(dir, normalize(sunDirection));
     float glow = pow(clamp(cosAngle, 0.0, 1.0), 220.0);
     float halo = pow(clamp(cosAngle, 0.0, 1.0), 6.0) * 0.22;
-    gl_FragColor = vec4(base + sunColor * (glow + halo), 1.0);
+    vec3 colour = base + sunColor * (glow + halo);
+
+    // Clouds: the dome direction projected onto a plane overhead, drifting
+    // slowly. A clear sky is a screensaver; moving weather is a place.
+    if (dir.y > 0.015) {
+      vec2 cloudUv = dir.xz / (dir.y + 0.22);
+      cloudUv = cloudUv * 1.15 + vec2(time * 0.0062, time * 0.0024);
+      float cover = fbm(cloudUv);
+      float cloud = smoothstep(0.52, 0.74, cover);
+      // Thin out toward the horizon, where haze owns the view anyway.
+      cloud *= smoothstep(0.02, 0.2, dir.y);
+      // Shading: darker bellies, lit crowns, and a warm tint toward the sun.
+      float shade = fbm(cloudUv * 2.31 + 4.7);
+      vec3 cloudColor = mix(vec3(0.82, 0.84, 0.88), vec3(1.08, 1.05, 1.0), shade);
+      float sunAmt = pow(clamp(cosAngle, 0.0, 1.0), 3.0);
+      cloudColor += sunColor * 0.14 * sunAmt;
+      colour = mix(colour, cloudColor, cloud * 0.85);
+    }
+
+    gl_FragColor = vec4(colour, 1.0);
   }
 `;
 
@@ -60,11 +106,12 @@ export function createSky(scene: THREE.Scene): SkyRig {
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
-      topColor: { value: new THREE.Color('#3E7BB8') },
-      horizonColor: { value: new THREE.Color('#CFE0EC') },
+      topColor: { value: new THREE.Color('#3574B4') },
+      horizonColor: { value: new THREE.Color('#D8E4EC') },
       groundColor: { value: new THREE.Color('#8A8578') },
       sunDirection: { value: sunDirection.clone() },
-      sunColor: { value: new THREE.Color('#FFF3D6') },
+      sunColor: { value: new THREE.Color('#FFEFC9') },
+      time: { value: 0 },
     },
     vertexShader: SKY_VERTEX,
     fragmentShader: SKY_FRAGMENT,
@@ -81,9 +128,9 @@ export function createSky(scene: THREE.Scene): SkyRig {
 
   // Distance haze tinted to the horizon band, so far districts fade into the sky
   // instead of ending at a hard line.
-  scene.fog = new THREE.Fog('#CFE0EC', WORLD_SIZE * 0.5, WORLD_SIZE * 1.9);
+  scene.fog = new THREE.Fog('#D8E4EC', WORLD_SIZE * 0.5, WORLD_SIZE * 1.9);
 
-  const sun = new THREE.DirectionalLight('#FFF4E0', 2.6);
+  const sun = new THREE.DirectionalLight('#FFEDC4', 2.75);
   sun.castShadow = true;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0006;
@@ -110,7 +157,7 @@ export function createSky(scene: THREE.Scene): SkyRig {
     sunDirection.set(Math.cos(angle) * 0.7, Math.max(0.12, Math.sin(angle)), 0.34).normalize();
     material.uniforms['sunDirection']!.value.copy(sunDirection);
   };
-  setSunAngle(Math.PI * 0.42);
+  setSunAngle(Math.PI * 0.4);
 
   return {
     dome,
@@ -137,6 +184,10 @@ export function updateSky(
   targetZ: number,
 ): void {
   rig.dome.position.copy(camera.position);
+  // Weather moves; rendering time, not sim time, so pausing the city pauses
+  // nothing in the sky.
+  (rig.dome.material as THREE.ShaderMaterial).uniforms['time']!.value =
+    performance.now() / 1000;
 
   const sunDir = (rig.dome.material as THREE.ShaderMaterial).uniforms['sunDirection']!
     .value as THREE.Vector3;

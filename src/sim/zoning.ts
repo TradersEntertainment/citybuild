@@ -1,5 +1,6 @@
 import { ZONE_COST } from '../data/balance';
 import type { TilePoint } from '../input/pathGeometry';
+import { isNationalHighway } from './highway';
 import { decodeTerrain, decodeZone, encodeZone, NONE, type ZoneKind } from './tiles';
 import { index, inBounds, isTileOwned, type World } from './world';
 
@@ -34,6 +35,8 @@ export interface ZoneEstimate {
 /** Water cannot be zoned; everything else on owned land can. */
 export function canZone(world: World, x: number, y: number): boolean {
   if (!inBounds(world, x, y) || !isTileOwned(world, x, y)) return false;
+  // The motorway reservation is not a plot: no houses on the hard shoulder.
+  if (isNationalHighway(world, x, y)) return false;
   return decodeTerrain(world.terrain[index(world, x, y)] ?? 0) !== 'water';
 }
 

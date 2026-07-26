@@ -1,6 +1,7 @@
 import { BRIDGE_COST_MULTIPLIER, SLOPE_COST_FACTOR } from '../data/balance';
 import { ROAD_SPECS, tierOf } from '../data/roads';
 import type { TilePoint } from '../input/pathGeometry';
+import { isNationalHighway } from './highway';
 import type { TileEdit } from './undo';
 import { decodeRoad, encodeRoad, NONE, type RoadKind } from './tiles';
 import { index, inBounds, isTileOwned, type World } from './world';
@@ -43,6 +44,13 @@ export function tileCost(world: World, x: number, y: number, kind: RoadKind): Ti
   const result: TileCost = { x, y, cost: 0, redundant: false, blocked: false, bridge: false };
 
   if (!inBounds(world, x, y) || !isTileOwned(world, x, y)) {
+    result.blocked = true;
+    return result;
+  }
+
+  // The national highway is the state's pavement: it cannot be drawn over,
+  // widened, or bought. The way onto it is a road that *touches* it.
+  if (isNationalHighway(world, x, y)) {
     result.blocked = true;
     return result;
   }
@@ -145,6 +153,8 @@ export function removeRoad(world: World, path: readonly TilePoint[]): BuildResul
 
   for (const point of path) {
     if (!inBounds(world, point.x, point.y)) continue;
+    // The state's motorway does not come down, whatever the eraser is holding.
+    if (isNationalHighway(world, point.x, point.y)) continue;
     const at = index(world, point.x, point.y);
     const previous = world.road[at] ?? NONE;
     if (previous === NONE) continue;

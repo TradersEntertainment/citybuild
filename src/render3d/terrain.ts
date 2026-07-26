@@ -215,6 +215,13 @@ function groundColour(
 
   out.copy(GROUND_COLOURS[kind]);
 
+  // Patchiness before anything else: one flat green makes a plain read as
+  // felt. Two frequencies of stable variation — broad meadows, then a fine
+  // grain — break it up without touching the palette's meaning.
+  const meadow = hashUnit(Math.floor(x / 4), Math.floor(y / 4), 5) - 0.5;
+  const grain = hashUnit(x, y, 11) - 0.5;
+  out.offsetHSL(0, meadow * 0.05, meadow * 0.055 + grain * 0.03);
+
   // Fertile ground greens up; dry ground goes straw.
   if (kind === 'plain' || kind === 'hill') {
     out.lerp(new THREE.Color('#87994F'), fertility * 0.4);
@@ -249,14 +256,87 @@ export function createWater(world: World): THREE.Mesh {
     transparent: true,
     opacity: 0.82,
   });
+
+  // Animated surface: a static plane reads as wet cardboard. The waves are a
+  // normal perturbation injected into the standard material, so fog, shadows
+  // and tone mapping all keep working; the time uniform is wound by the
+  // renderer every frame via the tick hook hung on the mesh.
+  const clock = { value: 0 };
+  material.onBeforeCompile = (shader) => {
+    shader.uniforms['waterTime'] = clock;
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nvarying vec3 vWaterWorld;')
+      .replace(
+        '#include <worldpos_vertex>',
+        '#include <worldpos_vertex>\nvWaterWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;',
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        '#include <common>',
+        `#include <common>
+uniform float waterTime;
+varying vec3 vWaterWorld;
+float waterHash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
+}
+float waterNoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(
+    mix(waterHash(i), waterHash(i + vec2(1.0, 0.0)), u.x),
+    mix(waterHash(i + vec2(0.0, 1.0)), waterHash(i + vec2(1.0, 1.0)), u.x),
+    u.y
+  );
+}
+float waterWave(vec2 p, float t) {
+  return sin(p.x * 1.7 + t) * 0.32
+       + sin(p.y * 2.3 - t * 1.25) * 0.28
+       + waterNoise(p * 1.4 + vec2(t * 0.45, -t * 0.3)) * 0.4;
+}`,
+      )
+      .replace(
+        '#include <normal_fragment_begin>',
+        `#include <normal_fragment_begin>
+{
+  float t = waterTime * 0.85;
+  vec2 wp = vWaterWorld.xz * 0.45;
+  float e = 0.4;
+  float hC = waterWave(wp, t);
+  float hX = waterWave(wp + vec2(e, 0.0), t);
+  float hZ = waterWave(wp + vec2(0.0, e), t);
+  vec3 waveWorld = normalize(vec3((hC - hX) * 0.55, 1.0, (hC - hZ) * 0.55));
+  normal = normalize((viewMatrix * vec4(waveWorld, 0.0)).xyz);
+}`,
+      )
+      .replace(
+        '#include <roughnessmap_fragment>',
+        `#include <roughnessmap_fragment>
+roughnessFactor = clamp(
+  roughnessFactor + (waterNoise(vWaterWorld.xz * 1.8 + waterTime * 0.4) - 0.5) * 0.1,
+  0.02,
+  1.0
+);`,
+      );
+  };
+
   const mesh = new THREE.Mesh(geometry, material);
   mesh.position.set(world.size / 2, SEA_Y, world.size / 2);
   mesh.receiveShadow = true;
   mesh.renderOrder = 1;
   mesh.name = 'water';
+  mesh.userData.tick = (seconds: number): void => {
+    clock.value = seconds;
+  };
   return mesh;
 }
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
+}
+
+/** Stable 0..1 hash per tile — the same recipe the building tints use. */
+function hashUnit(x: number, y: number, salt: number): number {
+  const h = Math.sin(x * 127.1 + y * 311.7 + salt * 74.7) * 43758.5453;
+  return h - Math.floor(h);
 }

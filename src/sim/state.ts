@@ -1,6 +1,7 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
 import type { Loan } from './credit';
+import { layNationalHighway } from './highway';
 import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
 import type { UtilityPlant } from './utilities';
@@ -69,6 +70,9 @@ export interface GameState {
 export function createGameState(seed: number, now: number, legacy = 0): GameState {
   const world = createWorld(seed);
   generateTerrain(world);
+  // The national road is laid with the terrain: deterministic in the seed, so
+  // a loaded city gets back exactly the motorway it was built beside.
+  layNationalHighway(world);
 
   return {
     seed,
@@ -111,6 +115,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
       debtService: 0,
       net: 0,
       farmYield: 0,
+      farmIncome: 0,
+      transitIncome: 0,
     },
     lastSeen: now,
   };

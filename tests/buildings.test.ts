@@ -12,8 +12,22 @@ import { hashSeed } from '../src/sim/rng';
 import { buildRoad, removeRoad } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
-import { index, startingCentre } from '../src/sim/world';
+import { NONE } from '../src/sim/tiles';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway and measure exact distances and
+ * values around hand-drawn roads; a motorway through the working area would
+ * move every one of them. The highway's own contract lives in highway.test.ts.
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+}
 
 let game: GameState;
 let fields: ReturnType<typeof createFields>;
@@ -42,6 +56,7 @@ function row(length: number, dy = 0): TilePoint[] {
 
 beforeEach(() => {
   game = createGameState(hashSeed('phase2'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 10, y: Math.floor(centre.y) };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 24);

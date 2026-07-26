@@ -21,6 +21,8 @@ export interface CityFacts {
   buildings: number;
   population: number;
   totals: BuildingTotals;
+  /** Junctions between the city's streets and the national highway. */
+  interchanges: number;
 }
 
 /** Unemployment above this is worth interrupting the player about. */
@@ -43,6 +45,10 @@ export function guidanceFor(facts: CityFacts): string | null {
   const workers = facts.population * LABOUR_PARTICIPATION;
   const unemployment = workers > 0 ? Math.max(0, (workers - jobs) / workers) : 0;
   if (unemployment > UNEMPLOYMENT_ALARM) return STR.empty.noJobs;
+
+  // Once the town works, the next untapped income is the road the country
+  // already built through it. One sentence, until it is done.
+  if (facts.interchanges === 0) return STR.highway.connectHint;
 
   // The city is working. Silence is the correct message.
   return null;

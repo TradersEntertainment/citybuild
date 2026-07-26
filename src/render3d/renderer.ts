@@ -174,7 +174,7 @@ export class Renderer {
     this.buildings.sync(frame.state, frame.now);
     this.traffic.update(
       deltaMs / 1000,
-      frame.state.population,
+      frame.state,
       this.camera.distance,
       frame.trafficLoad,
     );
@@ -182,6 +182,9 @@ export class Renderer {
 
     const targetY = sampleHeight(frame.state.world, this.camera.x, this.camera.y);
     updateSky(this.sky, this.camera.camera, this.camera.x, targetY, this.camera.y);
+    (this.water.userData['tick'] as ((seconds: number) => void) | undefined)?.(
+      performance.now() / 1000,
+    );
 
     this.renderer.render(this.scene, this.camera.camera);
     this.measure(deltaMs);

@@ -1,6 +1,11 @@
 # Kadastro
 
 Parmağınla haritaya yol çiziyorsun, şehir o yolların etrafında kendi kendine büyüyor.
+Haritayı baştan uca **ulusal otoyol** kesiyor: devletin yolu, sen çizmezsin,
+yıkamazsın, bakımını ödemezsin. Oyunun sorusu şu — şehrin o yoldan ne
+çıkaracak? Yolunu otoyola değdirirsen geçiş trafiği şehre para bırakır,
+kamyonlar sanayiden harita dışına mal taşır, kavşak çevresindeki dükkânlar
+yol üstü ticareti yapar.
 
 Vite + TypeScript + three.js. Sunucu yok, hesap yok, tek statik klasör.
 Tüm grafikler ve dokular kodla üretilir — projede sprite, model ya da doku
@@ -58,6 +63,29 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 4 | Çağlar, teknoloji, görevler, offline ilerleme | Tamam |
 | 5 | Cila, mahalle isimleri, performans, öğretici | Tamam |
 | 6 | Prestij, alternatif haritalar, prosedürel ses | Tamam |
+| 7 | Ulusal otoyol: tek devlet yolu, kavşak, geçiş geliri, amaçlı araç trafiği | Tamam |
+
+## Faz 7 notları — otoyol ve trafik
+
+- Otoyol rotası araziyle birlikte seed'den üretilir; kayda yazılmaz, yüklemede
+  araziyle yeniden kurulur. Oyuncunun yol sütununda durur ama ayrı bir maskeyle
+  işaretlidir: çizilemez, yıkılamaz, bakımı devlettendir, bina cephesi açamaz
+  (erişim kontrollü yol). Tek giriş yolu kavşaktır — otoyola değen oyuncu yolu.
+- **Kayıt sürümü 4.** Otoyol öncesi kayıtlar reddedilir; eski şehirle yeni
+  altyapıyı yarım yamalak birleştirmektense temiz başlangıç. Miras puanları
+  ayrı tutulduğu için prestij kaybolmaz.
+- Araçlar artık süs değil: her aracın kaynağı ve hedefi var. İşe gidişler ev↔iş
+  arasında A* ile gerçek en hızlı yoldan; kamyonlar sanayi→dükkân ya da
+  sanayi→otoyol→harita dışı (ihracat); transit araçlar otoyolu uçtan uca geçer,
+  yoğunlukları simülasyonun geçiş trafiği sayısıyla aynıdır.
+- Yeni defter satırları: **otoyol geçişi** (sahip olunan otoyol kesimi ×
+  kavşak yakalaması × geçiş trafiği) ve **tarım geliri** (ürün artık satılıyor;
+  önceden çiftlikler sadece istihdamdı).
+- Düzeltilen mantık açıkları: yol üstüne bina doğabiliyordu (imar boyanmış
+  yol karesi); otoyol trafiği akışı ve gürültüsü simülasyona işlendi (gürültü
+  yalnızca sahip olunan parsellerde hesaplanır — boş arazide çözücüyü
+  şişirmez); "yol çiz" görevi ve dönüş kontrolü artık yalnızca oyuncunun
+  yolunu sayar.
 
 ## Bilinen eksikler
 

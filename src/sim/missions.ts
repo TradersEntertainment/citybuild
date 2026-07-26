@@ -1,5 +1,6 @@
 import { MISSIONS, MISSIONS_SHOWN, type Mission, type MissionGoal } from '../data/missions';
 import { totalBuildings, type BuildingTotals } from './buildings';
+import { highwayInterchanges, transitFlow } from './highway';
 import type { GameState } from './state';
 import { eraReached, NONE } from './tiles';
 import { ownedParcelCount } from './world';
@@ -25,7 +26,7 @@ export interface MissionProgress {
 export function measureGoal(state: GameState, totals: BuildingTotals, goal: MissionGoal): number {
   switch (goal.measure) {
     case 'roadTiles':
-      return countColumn(state.world.road);
+      return playerRoadTiles(state);
     case 'buildings':
       return state.buildings.size;
     case 'population':
@@ -46,6 +47,10 @@ export function measureGoal(state: GameState, totals: BuildingTotals, goal: Miss
       return ownedParcelCount(state.world);
     case 'farmTiles':
       return state.farmTiles;
+    case 'interchanges':
+      return highwayInterchanges(state.world);
+    case 'transitFlow':
+      return transitFlow(state);
     case 'atLevel':
       return countAtLeastLevel(state, goal.level);
   }
@@ -104,10 +109,16 @@ export function missionsTotal(): number {
   return MISSIONS.length;
 }
 
-function countColumn(column: Uint8Array): number {
+/**
+ * Roads the player actually drew. The national highway would otherwise count
+ * toward "lay 24 tiles of road" from the first second of the game, which is
+ * exactly the sort of unearned progress a goal exists to avoid.
+ */
+function playerRoadTiles(state: GameState): number {
+  const { road, highway } = state.world;
   let count = 0;
-  for (let i = 0; i < column.length; i++) {
-    if (column[i] !== NONE) count++;
+  for (let i = 0; i < road.length; i++) {
+    if ((road[i] ?? NONE) !== NONE && (highway[i] ?? 0) === 0) count++;
   }
   return count;
 }

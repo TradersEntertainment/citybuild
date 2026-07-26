@@ -51,11 +51,21 @@ beforeEach(() => {
 });
 
 describe('where the traffic goes', () => {
-  it('is nothing at all on an empty map', () => {
+  it('is only the motorway’s through-traffic on an empty map', () => {
     const fields = createFields(game.world.size);
     const traffic = createTrafficField(game.world.size);
     computeTraffic(game, fields, traffic);
-    expect(Math.max(...traffic.flow)).toBe(0);
+    // No city, no city traffic: away from the national highway there is
+    // nothing at all. The motorway itself is never empty — it is the country's
+    // road, and lorries run it long before anyone founds a street here.
+    let offHighway = 0;
+    let onHighway = 0;
+    for (let i = 0; i < traffic.flow.length; i++) {
+      if ((game.world.highway[i] ?? 0) === 1) onHighway = Math.max(onHighway, traffic.flow[i] ?? 0);
+      else offHighway = Math.max(offHighway, traffic.flow[i] ?? 0);
+    }
+    expect(offHighway).toBe(0);
+    expect(onHighway).toBeGreaterThan(0);
   });
 
   it('appears on the road the buildings front onto, and nowhere else', () => {

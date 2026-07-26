@@ -57,6 +57,11 @@ export function computeRoadDistance(world: World, out: Uint8Array): void {
 
   for (let i = 0; i < world.road.length; i++) {
     if ((world.road[i] ?? NONE) === NONE) continue;
+    // The national highway is access-controlled: standing beside it does not
+    // get a building anywhere. Road access starts at the city's own streets;
+    // the motorway only counts once a real street meets it — and then it is
+    // the street, not the motorway, the building fronts onto.
+    if ((world.highway[i] ?? 0) === 1) continue;
     out[i] = 0;
     queue[tail++] = i;
   }

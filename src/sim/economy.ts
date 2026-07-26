@@ -2,12 +2,14 @@ import {
   COMMERCIAL_TAX,
   COMMERCIAL_TURNOVER,
   FARM_YIELD,
+  FOOD_PRICE,
   INDUSTRIAL_OUTPUT,
   INDUSTRIAL_TAX,
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
+import { highwayTradeFactor, transitIncome } from './highway';
 import { serviceUpkeep } from './services';
 import { techFactor } from './tech';
 import { utilityUpkeep } from './utilities';
@@ -34,6 +36,10 @@ export interface Ledger {
   net: number;
   /** Food produced per minute; consumption arrives with the food system. */
   farmYield: number;
+  /** What the harvest sells for — farms were jobs without a living before. */
+  farmIncome: number;
+  /** Through-traffic spending on the owned stretch of the national highway. */
+  transitIncome: number;
 }
 
 /**
@@ -51,10 +57,14 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
       // what makes a well-planned district worth more than a bigger one.
       taxIncome += building.population * state.taxRate * (0.5 + landValue / 100);
     } else if (building.zone === 'com') {
-      building.output = building.jobs * COMMERCIAL_TURNOVER;
+      // The corridor multiplier: an interchange nearby means through-traffic
+      // buys here too, on top of the city's own custom.
+      const corridor = highwayTradeFactor(state, building.x, building.y);
+      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor;
       taxIncome += building.output * COMMERCIAL_TAX;
     } else {
-      building.output = building.jobs * INDUSTRIAL_OUTPUT;
+      const corridor = highwayTradeFactor(state, building.x, building.y);
+      building.output = building.jobs * INDUSTRIAL_OUTPUT * corridor;
       taxIncome += building.output * INDUSTRIAL_TAX;
     }
   }
@@ -67,14 +77,19 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
   const stations = serviceUpkeep(state) * admin;
   const plants = utilityUpkeep(state) * admin;
   const debt = debtService(state);
+  const farmYield = farmTiles(state) * FARM_YIELD * techFactor(state, 'agronomy');
+  const farmIncome = farmYield * FOOD_PRICE;
+  const transit = transitIncome(state);
   return {
     taxIncome,
     roadUpkeep: roads,
     serviceUpkeep: stations,
     utilityUpkeep: plants,
     debtService: debt,
-    net: taxIncome - roads - stations - plants - debt,
-    farmYield: farmTiles(state) * FARM_YIELD * techFactor(state, 'agronomy'),
+    net: taxIncome + farmIncome + transit - roads - stations - plants - debt,
+    farmYield,
+    farmIncome,
+    transitIncome: transit,
   };
 }
 
@@ -82,6 +97,8 @@ export function roadUpkeep(state: GameState): number {
   let upkeep = 0;
   for (let i = 0; i < state.world.road.length; i++) {
     const kind = decodeRoad(state.world.road[i] ?? NONE);
+    // The state maintains its own motorway; a mayor never gets its bill.
+    if ((state.world.highway[i] ?? 0) === 1) continue;
     if (kind) upkeep += ROAD_SPECS[kind].upkeep;
   }
   return upkeep;

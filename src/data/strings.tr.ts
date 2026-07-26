@@ -22,9 +22,18 @@ export const STR = {
       { verb: 'Sürükle', text: '— haritaya bir yol çizilir.' },
       { verb: 'Bölge boya', text: '— alttan konut seç, yolun kenarına sür.' },
       { verb: 'Bekle', text: '— evler kendiliğinden yükselir, insanlar taşınır.' },
+      { verb: 'Otoyol', text: '— ulusal otoyol arazinden geçiyor; ona bağlan, geçiş trafiği para getirir.' },
     ],
     camera: 'İki parmak: gez ve yaklaştır. Parmakları döndür: kamerayı çevir.',
     start: 'Şehri kur',
+  },
+
+  /** The national highway: the one road the player does not draw. */
+  highway: {
+    intro: 'Ulusal otoyol arazinin içinden geçiyor. Yolunu ona değdir — geçiş trafiği şehre para bırakır.',
+    connectHint: 'Otoyola bağlan: bir yolu ulusal otoyola değene kadar çiz.',
+    connected: 'Otoyol bağlantısı kuruldu. Geçiş trafiği şehre akıyor.',
+    blocked: 'Otoyol devletin yolu — üzerine çizilmez, yıkılmaz. Kenarından bağlan.',
   },
 
   coach: {
@@ -246,6 +255,12 @@ export const STR = {
       utilities: (n: number): string => `${plain.format(n)} su/elektrik tesisi kur`,
       parcels: (n: number): string => `${plain.format(n)} parsele sahip ol`,
       farmTiles: (n: number): string => `${plain.format(n)} kare tarım boya`,
+      interchanges: (n: number): string => {
+        void n;
+        return 'Yolunu ulusal otoyola bağla';
+      },
+      transitFlow: (n: number): string =>
+        `Otoyoldan dakikada ${plain.format(n)} araç geçsin`,
       atLevel: (level: number, n: number): string =>
         `${plain.format(n)} bina ${level}. seviyeye çıksın`,
     },
@@ -308,6 +323,8 @@ export const STR = {
     net: 'Net',
     demandTitle: 'Talep',
     farmYield: 'Tarım ürünü',
+    farmIncome: 'Tarım geliri',
+    transit: 'Otoyol geçişi',
   },
 
   view: {

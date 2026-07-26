@@ -9,6 +9,7 @@ import {
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import type { Fields } from './fields';
+import { transitFlow } from './highway';
 import type { GameState } from './state';
 import { techFactor } from './tech';
 import { decodeRoad, NONE } from './tiles';
@@ -71,6 +72,18 @@ export function computeTraffic(state: GameState, fields: Fields, traffic: Traffi
   }
 
   spreadAlongRoads(world, flow, scratch);
+
+  // The national highway carries the country's through-traffic, not the
+  // city's: it is injected along the route after the spread, so a district's
+  // trips can pile onto the motorway at an interchange while the transit
+  // stream itself stays on the motorway rather than leaking into side streets.
+  const transitFlowVolume = transitFlow(state);
+  if (transitFlowVolume > 0) {
+    for (const point of world.highwayRoute) {
+      const i = index(world, point.x, point.y);
+      flow[i] = (flow[i] ?? 0) + transitFlowVolume;
+    }
+  }
 
   // Load is what the player can act on: a tier with more lanes carries more,
   // and transit research is the other way to widen a street the player has
@@ -149,6 +162,10 @@ function nearestRoad(world: World, fields: Fields, x: number, y: number): number
       const nx = x + dx;
       const ny = y + dy;
       if (!isRoad(world, nx, ny)) continue;
+      // Trips start on the city's own streets. The motorway is
+      // access-controlled: nobody's front door opens onto it, so nothing
+      // injects onto it directly — its traffic arrives through interchanges.
+      if ((world.highway[index(world, nx, ny)] ?? 0) === 1) continue;
       const distance = Math.max(Math.abs(dx), Math.abs(dy));
       if (distance >= bestDistance) continue;
       bestDistance = distance;

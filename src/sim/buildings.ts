@@ -183,6 +183,9 @@ export function evaluateBuildings(
       }
 
       if (!isBuiltZone(zone)) continue;
+      // Permission on top of pavement is not a plot: zoning a road was always
+      // possible and used to drop a building squarely onto the carriageway.
+      if ((world.road[i] ?? NONE) !== NONE) continue;
       const score = suitability(state, fields, x, y, zone);
       if (score > BUILDING_SPAWN_THRESHOLD) spawn(state, x, y, zone, score);
     }

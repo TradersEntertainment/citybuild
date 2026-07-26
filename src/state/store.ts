@@ -61,6 +61,10 @@ export interface LedgerView {
   /** Loan instalments per minute. */
   debtService: number;
   farmYield: number;
+  /** What the harvest brings in. */
+  farmIncome: number;
+  /** Through-traffic spending from the national highway. */
+  transitIncome: number;
 }
 
 /** Supply against demand for each grid, so a shortfall is visible before it bites. */
@@ -130,6 +134,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     utilityUpkeep: 0,
     debtService: 0,
     farmYield: 0,
+    farmIncome: 0,
+    transitIncome: 0,
   },
   totals: { housing: 0, residents: 0, commercialJobs: 0, industrialJobs: 0, farmJobs: 0 },
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
@@ -165,6 +171,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       current.ledger.roadUpkeep === snapshot.ledger.roadUpkeep &&
       current.ledger.serviceUpkeep === snapshot.ledger.serviceUpkeep &&
       current.ledger.farmYield === snapshot.ledger.farmYield &&
+      current.ledger.farmIncome === snapshot.ledger.farmIncome &&
+      current.ledger.transitIncome === snapshot.ledger.transitIncome &&
       current.totals.housing === snapshot.totals.housing &&
       current.totals.commercialJobs === snapshot.totals.commercialJobs &&
       current.totals.industrialJobs === snapshot.totals.industrialJobs &&

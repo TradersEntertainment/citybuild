@@ -187,6 +187,33 @@ export const POLLUTION_ALARM = 45;
 /** Noise above this does the same. */
 export const NOISE_ALARM = 55;
 
+// --- National highway (ulusal otoyol) -----------------------------------------
+/**
+ * Through-traffic the motorway carries with no city at all, vehicles per
+ * minute. A national road is never empty; the floor is what puts the first
+ * few lorries on it while the map is still wilderness.
+ */
+export const TRANSIT_BASE_FLOW = 26;
+/** Extra vehicles per minute per √population — a city is a destination. */
+export const TRANSIT_POPULATION_PULL = 1.4;
+/** Each interchange (max 4 counted) pulls this share more traffic past the city. */
+export const TRANSIT_INTERCHANGE_PULL = 0.12;
+/** Hard ceiling on through-traffic; keeps the highway's load figure honest. */
+export const TRANSIT_FLOW_MAX = 320;
+/**
+ * ₺ per through-vehicle per minute, scaled by how much of the route crosses
+ * owned land and how well the city is junctioned onto it. Sized so the first
+ * interchange is worth a district's early tax take, not a fortune.
+ */
+export const TRANSIT_TOLL = 5.5;
+/**
+ * Output multiplier for shops and workshops within reach of an interchange:
+ * through-traffic buys fuel, food and freight capacity as well as locals do.
+ */
+export const TRANSIT_TRADE_BONUS = 1.25;
+/** How close to an interchange a workplace must be to feel the corridor. */
+export const TRANSIT_TRADE_RADIUS = 6;
+
 // --- Consumption (§20) -------------------------------------------------------
 export const WATER_PER_CAPITA = 0.35; // m³/min — KİŞİ_BAŞI_SU
 export const POWER_PER_CAPITA = 0.012; // MW — KİŞİ_BAŞI_ELEKTRİK
@@ -235,6 +262,12 @@ export const COMMERCIAL_TURNOVER = 26;
 export const INDUSTRIAL_OUTPUT = 18;
 /** Food per farm tile per minute. */
 export const FARM_YIELD = 4;
+/**
+ * ₺ per unit of food, per minute. Food was always produced and never sold —
+ * the farm belt employed people and fed a ledger line that did not exist,
+ * which read as farms being free points. Now the harvest is income.
+ */
+export const FOOD_PRICE = 0.5;
 /**
  * Work per farm tile. Farmland is the founding era's employer (§12.1 opens
  * with path, housing and farm), so without it the first village has nowhere
@@ -362,7 +395,13 @@ export const legacyPoints = (peakPopulation: number): number =>
 
 // --- Save (§16) --------------------------------------------------------------
 export const AUTOSAVE_INTERVAL_S = 20;
-export const SAVE_VERSION = 3;
+/**
+ * v4: the national highway exists and the road column may contain state-owned
+ * tiles the old rules never met. Rather than half-merge an old city with a
+ * motorway it was built without, old saves are declined — legacy points are
+ * held separately and carry over either way.
+ */
+export const SAVE_VERSION = 4;
 
 // --- Camera & input (§3, §14.5) ----------------------------------------------
 export const ZOOM_MIN = 0.35;

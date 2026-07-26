@@ -3,6 +3,7 @@ import { SERVICE_SPECS } from '../data/services';
 import { UTILITY_SPECS } from '../data/utilities';
 import type { TilePoint } from '../input/pathGeometry';
 import type { Building } from './buildings';
+import { isNationalHighway } from './highway';
 import type { ServiceBuilding } from './services';
 import type { GameState } from './state';
 import { NONE } from './tiles';
@@ -87,7 +88,9 @@ export function demolishArea(state: GameState, tiles: readonly TilePoint[]): Dem
     cleared.add(at);
 
     const road = world.road[at] ?? NONE;
-    if (road !== NONE) {
+    // The national highway is the state's, and the state does not take it down
+    // because a mayor swept an eraser across it.
+    if (road !== NONE && !isNationalHighway(world, tile.x, tile.y)) {
       changes.push({ x: tile.x, y: tile.y, layer: 'road', previous: road });
       world.road[at] = NONE;
     }

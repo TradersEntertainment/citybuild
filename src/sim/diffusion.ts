@@ -13,7 +13,7 @@ import type { GameState } from './state';
 import { techFactor } from './tech';
 import { plantPollution } from './utilities';
 import { decodeRoad, decodeTerrain, decodeZone, NONE } from './tiles';
-import { index, type World } from './world';
+import { index, isTileOwned, type World } from './world';
 
 /**
  * Pollution and noise (§10).
@@ -134,7 +134,14 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
       if (road) {
         const spec = ROAD_SPECS[road];
         // A tunnel is quiet at the surface whatever runs through it.
-        if (!spec.underground && spec.noise > 0) {
+        //
+        // The national highway is the exception worth the check: it crosses
+        // the whole map, and counting every tile of it would stretch the
+        // solver window edge to edge — ten idle milliseconds a pass — to
+        // compute noise on wilderness nobody lives in. Where the player owns
+        // no land, its roar is a rumour; where they do, it is very real.
+        const national = (world.highway[i] ?? 0) === 1;
+        if (!spec.underground && spec.noise > 0 && (!national || isTileOwned(world, x, y))) {
           noiseSource[i] = (noiseSource[i] ?? 0) + spec.noise;
           note(x, y);
         }

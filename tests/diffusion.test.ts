@@ -7,9 +7,23 @@ import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
-import { ISSUE } from '../src/sim/tiles';
-import { index, startingCentre } from '../src/sim/world';
+import { ISSUE, NONE } from '../src/sim/tiles';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
+
+/**
+ * Noise is measured exactly in these fixtures, and the national highway now
+ * roars through the starting parcel of every world. That behaviour is pinned
+ * in highway.test.ts; here the motorway is stripped so a hand-drawn street is
+ * the only emitter.
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+}
 
 /**
  * Pollution and noise exist to make *where* things go a decision. These check
@@ -57,6 +71,7 @@ function pollutionAt(x: number, y: number): number {
 
 beforeEach(() => {
   game = createGameState(hashSeed('diffusion'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 10, y: Math.floor(centre.y) };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 24);
