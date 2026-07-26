@@ -105,7 +105,7 @@ function settle(s: Scene, shopJobs: number): void {
   computeConnectivity(s.game.world);
   computeRoadDistance(s.game.world, s.fields.roadDistance);
   computeTraffic(s.game, s.fields, s.traffic);
-  computeVisitors(s.game, s.fields, s.visitors, s.traffic.load, shopJobs);
+  computeVisitors(s.game, s.visitors, s.traffic.load, shopJobs);
 }
 
 describe('how many come off the motorway', () => {
@@ -291,7 +291,7 @@ describe('the corridor a player can afford', () => {
     computeConnectivity(game.world);
     computeRoadDistance(game.world, fields.roadDistance);
     computeTraffic(game, fields, traffic);
-    computeVisitors(game, fields, visitors, traffic.load, 300);
+    computeVisitors(game, visitors, traffic.load, 300);
 
     expect(visitorsArriving(visitors, game.world)).toBeGreaterThan(0);
   });

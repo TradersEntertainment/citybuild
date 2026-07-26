@@ -242,6 +242,6 @@ export class Systems {
     for (const building of state.buildings.values()) {
       if (building.zone === 'com') shopJobs += building.jobs;
     }
-    computeVisitors(state, this.fields, this.visitors, this.traffic.load, shopJobs);
+    computeVisitors(state, this.visitors, this.traffic.load, shopJobs);
   }
 }

@@ -1,5 +1,4 @@
 import {
-  ROAD_ACCESS_MAX_WALK,
   VISITOR_CONGESTION_BITE,
   VISITOR_DECAY_PER_TILE,
   VISITOR_PER_SHOP_JOB,
@@ -47,12 +46,10 @@ import { index, type World } from './world';
 export interface VisitorField {
   /** Visitors per minute passing each tile. */
   flow: Float32Array;
-  scratch: Float32Array;
 }
 
 export function createVisitorField(size: number): VisitorField {
-  const cells = size * size;
-  return { flow: new Float32Array(cells), scratch: new Float32Array(cells) };
+  return { flow: new Float32Array(size * size) };
 }
 
 /**
@@ -83,7 +80,6 @@ export function visitorsWanting(state: GameState, shopJobs: number): number {
  */
 export function computeVisitors(
   state: GameState,
-  fields: Fields,
   visitors: VisitorField,
   load: Float32Array,
   shopJobs: number,
@@ -167,8 +163,6 @@ export function computeVisitors(
     }
     frontier = next;
   }
-
-  void fields;
 }
 
 /**
@@ -210,14 +204,5 @@ export function visitorsArriving(visitors: VisitorField, world: World): number {
   return total;
 }
 
-/** Whether a tile is on a street visitors still reach, for the renderer. */
-export function visitorFlowAt(visitors: VisitorField, world: World, x: number, y: number): number {
-  if (x < 0 || y < 0 || x >= world.size || y >= world.size) return 0;
-  return visitors.flow[index(world, x, y)] ?? 0;
-}
-
 const DX = [1, -1, 0, 0] as const;
 const DY = [0, 0, 1, -1] as const;
-
-/** Re-exported so callers do not have to know which module owns the walk. */
-export const VISITOR_WALK = ROAD_ACCESS_MAX_WALK;

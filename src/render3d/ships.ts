@@ -25,7 +25,7 @@ export interface ShipLayer {
   readonly group: THREE.Group;
   /** The berths changed: re-find the lanes. */
   rebuild(state: GameState): void;
-  update(deltaSeconds: number, state: GameState, cameraDistance: number): void;
+  update(deltaSeconds: number, cameraDistance: number): void;
   dispose(): void;
 }
 
@@ -122,7 +122,7 @@ export function createShips(): ShipLayer {
     }
   };
 
-  const update = (deltaSeconds: number, state: GameState, cameraDistance: number): void => {
+  const update = (deltaSeconds: number, cameraDistance: number): void => {
     clock += deltaSeconds;
     if (cameraDistance > LOD_TRAFFIC_DISTANCE || ships.length === 0) {
       hulls.count = 0;
@@ -183,7 +183,6 @@ export function createShips(): ShipLayer {
       sails.instanceMatrix.needsUpdate = true;
       if (sails.instanceColor) sails.instanceColor.needsUpdate = true;
     }
-    void state;
   };
 
   return {

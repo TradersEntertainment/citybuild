@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { dayFraction, daylightAmount } from '../sim/daytime';
 import type { GameState } from '../sim/state';
-import { inBounds, index, startingCentre } from '../sim/world';
+import { inBounds, startingCentre } from '../sim/world';
 import { isWater } from '../sim/worldgen';
 import { LOD_TRAFFIC_DISTANCE, SEA_Y, TILE, WORLD_SIZE } from './constants';
 import { sampleHeight } from './terrain';
@@ -134,7 +134,6 @@ export function createWildlife(): WildlifeLayer {
         heading: n * 0.7,
       });
     }
-    void index;
   };
 
   const update = (deltaSeconds: number, state: GameState, cameraDistance: number): void => {

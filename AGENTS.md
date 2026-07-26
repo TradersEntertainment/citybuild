@@ -8,7 +8,7 @@ devam edebilmesi için yazıldı. Üç bölüm: (1) şu ana kadar yapılanlar,
 - **Canlı:** citybuild-ten.vercel.app — `main`'e push = Vercel otomatik deploy
 - **Stack:** Vite + TypeScript (strict, `exactOptionalPropertyTypes`) + three.js + zustand + vitest
 - **Doğrulama:** `npx tsc --noEmit` → `npx vitest run` → `npm run build`
-- **Test durumu (40b22ef0 itibarıyla):** 33 dosya / 423 test, yeşil
+- **Test durumu (`b65466f` itibarıyla):** 49 dosya / 625 test, yeşil
 
 ---
 
@@ -66,6 +66,51 @@ offline ilerleme, kaydetme sistemi, koç (öğretici) ve giriş ekranı.
   kart kaydırılabilir + Esc ile geçiş.
 - **Debug handle:** `window.__kadastro = { game, camera, walk, enterWalk, exitWalk }`.
 
+### "Yaşayan Şehir" paketleri — **tamamlandı**
+Aşağıdaki §3'te plan olarak duran maddelerin hepsi yapıldı. Kısaca:
+- **Paket 1:** yayalar (`render3d/pedestrians.ts`), gün döngüsü (`sim/daytime.ts`),
+  gece ışıkları + sokak lambaları (`render3d/streetlights.ts`), ortam sesi
+  (`audio/ambient.ts`). **Sapma:** gün = `SECONDS_PER_DAY = 40`, yani bir yıl
+  bir gün — plan 120 diyordu, o üç yılı tek gündoğumuna sıkıştırırdı.
+- **Paket 2:** araç evrimi (`data/vehicles.ts`), hava durumu (`sim/weather.ts`
+  + `render3d/weatherFx.ts`).
+- **Paket 3:** dilekçeler (`sim/petitions.ts`), mevsimler (`sim/seasons.ts` +
+  `render3d/seasonLook.ts`), şantiye (`render3d/construction.ts`), doğa
+  (`render3d/wildlife.ts`), takvim ritüelleri (`data/rituals.ts` +
+  `sim/rituals.ts`). **Sapma:** ağaç salınımı yapılmadı — on binlerce
+  instance'ın matrisini her kare yazmak, en pahalı ve en görünmez iş.
+
+### Paketlerden sonra eklenenler
+- **Müzik** (`audio/music.ts`): prosedürel, dosyasız. Beşli dizi, çağa göre
+  mod, ~2 dk çalar ~2,5 dk susar. Sessizlik kasıtlı ve ayarın en önemlisi.
+- **Kamera:** WASD/oklar + Q E R F (`input/keyboardCamera.ts`), orta tuş
+  sürükler / sağ tuş çevirir (`bindMouseCamera`), ✋ kilidi tek parmakla
+  kaydırır (`panLocked` in `main.ts`).
+- **Savaş yolu bozuyor** (`sim/highwayWear.ts`): otoyol 24 karelik kesimlere
+  bölündü; savaşta sahip olunan araziden geçen kesimler aşınır, %55'te devlet
+  fatura keser, %100'de barikat. Barikatlı kesim bağlantı tohumu vermez ve
+  kavşak saymaz — ceza mevcut kuraldan geliyor. Aşınma **kayıtta** (opsiyonel
+  alan; eski kayıtlar sağlam yol olarak açılır).
+- **Köprüler** (`render3d/roadDeck.ts` + `bridgeGeometry.ts`): yol karoları
+  arazi yüksekliğini okuyordu, yani suyu geçen her yol **deniz tabanında**
+  çiziliyordu. Güverte + kıyı rampası + plaka/korkuluk/ayak. Asfalta binen
+  her katman artık `sampleRoadHeight` okuyor.
+- **Denize yatırım** (`data/ports.ts` + `sim/ports.ts`): balıkçı barınağı,
+  liman, tersane, marina. Kıyıya kurulur, önünde açık su şart. Liman
+  `world.seaGate` yazar ve connectivity oradan da tohumlar — otoyol kapansa
+  bile şehir bağlı kalır. Gemiler: `render3d/ships.ts`.
+- **Otobandan şehre giriş** (`sim/visitors.ts`): geçen trafiğin bir kısmı
+  kavşaktan sapıp sokaklara yayılıyor, her karede seyreliyor, kuyrukta daha
+  hızlı seyreliyor; dükkânlar ona satıyor. Eski sabit `highwayTradeFactor`
+  bonusu yerini buna bıraktı (fallback olarak duruyor: alan verilmeyen
+  çağrılar için). Renderer'da araçlar gerçekten sapıp park ediyor.
+
+### Sırada duran, yapılmayan tek şey
+**Tek yönlü yollar.** Oyuncunun fikri ("tek taraflı yaparsak sıkışsınlar").
+Yol katmanına yeni öznitelik + dock aracı + pathfinder değişikliği demek;
+başlanmadı. İstenen tıkanma etkisinin bir kısmı ziyaretçi alanından
+geliyor (dar/dolu sokak ziyaretçiyi geri çeviriyor).
+
 ---
 
 ## 2. Mimari kurallar ve tuzaklar (bozma)
@@ -82,8 +127,15 @@ tests/         vitest — sim tarafındaki her özellik için test ZORUNLU
    `createRng(state.seed ^ Math.imul(stepNo, 0x9e3779b1))`.
 2. **Render read-only.** Gerçek sim'de yaşar; renderer her frame okuyup çizer.
 3. Sayılar `balance.ts`'e, metinler `strings.tr.ts`'e.
-4. **Kaydetme şeması değişmez** (`state/persistence.ts`); yan veri transient
-   ya da localStorage (`state/history.ts` kalıbı).
+4. **Kaydetme şeması bozulmaz — ama toplanabilir.** `SAVE_VERSION` bump
+   ETMEDEN alan eklemenin kalıbı var ve dört kez kullanıldı (`loans`,
+   `services`, `utilities`, sonra `highwayWear` ve `ports`): alanı
+   `SaveData`'ya ekle, `serialize`'da yaz, `deserialize`'da **savunmalı** oku
+   (`Array.isArray(data.x) ? data.x : []`) ve yorumda "alanı olmayan dosya
+   şu demek" yaz. Türetilmiş veri hiç kaydedilmez (`connected`,
+   `highwayBlocked`, `highwayDamage`, `seaGate`); yükledikten sonra yeniden
+   hesaplanır. Kalıcı olması gereken yan veri localStorage'a
+   (`state/history.ts`).
 5. **KOORDİNAT: her şey tile-space (0..256). `WORLD_HALF` çıkarma YASAK** —
    trafik bug'ının kökü buydu. Yeni katmanı mevcut birinden kopyala
    (örn. `render3d/hazards.ts`).
@@ -104,6 +156,32 @@ tests/         vitest — sim tarafındaki her özellik için test ZORUNLU
 12. **Gezme modu:** `renderer.externalCameraControl = true` olmadan rig
     kamerayı geri alır; çıkarken `CAMERA_NEAR` geri yüklenir (yürürken 0.04).
 13. Dengeler iki tur yumuşatıldı (`FIRE_*`, `EPIDEMIC_*`) — sertleştirme.
+14. **`computeConnectivity` her şeyden önce.** Yol ekledikten sonra
+    `computeRoadDistance` o yolu göremez, çünkü mesafe sadece *bağlı*
+    sokaklardan ölçülüyor. Sıra: `refreshSeaGates` → `computeConnectivity` →
+    `computeRoadDistance` → `computeTraffic` → `computeVisitors` →
+    `computeLandValue` → kapsama. (`Systems.step` bu sırayı tutuyor; testte
+    elle kurarken aynısını yap.) Bu tuzağa iki kez düştüm.
+15. **`paintZone(world, tiles, kind, budget)`** — `state` değil `world` alıyor
+    ve fırça boyutu almıyor; kareleri sen üret. Ayrıca ekonomi `world.zone`
+    sütununu sayıyor, `state.farmTiles`'ı ayrı: elle boyarsan ikisini birlikte
+    güncelle yoksa çiftlik geliri sıfır kalır.
+16. **Yeni şehir `playedMs = 0`, yani 1 Ocak — ve 1 Ocak bir bayram**
+    (`sim/rituals.ts`, mutluluk bonusu var). Saati hiç ilerletmeyen test
+    fixture'ları o pencerede sonsuza kadar oturur ve dosyadaki her mutluluk
+    iddiasını sessizce yukarı çeker. `tests/hazards.test.ts`'teki
+    `ORDINARY_DAY_MS` kalıbını kullan.
+17. **Asfalta binen katman `sampleRoadHeight` okur, `sampleHeight` değil**
+    (`render3d/roadDeck.ts`). Toprağa oturan (bina, ağaç, istasyon) araziyi
+    okur. Karıştırırsan araç köprünün altından geçer.
+18. **Bir binaya sokak trafiği için para veren her şey `nearestRoad`
+    kullanmalı** (artık `sim/traffic.ts`'ten export). İki farklı "hangi
+    sokağın önündeyim" cevabı, dükkânı üstünde olmadığı sokak için ödemek
+    demek.
+19. **Aynı kutuyu üçüncü kez yazma:** `render3d/boxMesh.ts` var
+    (`pushBox` / `pushColouredBox` / `pushTriangle` / `toMeshGeometry`).
+    Ters sarılmış yüz dışarıdan görünmez içeriden siyahtır — arketip
+    çatılarında bir kez yaşandı.
 
 ### Doğrulama reçetesi (puppeteer)
 `evaluateOnNewDocument` ile `localStorage`'a `kadastro.introSeen=1`,
@@ -114,46 +192,40 @@ yavaşlıktır (yanılgıya düşme).
 
 ---
 
-## 3. Kalan plan — "Yaşayan Şehir"
+## 3. Kalan plan
 
-Detaylı spec: depodaki plan çıktısının kaynağıyla aynıdır; aşağıdaki özet
-yeterlidir. Her madde bağımsız uygulanabilir; önerilen sıra baştan sona.
+"Yaşayan Şehir" paketlerinin **hepsi yapıldı** (§1'deki listeye bak). Bu bölüm
+artık bundan sonrası için.
 
-### Paket 1 — Yaşayan Sokaklar (önce bu)
-1. **Yayalar** (`render3d/pedestrians.ts`, sim'e dokunma): trafik katmanının
-   iskeletini kopyala; 2-kutu insan figürü instanced mesh; ev↔iş bacakları;
-   kaldırım = yola komşu bina-olmayan karo; sayı `min(180, pop/30)`;
-   LOD mesafesi üstünde çizme.
-2. **Gün döngüsü** (`sim/daytime.ts` + test): `dayFraction(playedMs)`
-   (gün = 120 sn), gece/gündüz/rush-hour; `sky.ts` güneşi döndürür, gece
-   shader'ı (koyu gradyan + yıldız), `FrameInput`'a `dayFrac`.
-3. **Gece ışıkları**: bina cephe glow instanced mesh (`nightAmount` uniform'u
-   paylaşımlı modülde); `render3d/streetlights.ts` (çağa göre lamba rengi:
-   <1950 gaz lambası, ≥1950 ampul, ≥2035 LED); araba farları ikinci instanced mesh.
-4. **Ortam sesler** (`audio/ambient.ts`): prosedürel (asset yok) şehir
-   uğultusu/kuş/dalga/cırcır; `setScene(pop, isNight, zoom)` 1 sn throttle;
-   `sfx.enabled`'a saygı.
+### Sırada duran, başlanmamış
+1. **Tek yönlü yollar** (oyuncunun fikri). `world.road` için yön öznitelği
+   (2 bit yeter: yön yok / →↑ / ←↓), dock'ta bir anahtar, `findPath` ve
+   `buildGraph`'ta yön kontrolü, `computeTraffic`'te tek yönlü karonun
+   kapasitesi. Kazancı: ziyaretçi akışını bilerek daraltıp tıkamak.
+2. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip
+   genişletebilse "faturayı öde" mekaniğinin olumlu kardeşi olurdu.
+3. **Turizm/otel.** Ziyaretçi alanı var ama ziyaretçi *kalmıyor*. Marina ve
+   ziyaretçi akışının kesiştiği yerde otel = gecelik gelir.
 
-### Paket 2 — Çağın Ruhu
-5. **Araç evrimi** (`render3d/traffic.ts`): <1920 at arabası/kağnı (hız ×0.5),
-   1920–60 erken otomobil (×0.7), 1960+ mevcut, 2050+ uçan (var).
-6. **Hava durumu** (`sim/weather.ts` + test, seeded zar; `render3d/weatherFx.ts`):
-   yağmur (yangın ×0.4 yayılma, çiftlik ×1.2), fırtına (+itfaiye ×0.7),
-   sıcak (tutuşma ×1.6), sis (görsel). Bildirim `eventFeed.pushCustom`.
-
-### Paket 3 — Derinlik
-7. **Vatandaşın sesi** (`sim/petitions.ts`): `diagnose()` issue'larını say,
-   %22 üstü dilekçe olayı → feed + günlük; karşılanınca mutluluk +3.
-8. **Mevsimler** (`sim/seasons.ts` + test): 10 sn/mevsim; ağaç/arazi tint
-   uniform'u; kış kar overlay'i; çiftlik kışın ×0.7.
-9. **İnşaat animasyonları**: `growthProgress<0.6` iskele, <1 yarım bina;
-   level≥3'te 20 sn vinç.
-10. **Doğa**: kuş sürüleri (gündüz), balık sıçraması, ağaç salınımı.
-11. **Takvim ritüelleri** (`data/timeline.ts`'e `recurring`): 23 Nisan /
-    29 Ekim bayrakları, yılbaşı havai fişek, bayramlar (mutluluk bonusu);
-    hepsi günlüğe düşer.
+### Denenmiş ve bilinçli olarak yapılmayanlar (tekrar açmadan önce oku)
+- **Ağaç salınımı:** on binlerce instance'ın matrisini her kare yazmak demek.
+  Harita yüksekliğinden görünmüyor.
+- **Daha yoğun karo ızgarası** (arabaların zikzakı için): zikzak `poseOf`'ta
+  karo merkezleri arası düz interpolasyondan geliyordu, çözümü Catmull-Rom
+  oldu. Karoyu küçültmek dokumayı küçültür, kaldırmaz — ve karo-indeksli her
+  katmanın belleğini dörde katlar.
+- **Bireysel ziyaretçi yönlendirme:** betweenness centrality, telefonda çok
+  pahalı. Alan yaklaşımı (`sim/visitors.ts`) aynı kararları veriyor.
 
 ### İş akışı (her özellik)
-Sim varsa önce test → `tsc` temiz → `vitest run` 423+ yeşil → `build` →
-puppeteer ile gözle doğrula → Türkçe tek satır commit. Paket sonunda canlıda
-oyna ve his kontrolü yap.
+Sim varsa önce test → `tsc` temiz → `vitest run` 625+ yeşil → `build` →
+Türkçe commit. Büyük adımlarda `main`'e push (Vercel deploy) ve canlıda his
+kontrolü — **bunu sandbox yapamaz**, aşağıya bak.
+
+### Sandbox'ın göremediği şeyler (dürüst ol)
+Bu ortamda GPU yok: Chromium swiftshader ile ~0.5 fps çiziyor ve
+`page.screenshot` çoğu zaman hiç oturmuyor. Yani **hiçbir görsel özellik
+gözle doğrulanmadı**: köprü oranları, gemiler, mevsim renkleri, iskele,
+kuşlar, ziyaretçi araçları, gece karanlığı, müziğin seviyesi. Hepsinin sayısı
+`balance.ts`'te tek satır; oyuncudan geri bildirim geldiğinde orayı ayarla,
+kodu değil. Bir özelliğin "çalıştığını" görmediysen öyle söyle.

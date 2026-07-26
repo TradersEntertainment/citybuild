@@ -222,7 +222,7 @@ export class Renderer {
     const season = seasonTint(frame.state.playedMs);
     this.terrain.setSeasonTint(season.ground);
     this.trees.setSeasonTint(season.foliage);
-    this.ships.update(deltaMs / 1000, frame.state, this.camera.distance);
+    this.ships.update(deltaMs / 1000, this.camera.distance);
     this.construction.update(frame.state, this.camera.distance, frame.now);
     this.wildlife.update(deltaMs / 1000, frame.state, this.camera.distance);
     this.overlay.setDraft(frame.draft);
