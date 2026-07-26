@@ -1,5 +1,6 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
+import { createAmbient } from './audio/ambient';
 import { createSfx } from './audio/sfx';
 import { AUTOSAVE_INTERVAL_S, PARCEL_SIZE } from './data/balance';
 import type { Mission } from './data/missions';
@@ -17,6 +18,7 @@ import { WalkMode } from './render3d/walkMode';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
+import { dayFraction, nightAmount } from './sim/daytime';
 import { borrow, loanOffer } from './sim/credit';
 import { connectedRoadTiles } from './sim/connectivity';
 import { highwayInterchanges } from './sim/highway';
@@ -78,6 +80,7 @@ const clock = new Clock();
 const undo = new UndoStack();
 const systems = new Systems(game.world.size);
 const sfx = createSfx();
+const ambient = createAmbient();
 
 // Derived fields — road distance, land value — are not saved, so a loaded city
 // has to recompute them before its first tick.
@@ -466,7 +469,13 @@ mountViewControls(ui, {
   onZoom: (factor) => camera.zoomAt(camera.viewportWidth / 2, camera.viewportHeight / 2, factor),
   onRotate: (radians) => camera.orbitByAngle(radians),
   soundOn: () => sfx.enabled,
-  onToggleSound: () => sfx.setEnabled(!sfx.enabled),
+  onToggleSound: () => {
+    sfx.setEnabled(!sfx.enabled);
+    // Muting means the game, not the button that happened to be pressed. The
+    // bed is torn down rather than turned to zero so a muted session is not
+    // holding an audio graph open for nothing.
+    if (!sfx.enabled) ambient.stop();
+  },
   onWalk: () => enterWalk(),
   onHistory: () => historyPanel.toggle(),
 });
@@ -832,6 +841,16 @@ function publishReadout(): void {
   readoutAccumulator += 1;
   if (readoutAccumulator < 15) return;
   readoutAccumulator = 0;
+  // The bed follows the city on the same throttle as the readout: it ramps over
+  // a second and a half, so telling it more often than twice a second would be
+  // scheduling changes it has not finished making.
+  if (sfx.enabled) {
+    ambient.setScene({
+      population: game.population,
+      night: nightAmount(dayFraction(game.playedMs)),
+      cameraDistance: camera.distance,
+    });
+  }
   syncUi();
   uiStore.getState().setFps(renderer.stats.fps);
 
