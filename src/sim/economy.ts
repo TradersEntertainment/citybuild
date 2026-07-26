@@ -10,6 +10,7 @@ import { ROAD_SPECS } from '../data/roads';
 import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
 import { highwayTradeFactor, transitIncome } from './highway';
+import { visitorFactor, type VisitorField } from './visitors';
 import { portUpkeep, seaIncome } from './ports';
 import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
@@ -45,8 +46,33 @@ export interface Ledger {
   transitIncome: number;
   /** What the berths land and ship — the coast, finally earning (§ports). */
   seaIncome: number;
+  /**
+   * Tax on what visitors off the motorway spent, counted out of the shop takings
+   * rather than added on top: it is a slice of `taxIncome`, shown separately so
+   * the panel can say where the money came from.
+   */
+  visitorIncome: number;
   /** Berths cost the same every minute whether or not a ship came in. */
   portUpkeep: number;
+}
+
+/**
+ * The trade multiplier for a plot.
+ *
+ * Falls back to the old flat corridor bonus when there is no visitor field —
+ * the offline path and a handful of tests call the ledger without one, and a
+ * shop beside a junction should not stop earning because nobody passed a field
+ * in.
+ */
+function trade(
+  state: GameState,
+  fields: Fields,
+  visitors: VisitorField | undefined,
+  x: number,
+  y: number,
+): number {
+  if (!visitors) return highwayTradeFactor(state, x, y);
+  return visitorFactor(state.world, fields, visitors, x, y);
 }
 
 /**
@@ -54,8 +80,13 @@ export interface Ledger {
  *                + Σ(ticaret.ciro × ticaretVergisi)
  *                + Σ(sanayi.üretim × sanayiVergisi)
  */
-export function computeLedger(state: GameState, fields: Fields): Ledger {
+export function computeLedger(
+  state: GameState,
+  fields: Fields,
+  visitors?: VisitorField,
+): Ledger {
   let taxIncome = 0;
+  let visitorTrade = 0;
 
   for (const building of state.buildings.values()) {
     const landValue = fields.landValue[index(state.world, building.x, building.y)] ?? 0;
@@ -64,14 +95,23 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
       // what makes a well-planned district worth more than a bigger one.
       taxIncome += building.population * state.taxRate * (0.5 + landValue / 100);
     } else if (building.zone === 'com') {
-      // The corridor multiplier: an interchange nearby means through-traffic
-      // buys here too, on top of the city's own custom.
-      const corridor = highwayTradeFactor(state, building.x, building.y);
+      // Visitors off the motorway, buying here. The old version was a flat bonus
+      // for being anywhere near a junction, which could not tell a shop on the
+      // road out of the interchange from one three districts away behind a jam —
+      // so the player had nothing to aim at. Now it is the flow that actually
+      // reaches the street the shop stands on (sim/visitors.ts).
+      const corridor = trade(state, fields, visitors, building.x, building.y);
       building.output = building.jobs * COMMERCIAL_TURNOVER * corridor;
+      // What the visitors themselves spend, kept apart from the city's own
+      // custom so the panel can say where the money came from.
+      visitorTrade += building.output * (1 - 1 / corridor) * COMMERCIAL_TAX;
       taxIncome += building.output * COMMERCIAL_TAX;
     } else {
-      const corridor = highwayTradeFactor(state, building.x, building.y);
+      // A workshop beside a busy junction sells at the gate too, but less: its
+      // customers are lorries, not families in a car.
+      const corridor = 1 + (trade(state, fields, visitors, building.x, building.y) - 1) * 0.5;
       building.output = building.jobs * INDUSTRIAL_OUTPUT * corridor;
+      visitorTrade += building.output * (1 - 1 / corridor) * INDUSTRIAL_TAX;
       taxIncome += building.output * INDUSTRIAL_TAX;
     }
   }
@@ -105,6 +145,7 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
   // The coast, earning. Moved by history like every other income line: a
   // depression empties the docks as surely as it empties the shops.
   const sea = seaIncome(state) * history;
+  const visiting = visitorTrade * history;
   const berths = portUpkeep(state) * admin;
   return {
     taxIncome,
@@ -119,6 +160,7 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
     transitIncome: transit,
     seaIncome: sea,
     portUpkeep: berths,
+    visitorIncome: visiting,
   };
 }
 
@@ -146,8 +188,13 @@ function farmTiles(state: GameState): number {
  * negative (§7); the bank that would lend against the shortfall belongs with
  * the rest of the credit system.
  */
-export function stepEconomy(state: GameState, fields: Fields, dt: number): Ledger {
-  const ledger = computeLedger(state, fields);
+export function stepEconomy(
+  state: GameState,
+  fields: Fields,
+  dt: number,
+  visitors?: VisitorField,
+): Ledger {
+  const ledger = computeLedger(state, fields, visitors);
   // Income and running costs first, then the bank. A loan taken to cover a
   // shortfall would otherwise be repaid out of money the city has not earned
   // yet, and the instalment is already counted in `net`.

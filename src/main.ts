@@ -1023,6 +1023,7 @@ function syncUi(): void {
       farmIncome: game.ledger.farmIncome,
       transitIncome: game.ledger.transitIncome,
       seaIncome: game.ledger.seaIncome,
+      visitorIncome: game.ledger.visitorIncome,
     },
     totals: {
       housing: totals.housing,

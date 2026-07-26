@@ -109,6 +109,8 @@ export const STR = {
   portBuilt: 'Deniz tesisi kuruldu.',
   /** The panel row, once there is a waterfront to talk about. */
   seaIncome: 'Deniz geliri',
+  /** What the motorway's own traffic left in the city's tills. */
+  visitorIncome: 'Yoldan geçen',
   seaGateOpen: 'Liman açıldı — şehir artık denizden de bağlı.',
 
   utility: {

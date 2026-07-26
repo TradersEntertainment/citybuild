@@ -3,6 +3,7 @@ import { ROAD_SPECS } from '../data/roads';
 import { FLYING_YEAR, SHUTTLE_YEAR } from '../data/timeline';
 import { vehicleAgeFor, type VehicleAge, type VehicleEra } from '../data/vehicles';
 import { transitFlow } from '../sim/highway';
+import { VISITOR_SHARE } from '../data/balance';
 import type { GameState } from '../sim/state';
 import { decodeRoad, NONE } from '../sim/tiles';
 import { yearOf } from '../sim/timeline';
@@ -44,6 +45,22 @@ const MAX_TANKS = 26;
 const CONVOY_SHARE = 0.55;
 /** Armour moves at the speed of the slowest thing in the column. */
 const CONVOY_SPEED = 0.55;
+/**
+ * How long a visitor stops at the shop it came off the motorway for.
+ *
+ * Long enough to read as parked rather than as stuck in traffic, short enough
+ * that the visiting fleet keeps turning over and the streets do not silt up with
+ * abandoned cars.
+ */
+const VISIT_DWELL_S = 7;
+/**
+ * Share of the transit fleet that comes into the city rather than driving past.
+ *
+ * Matched to the simulation's own VISITOR_SHARE, because the two are describing
+ * the same traffic: what the ledger is paid for should be what the player can
+ * see arriving.
+ */
+const VISIT_SHARE = VISITOR_SHARE;
 const CAR_Y = 0.16;
 const LANE_OFFSET = 0.21;
 /** Reroutes allowed per frame, so a demolition wave never stalls the loop. */
@@ -60,6 +77,15 @@ interface Vehicle {
   truck: boolean;
   /** A war convoy on the motorway: drawn as armour, and slower for it. */
   military: boolean;
+  /**
+   * A visitor off the motorway: one trip that comes in at a junction, stops at a
+   * shop, and goes back out (sim/visitors.ts). Zero for everything else.
+   */
+  visiting: boolean;
+  /** Path index the visitor stops at, or −1. */
+  stopAt: number;
+  /** Seconds left of that stop. */
+  dwell: number;
   /** Tile indices to follow, in order. */
   path: Int32Array;
   /** Index of the tile the vehicle is heading toward. */
@@ -161,6 +187,12 @@ export function createTraffic(initialWorld: World): TrafficLayer {
   }
 
   const fleet: Vehicle[] = [];
+  // Per-frame instance counters. In the closure rather than in `update` because
+  // two places now emit a vehicle — a moving one and one parked outside a shop —
+  // and they have to share one cursor into each mesh.
+  let carCount = 0;
+  let truckCount = 0;
+  let tankCount = 0;
   let world: World = initialWorld;
   let graph: Graph = buildGraph(initialWorld);
   let pools: Pools = { homes: [], workplaces: [], workshops: [] };
@@ -233,12 +265,19 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       }
     }
 
-    let carCount = 0;
-    let truckCount = 0;
-    let tankCount = 0;
+    carCount = 0;
+    truckCount = 0;
+    tankCount = 0;
     const hidden = cameraDistance > LOD_TRAFFIC_DISTANCE;
     for (let i = fleet.length - 1; i >= 0; i--) {
       const v = fleet[i] as Vehicle;
+      // Parked outside a shop: the whole point of a visitor is that they stop,
+      // and a car that slid past the shop at full speed would say the opposite.
+      if (v.dwell > 0) {
+        v.dwell -= deltaSeconds;
+        if (!hidden) drawVehicle(v, g, state, flying, seconds, age);
+        continue;
+      }
       const pace = deltaSeconds * age.speed * (v.military ? CONVOY_SPEED : 1);
       if (v.path.length === 0 || !advance(v, pace, g, jamLoad)) {
         // Trip finished, or the road died under the wheels: next trip. A
@@ -254,26 +293,13 @@ export function createTraffic(initialWorld: World): TrafficLayer {
           continue;
         }
       }
-      if (hidden) continue;
-      const pose = poseOf(v, g);
-      const matrix = composeMatrix(pose, v, state.world, flying, seconds);
-      const color = vehicleColor(v, age);
-      if (v.military) {
-        if (tankCount >= MAX_TANKS) continue;
-        tanks.setMatrixAt(tankCount, matrix);
-        tanks.setColorAt(tankCount, color);
-        tankCount++;
-      } else if (v.truck) {
-        if (truckCount >= MAX_TRUCKS) continue;
-        trucks.setMatrixAt(truckCount, matrix);
-        trucks.setColorAt(truckCount, color);
-        truckCount++;
-      } else {
-        if (carCount >= MAX_CARS) continue;
-        cars.setMatrixAt(carCount, matrix);
-        cars.setColorAt(carCount, color);
-        carCount++;
+      // Reached its shop: park for a while, then carry on to the way out.
+      if (v.visiting && v.stopAt >= 0 && v.at >= v.stopAt) {
+        v.stopAt = -1;
+        v.dwell = VISIT_DWELL_S * (0.6 + v.seed * 0.8);
       }
+      if (hidden) continue;
+      drawVehicle(v, g, state, flying, seconds, age);
     }
     cars.count = carCount;
     trucks.count = truckCount;
@@ -289,6 +315,36 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     if (tankCount > 0) {
       tanks.instanceMatrix.needsUpdate = true;
       if (tanks.instanceColor) tanks.instanceColor.needsUpdate = true;
+    }
+  }
+
+  /** Writes one vehicle into whichever instanced mesh its silhouette belongs to. */
+  function drawVehicle(
+    v: Vehicle,
+    g: Graph,
+    state: GameState,
+    flying: boolean,
+    seconds: number,
+    age: VehicleAge,
+  ): void {
+    const pose = poseOf(v, g);
+    const matrix = composeMatrix(pose, v, state.world, flying, seconds);
+    const color = vehicleColor(v, age);
+    if (v.military) {
+      if (tankCount >= MAX_TANKS) return;
+      tanks.setMatrixAt(tankCount, matrix);
+      tanks.setColorAt(tankCount, color);
+      tankCount++;
+    } else if (v.truck) {
+      if (truckCount >= MAX_TRUCKS) return;
+      trucks.setMatrixAt(truckCount, matrix);
+      trucks.setColorAt(truckCount, color);
+      truckCount++;
+    } else {
+      if (carCount >= MAX_CARS) return;
+      cars.setMatrixAt(carCount, matrix);
+      cars.setColorAt(carCount, color);
+      carCount++;
     }
   }
 
@@ -309,6 +365,9 @@ export function createTraffic(initialWorld: World): TrafficLayer {
         fleet: kind,
         truck: kind === 'freight' || (kind === 'transit' && rng() < 0.35),
         military: false,
+        visiting: false,
+        stopAt: -1,
+        dwell: 0,
         path: new Int32Array(0),
         at: 0,
         t: 0,
@@ -339,6 +398,20 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     v.t = 0;
 
     if (v.fleet === 'transit') {
+      v.stopAt = -1;
+      v.dwell = 0;
+      // A third of the country's traffic has a reason to stop here, which is what
+      // the simulation is already paying the city for (sim/visitors.ts). Those
+      // ones come off at a junction, park at a shop and go back out; the rest
+      // drive past, as they always did.
+      v.visiting =
+        !state.timelineEffects.war &&
+        g.interchanges.length > 0 &&
+        p.workplaces.length > 0 &&
+        rng() < VISIT_SHARE;
+      if (v.visiting && planVisit(v, state, g, p)) return true;
+      v.visiting = false;
+
       const route = state.world.highwayRoute;
       if (route.length < 8) return false;
       const forward = v.seed < 0.5;
@@ -428,6 +501,58 @@ export function createTraffic(initialWorld: World): TrafficLayer {
         path = joint;
       }
     }
+    v.path = path;
+    v.at = 1;
+    placeAtStart(v, g, path);
+    return true;
+  }
+
+  /**
+   * A visitor's whole journey as one path: in off the motorway at a junction,
+   * through the streets to a shop, back out to a junction, and away.
+   *
+   * One concatenated path rather than four legs with state between them, because
+   * the driving code already walks a path perfectly well and a multi-leg state
+   * machine would be a second one. The only extra state is where along it the car
+   * stops, which is the shop.
+   */
+  function planVisit(v: Vehicle, state: GameState, g: Graph, p: Pools): boolean {
+    const entry = g.interchanges[Math.floor(rng() * g.interchanges.length)] as number;
+    const exit = g.interchanges[Math.floor(rng() * g.interchanges.length)] as number;
+    // The lead-in is the way out, walked backwards: the same stretch of motorway
+    // a lorry leaves by is the one a visitor arrives on.
+    const leadIn = reversed(highwayExit(state.world, entry));
+    const leadOut = highwayExit(state.world, exit);
+    if (leadIn.length === 0 && leadOut.length === 0) return false;
+
+    const gateIn = playerRoadBeside(state.world, g, entry);
+    const gateOut = playerRoadBeside(state.world, g, exit);
+    if (gateIn < 0 || gateOut < 0) return false;
+
+    const shop = p.workplaces[Math.floor(rng() * p.workplaces.length)] as number;
+    const shopRoad = nearestRoadIndex(g, shop % g.size, Math.floor(shop / g.size));
+    if (shopRoad < 0) return false;
+
+    const inbound = findPath(g, gateIn, shopRoad);
+    if (inbound === null || inbound.length < 2) return false;
+    const outbound = findPath(g, shopRoad, gateOut);
+    if (outbound === null || outbound.length < 2) return false;
+
+    // The shop road appears at the end of the inbound leg and the start of the
+    // outbound one; the second copy is dropped so the car does not stop twice.
+    const path = new Int32Array(
+      leadIn.length + inbound.length + (outbound.length - 1) + leadOut.length,
+    );
+    let cursor = 0;
+    path.set(leadIn, cursor);
+    cursor += leadIn.length;
+    path.set(inbound, cursor);
+    cursor += inbound.length;
+    v.stopAt = cursor - 1;
+    path.set(outbound.subarray(1), cursor);
+    cursor += outbound.length - 1;
+    path.set(leadOut, cursor);
+
     v.path = path;
     v.at = 1;
     placeAtStart(v, g, path);
@@ -718,6 +843,30 @@ function highwayExit(world: World, junction: number): Int32Array {
     const point = route[i] as { x: number; y: number };
     out[k] = point.y * size + point.x;
   }
+  return out;
+}
+
+/** A player road tile touching this motorway tile, or −1. */
+function playerRoadBeside(world: World, g: Graph, junction: number): number {
+  const size = world.size;
+  const jx = junction % size;
+  const jy = Math.floor(junction / size);
+  for (let d = 0; d < 4; d++) {
+    const nx = jx + [1, -1, 0, 0][d]!;
+    const ny = jy + [0, 0, 1, -1][d]!;
+    if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+    const i = ny * size + nx;
+    if ((g.speed[i] ?? 0) <= 0) continue;
+    if ((world.highway[i] ?? 0) === 1) continue;
+    return i;
+  }
+  return -1;
+}
+
+/** The same tiles, the other way along. */
+function reversed(path: Int32Array): Int32Array {
+  const out = new Int32Array(path.length);
+  for (let i = 0; i < path.length; i++) out[i] = path[path.length - 1 - i] as number;
   return out;
 }
 

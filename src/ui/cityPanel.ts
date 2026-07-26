@@ -83,6 +83,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const transit = row(STR.panel.transit);
   const farmIncome = row(STR.panel.farmIncome);
   const sea = row(STR.seaIncome);
+  const visiting = row(STR.visitorIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
@@ -91,6 +92,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   books.body.append(
     tax.el,
     transit.el,
+    visiting.el,
     sea.el,
     farmIncome.el,
     roads.el,
@@ -212,6 +214,10 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     transit.set(`+${money(s.ledger.transitIncome)}`);
     // Hidden until there is a waterfront, like the corridor and the harvest: an
     // inland city is not shown a row it can never fill.
+    // Hidden until the corridor actually brings anybody in: an unconnected city
+    // is not shown a line it cannot fill.
+    visiting.el.hidden = s.ledger.visitorIncome <= 0;
+    visiting.set(`+${money(s.ledger.visitorIncome)}`);
     sea.el.hidden = s.ledger.seaIncome <= 0;
     sea.set(`+${money(s.ledger.seaIncome)}`);
     farmIncome.el.hidden = s.ledger.farmIncome <= 0;

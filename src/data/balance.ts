@@ -496,6 +496,64 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- Visitors from the motorway ----------------------------------------------
+/**
+ * Share of the through-traffic with a reason to stop.
+ *
+ * A third. Most of what passes on a motorway is going somewhere else and always
+ * will be; the point of the number is that the rest is worth catching, and that
+ * catching it is a thing the player does with roads rather than a thing that
+ * happens to them.
+ */
+export const VISITOR_SHARE = 0.34;
+/**
+ * Shop jobs at which the city's draw is about two thirds of its maximum.
+ *
+ * Saturating rather than linear: the first parade of shops is most of the reason
+ * to pull off a motorway, and the hundredth adds very little. Without this a
+ * metropolis would capture the entire corridor and a town would capture nothing.
+ */
+export const VISITOR_PER_SHOP_JOB = 180;
+/** How many tiles from an interchange visitors will still go. */
+export const VISITOR_REACH = 22;
+/**
+ * Fraction of the arrivals a street hands on to the next street.
+ *
+ * This is the whole geometry of the mechanic. At four fifths a shop ten streets
+ * in sees about a tenth of what one at the junction sees, which is enough to make
+ * "put the commercial strip on the road out of the interchange" a real decision
+ * without making anywhere else worthless.
+ */
+export const VISITOR_DECAY_PER_TILE = 0.86;
+/**
+ * Visitors a minute on a street at which a shop is getting about two thirds of
+ * the full bonus.
+ *
+ * Measured against what the field actually produces rather than guessed. A busy
+ * junction street carries single figures per minute, not tens: an early version
+ * of this number assumed tens, and the result was that a well-built corridor
+ * earned less than the crude flat bonus it replaced.
+ */
+export const VISITOR_SATURATION = 4;
+/**
+ * How hard a jam turns visitors back.
+ *
+ * Measured against load *over* capacity, the same shape the vehicle speeds use:
+ * a street inside its capacity has no queue on it and turns nobody away, and one
+ * at twice capacity passes well under half. A queue is where a stranger gives up
+ * and turns round — but a road that is merely busy is not a queue, and biting on
+ * mere busyness would have punished the player for having a city.
+ */
+export const VISITOR_CONGESTION_BITE = 1.6;
+/**
+ * Most a shop's output can be lifted by standing on a busy visitor street.
+ *
+ * Generous — this is meant to be worth building a district around — but bounded
+ * and saturating, so one shop on the perfect corner cannot out-earn a whole
+ * parade, and adding shops always beats stacking one.
+ */
+export const VISITOR_SPEND = 0.85;
+
 // --- Construction (Paket 3 §9) -----------------------------------------------
 /**
  * How far into a building's climb the scaffolding stays up.

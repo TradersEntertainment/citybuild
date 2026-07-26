@@ -70,6 +70,8 @@ export interface LedgerView {
   transitIncome: number;
   /** What the berths land and ship (§ports). */
   seaIncome: number;
+  /** Tax on what visitors off the motorway spent (§visitors). */
+  visitorIncome: number;
 }
 
 /** Supply against demand for each grid, so a shortfall is visible before it bites. */
@@ -145,6 +147,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     farmIncome: 0,
     transitIncome: 0,
     seaIncome: 0,
+    visitorIncome: 0,
   },
   totals: {
     housing: 0,

@@ -17,6 +17,7 @@ import { stepTimeline, type TimelineFired } from './timeline';
 import { stepResearch } from './tech';
 import { computeServiceCoverage } from './services';
 import { computeTraffic, createTrafficField, type TrafficField } from './traffic';
+import { computeVisitors, createVisitorField, type VisitorField } from './visitors';
 import { computeUtilityCoverage } from './utilities';
 import { stepProgression } from './progression';
 import type { GameState } from './state';
@@ -40,6 +41,12 @@ const EMPTY_RITUALS: readonly RitualToday[] = [];
 export class Systems {
   readonly fields: Fields;
   readonly traffic: TrafficField;
+  /**
+   * Where the country's traffic gets to inside the city (sim/visitors.ts).
+   * Recomputed with the traffic it answers to, because a jam is what turns a
+   * visitor round.
+   */
+  readonly visitors: VisitorField;
   private buildingTimer = 0;
   private diffusionTimer = FIELD_DIFFUSION_S; // solve once on the first step
   private trafficTimer = TRAFFIC_REFRESH_S;
@@ -71,6 +78,7 @@ export class Systems {
     this.fields = createFields(size);
     this.diffusion = createDiffusionScratch(size);
     this.traffic = createTrafficField(size);
+    this.visitors = createVisitorField(size);
   }
 
   /** Called when roads or parcels change; the derived fields must be redone. */
@@ -97,6 +105,7 @@ export class Systems {
       computeConnectivity(state.world);
       computeRoadDistance(state.world, this.fields.roadDistance);
       computeTraffic(state, this.fields, this.traffic);
+      this.refreshVisitors(state);
       computeLandValue(state.world, this.fields, this.traffic);
       // Coverage is gated on road access, so it is only valid once the road
       // distance field beside it has been rebuilt.
@@ -112,6 +121,7 @@ export class Systems {
     this.trafficTimer += dt;
     if (this.trafficTimer >= TRAFFIC_REFRESH_S) {
       computeTraffic(state, this.fields, this.traffic);
+      this.refreshVisitors(state);
       computeLandValue(state.world, this.fields, this.traffic);
       this.trafficTimer = 0;
     }
@@ -219,6 +229,19 @@ export class Systems {
 
   /** Called at the economy cadence (1 Hz), separately from the sim step. */
   stepEconomy(state: GameState, dt: number): void {
-    stepEconomy(state, this.fields, dt);
+    stepEconomy(state, this.fields, dt, this.visitors);
+  }
+
+  /**
+   * Re-spreads the visitors. Runs with the traffic rather than on its own clock:
+   * the flow it produces is thinned by congestion, so computing it against a
+   * stale load field would pay shops for a jam that has already cleared.
+   */
+  private refreshVisitors(state: GameState): void {
+    let shopJobs = 0;
+    for (const building of state.buildings.values()) {
+      if (building.zone === 'com') shopJobs += building.jobs;
+    }
+    computeVisitors(state, this.fields, this.visitors, this.traffic.load, shopJobs);
   }
 }

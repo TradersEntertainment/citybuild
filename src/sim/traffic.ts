@@ -155,8 +155,16 @@ function junctionFactor(world: World, x: number, y: number): number {
   return 1;
 }
 
-/** Nearest road tile within walking distance, or -1. */
-function nearestRoad(world: World, fields: Fields, x: number, y: number): number {
+/**
+ * The road tile a building fronts onto — the nearest one inside the walk, chosen
+ * by road distance rather than by straight line so a plot behind a wall does not
+ * claim the street on the other side of it.
+ *
+ * Exported for the visitor field, which asks the same question of the same
+ * buildings and must get the same answer, or a shop would be paid for traffic
+ * on a street it does not actually stand on.
+ */
+export function nearestRoad(world: World, fields: Fields, x: number, y: number): number {
   let best = -1;
   let bestDistance = ROAD_ACCESS_MAX_WALK + 1;
   const reach = ROAD_ACCESS_MAX_WALK;

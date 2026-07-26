@@ -159,6 +159,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
       transitIncome: 0,
       seaIncome: 0,
       portUpkeep: 0,
+      visitorIncome: 0,
     },
     lastSeen: now,
   };
