@@ -302,6 +302,20 @@ export const OFFLINE_STEP_MIN_S = 30;
 /** Below this, an absence is a glance at another tab and gets no card. */
 export const OFFLINE_MIN_REPORT_MS = 120_000;
 
+// --- Legacy / prestige (§6 of Phase 6) ---------------------------------------
+/**
+ * Population that scores one legacy point at the square root.
+ *
+ * Set so a first city that reaches the town era with a few thousand residents
+ * is worth roughly a doubling of the starting balance — enough that the second
+ * run visibly opens differently, not so much that it skips the opening.
+ */
+export const LEGACY_POPULATION_DIVISOR = 40;
+/** Points for each era reached, so building well is worth as much as sprawling. */
+export const LEGACY_ERA_BONUS = 4;
+/** Starting money each point endows. */
+export const LEGACY_MONEY_PER_POINT = 2_200;
+
 // --- Credit (§7, §20) --------------------------------------------------------
 export const LOAN_INTEREST = 0.06; // KREDİ_FAİZ
 export const LOAN_INTEREST_STACKED = 0.11;

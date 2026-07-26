@@ -147,6 +147,25 @@ export const STR = {
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
   },
 
+  /** Retiring a city (§6): the second run is where an idle game lives. */
+  legacy: {
+    title: 'Şehri devret',
+    /** The panel row that opens it. */
+    action: 'Şehri devret',
+    /** "Bu şehir 26 miras puanı bırakır" */
+    worth: (points: number): string => `Bu şehir ${plain.format(points)} miras puanı bırakır.`,
+    /** What the endowment buys next time. */
+    endowment: (amount: number): string =>
+      `Yeni şehir ₺${plain.format(Math.round(amount))} ile başlar.`,
+    warning: 'Bu şehir silinir. Geri alınamaz.',
+    confirm: 'Devret ve yeniden başla',
+    cancel: 'Vazgeç',
+    /** Shown in the panel once the player has any. */
+    held: (points: number): string => `${plain.format(points)} miras puanı`,
+    locked: 'Kent çağına ulaşan bir şehir devredilebilir.',
+    done: 'Şehir devredildi.',
+  },
+
   /** Research (§12.2): what the city has learned to do better. */
   tech: {
     title: 'Araştırma',

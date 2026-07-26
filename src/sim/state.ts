@@ -1,6 +1,7 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
 import type { Loan } from './credit';
+import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
 import type { UtilityPlant } from './utilities';
 import type { Ledger } from './economy';
@@ -37,6 +38,9 @@ export interface GameState {
   power: { gen: number; use: number };
   water: { gen: number; use: number };
 
+  /** Legacy points carried in from retired cities; endows the opening balance. */
+  legacy: number;
+
   world: World;
   buildings: Map<number, Building>;
   /** Stations the player placed by hand; they never grow or decay on their own. */
@@ -58,7 +62,11 @@ export interface GameState {
   lastSeen: number;
 }
 
-export function createGameState(seed: number, now: number): GameState {
+/**
+ * A fresh city. `legacy` is what previous cities earned, and it only ever
+ * touches the opening balance — see sim/legacy.ts for why nothing else.
+ */
+export function createGameState(seed: number, now: number, legacy = 0): GameState {
   const world = createWorld(seed);
   generateTerrain(world);
 
@@ -68,7 +76,7 @@ export function createGameState(seed: number, now: number): GameState {
     era: 'founding',
     playedMs: 0,
 
-    money: STARTING_MONEY,
+    money: STARTING_MONEY + legacyEndowment(legacy),
     debt: 0,
     taxRate: STARTING_TAX_RATE,
     loans: [],
@@ -82,6 +90,8 @@ export function createGameState(seed: number, now: number): GameState {
     demand: { res: 0, com: 0, ind: 0 },
     power: { gen: 0, use: 0 },
     water: { gen: 0, use: 0 },
+
+    legacy,
 
     world,
     buildings: new Map(),

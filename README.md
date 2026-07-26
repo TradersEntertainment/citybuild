@@ -57,14 +57,17 @@ Gerçekçi bir şehir telefonda dönecekse çizim çağrısı sayısı sabit kal
 | 4a | Parsel satın alma — harita artık başlangıç karesiyle sınırlı değil | Tamam |
 | 4 | Çağlar, teknoloji, görevler, offline ilerleme | Tamam |
 | 5 | Cila, mahalle isimleri, performans, öğretici | Tamam |
-| 6 | Prestij, alternatif haritalar, prosedürel ses | Kısmen — ses ve haritalar tamam |
+| 6 | Prestij, alternatif haritalar, prosedürel ses | Tamam |
 
 ## Bilinen eksikler
 
-Bunlar bilerek açık bırakıldı, unutulmadı:
+Planın bütün fazları kapandı. Kalanlar plan dışı, ileriye dönük notlar:
 
-- **Prestij / yeniden başlatma yok.** Bir şehri bırakıp kalıcı bir avantajla
-  yeniden başlamanın yolu yok.
+- **Tek dil.** Metinler `strings.tr.ts` içinde toplu duruyor ama ikinci bir dil
+  eklemek için bir seçim mekanizması yok.
+- **Bina çeşidi seçimi yok.** Oyuncu tek tek binaları seçemiyor; bu bilinçli —
+  oyunun tezi "yolu sen çiziyorsun, şehir kendi büyüyor". Tesis tarafında
+  (istasyon, santral) seçim var.
 
 ## Bilinçli sapmalar
 
@@ -74,6 +77,16 @@ Plandan bilerek ayrılan yerler:
   kimse bulamazsa oyun herkes için sessiz kalır; tarayıcının jest kilidi zaten
   ilk dokunuştan önce hiçbir sesin çıkamayacağını garanti ediyor. Anahtar sağ
   kenarda, tek dokunuş uzakta.
+
+## Ölçüm notu
+
+Bu sanal ortamda GPU yok; Chromium yazılımla çiziyor ve saniyede bir kare
+civarında kalıyor. Tarayıcı üzerinden yapılan etkileşim ölçümleri bu yüzden
+güvenilmez — birkaç kez var olmayan hatalar "bulundu". Doğrulama yöntemi:
+şehri Node içinde kur, kayıt kodeğiyle tarayıcıya enjekte et, sonucu oku.
+`addInitScript` her gezinmede yeniden çalışır; devretme sayfayı yenilediği
+için şehri koşulsuz ekmek, testin kendi yarattığı bir hatayı "kanıtlamasına"
+yol açar.
 
 ## Testler
 

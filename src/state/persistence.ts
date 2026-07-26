@@ -11,6 +11,8 @@ import type { GameState } from '../sim/state';
  */
 const STORAGE_KEY = 'kadastro.city';
 const SEED_KEY = 'kadastro.seed';
+/** Legacy outlives every city, so it is kept apart from the save. */
+const LEGACY_KEY = 'kadastro.legacy';
 
 function storage(): Storage | null {
   try {
@@ -24,6 +26,28 @@ function storage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+export function loadLegacy(): number {
+  const raw = storage()?.getItem(LEGACY_KEY);
+  const value = raw === null || raw === undefined ? 0 : Number(raw);
+  return Number.isFinite(value) && value > 0 ? value : 0;
+}
+
+export function saveLegacy(total: number): void {
+  storage()?.setItem(LEGACY_KEY, String(Math.max(0, Math.round(total))));
+}
+
+/**
+ * Signs off a city: banks what it earned and clears it, so the next load starts
+ * a new one. The city is only wiped after the legacy is written — losing an
+ * evening's work and the reward for it would be the worst possible order.
+ */
+export function retireCity(earned: number): number {
+  const total = loadLegacy() + Math.max(0, Math.round(earned));
+  saveLegacy(total);
+  storage()?.removeItem(STORAGE_KEY);
+  return total;
 }
 
 export function saveCity(state: GameState): boolean {
@@ -79,11 +103,13 @@ export function nextSeed(): number {
  */
 export class Autosave {
   private accumulator = 0;
+  private stopped = false;
 
   constructor(private readonly intervalSeconds: number) {}
 
   /** Call once per frame; saves when the interval has passed. */
   tick(state: GameState, deltaMs: number): void {
+    if (this.stopped) return;
     this.accumulator += deltaMs;
     if (this.accumulator < this.intervalSeconds * 1000) return;
     this.accumulator = 0;
@@ -92,7 +118,20 @@ export class Autosave {
 
   /** Forces a save now, e.g. when the tab is being hidden or closed. */
   flush(state: GameState): void {
+    if (this.stopped) return;
     this.accumulator = 0;
     saveCity(state);
+  }
+
+  /**
+   * Latches saving off for good.
+   *
+   * Needed exactly once: a retired city has just been wiped from storage, and
+   * both the frame loop and the pagehide handler are still holding it. Either
+   * would write it straight back before the reload lands, and the player would
+   * find the city they just signed off waiting for them.
+   */
+  stop(): void {
+    this.stopped = true;
   }
 }

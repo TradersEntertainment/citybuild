@@ -45,6 +45,8 @@ export interface SaveData {
   missionsDone: string[];
   /** Ids of techs researched. */
   techsDone: string[];
+  /** Legacy points this city was founded with. */
+  legacy: number;
   nextBuildingId: number;
   lastSeen: number;
   /** Run-length encoded grid columns: [value, runLength, value, runLength, …]. */
@@ -120,6 +122,7 @@ export function serialize(state: GameState): SaveData {
     farmTiles: state.farmTiles,
     missionsDone: [...state.missionsDone],
     techsDone: [...state.techsDone],
+    legacy: state.legacy,
     nextBuildingId: state.nextBuildingId,
     lastSeen: state.lastSeen,
     road: encodeRuns(state.world.road),
@@ -144,7 +147,7 @@ export function deserialize(data: unknown): GameState | null {
 
   // Regenerating from the seed gives back exactly the terrain this city was
   // built on, and claims the starting parcel; the saved ownership overwrites it.
-  const state = createGameState(data.seed, data.lastSeen);
+  const state = createGameState(data.seed, data.lastSeen, typeof data.legacy === 'number' ? data.legacy : 0);
 
   state.tick = data.tick;
   state.era = data.era;

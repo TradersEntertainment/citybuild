@@ -31,6 +31,10 @@ export interface UiState {
   hintVisible: boolean;
   /** What the game wants to say, or null when the city needs no advice. */
   guidance: string | null;
+  /** Legacy points carried in from retired cities. */
+  legacy: number;
+  /** True when this city is far enough along to be signed off. */
+  canRetire: boolean;
   /** The goals on offer, nearest to done first (§12.3). */
   missions: MissionView[];
   missionsDone: number;
@@ -82,6 +86,8 @@ export interface SimSnapshot {
   era: Era;
   money: number;
   debt: number;
+  legacy: number;
+  canRetire: boolean;
   population: number;
   happiness: number;
   taxRate: number;
@@ -130,6 +136,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   fps: 0,
   hintVisible: true,
   guidance: null,
+  legacy: 0,
+  canRetire: false,
   missions: [],
   missionsDone: 0,
   missionsTotal: 0,
@@ -140,6 +148,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       // that changed nothing.
       current.money === snapshot.money &&
       current.debt === snapshot.debt &&
+      current.canRetire === snapshot.canRetire &&
+      current.legacy === snapshot.legacy &&
       current.era === snapshot.era &&
       current.population === snapshot.population &&
       current.happiness === snapshot.happiness &&

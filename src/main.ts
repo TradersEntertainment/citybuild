@@ -21,12 +21,13 @@ import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { placeService, utilitiesExpected } from './sim/services';
 import { research, techOffers } from './sim/tech';
 import { placePlant, utilityBalance } from './sim/utilities';
+import { canRetire, legacyOpeningBalance, legacyValue } from './sim/legacy';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
 import { NONE, type Era } from './sim/tiles';
 import { UndoStack } from './sim/undo';
 import { parcelOfTile, startingCentre } from './sim/world';
-import { Autosave, loadCity, nextSeed } from './state/persistence';
+import { Autosave, loadCity, loadLegacy, nextSeed, retireCity } from './state/persistence';
 import { uiStore } from './state/store';
 import { mountChronicle } from './ui/chronicle';
 import { mountBankPrompt } from './ui/bankPrompt';
@@ -36,6 +37,7 @@ import { mountCostLabel } from './ui/costLabel';
 import { mountDistrictLabels } from './ui/districtLabels';
 import { describeGoal } from './ui/missionText';
 import { mountParcelPrompt } from './ui/parcelPrompt';
+import { mountRetirePrompt } from './ui/retirePrompt';
 import { guidanceFor } from './ui/guidance';
 import { mountIntro } from './ui/intro';
 import * as haptics from './ui/haptics';
@@ -55,7 +57,7 @@ if (!canvas || !ui) throw new Error('Game shell missing from index.html');
 
 // A returning player gets their city back; a new one gets their own map rather
 // than the single hard-coded island everybody used to share.
-const game = loadCity() ?? createGameState(nextSeed(), Date.now());
+const game = loadCity() ?? createGameState(nextSeed(), Date.now(), loadLegacy());
 const autosave = new Autosave(AUTOSAVE_INTERVAL_S);
 const camera = new CameraRig();
 const renderer = new Renderer(canvas, camera, game);
@@ -94,9 +96,34 @@ const tools = new ToolController(game, camera, undo, {
 });
 
 const districtLabels = mountDistrictLabels(ui, camera);
+/**
+ * Retiring reloads rather than rebuilding the world in place.
+ *
+ * Every layer here holds a reference to this city — the renderer's meshes, the
+ * camera bounds, the systems' fields, the coach's memory of what the player has
+ * done. Reassembling all of that correctly is a great deal of code whose only
+ * job is to reproduce what the page already does on load, and any corner of it
+ * missed leaves a new city wearing an old one's state.
+ */
+const retirePrompt = mountRetirePrompt(ui, {
+  onConfirm: () => {
+    const earned = legacyValue(game);
+    autosave.stop();
+    retireCity(earned);
+    window.location.reload();
+  },
+});
 const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
-mountCityPanel(ui);
+mountCityPanel(ui, {
+  onRetire: () => {
+    // What the next city opens with, including the legacy already banked from
+    // cities before this one — the card has to quote the balance the player
+    // will actually see.
+    const earned = legacyValue(game);
+    retirePrompt.show(earned, legacyOpeningBalance(loadLegacy() + earned));
+  },
+});
 mountHint(ui);
 const toast = mountToast(ui);
 
@@ -485,6 +512,8 @@ function syncUi(): void {
     era: game.era,
     money: game.money,
     debt: game.debt,
+    legacy: game.legacy,
+    canRetire: canRetire(game),
     population: game.population,
     happiness: game.happiness,
     taxRate: game.taxRate,

@@ -1219,3 +1219,47 @@ body {
 .sheet-row[data-selected='true'] .sheet-row-meta {
   color: var(--yosun);
 }
+
+/* --- Retiring a city ------------------------------------------------------ */
+
+.panel-action {
+  width: 100%;
+  min-height: var(--touch-min);
+  margin: 2px 0 4px;
+  border: 1px solid color-mix(in srgb, var(--pirinc) 45%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--pirinc);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.retire {
+  display: none;
+}
+
+.retire[data-shown='true'] {
+  display: flex;
+}
+
+.retire-endowment {
+  font-size: 14px;
+  color: var(--pirinc);
+}
+
+/* The warning is the point of the card, so it is not a footnote. */
+.retire-warning {
+  padding: 10px 12px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--kiremit) 16%, transparent);
+  color: var(--parsomen);
+  font-size: 13.5px;
+  line-height: 1.45;
+}
+
+.intro-start.ghost {
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 24%, transparent);
+  color: var(--parsomen);
+}

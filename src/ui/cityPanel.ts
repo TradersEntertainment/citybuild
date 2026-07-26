@@ -39,7 +39,12 @@ function remember(open: boolean): void {
   }
 }
 
-export function mountCityPanel(root: HTMLElement): CityPanelHandle {
+export interface CityPanelDeps {
+  /** Opens the retire card; the panel never destroys anything itself. */
+  onRetire(): void;
+}
+
+export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPanelHandle {
   const panel = document.createElement('section');
   panel.className = 'city-panel';
   panel.dataset['open'] = String(rememberedOpen());
@@ -115,6 +120,25 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
   const inner = document.createElement('div');
   inner.className = 'panel-detail-inner';
   inner.append(goals.el, people.el, books.el, grid.el, trade.el);
+  // Retiring lives at the bottom of the panel, below every number it is a
+  // decision about, and does not exist at all until the city is old enough for
+  // it to be one. A destructive action a new player can reach by accident is
+  // not a feature.
+  const legacy = section(STR.legacy.title);
+  const legacyHeld = document.createElement('span');
+  legacyHeld.className = 'panel-heading-count mono';
+  legacy.el.querySelector('.panel-heading')?.append(legacyHeld);
+  const retire = document.createElement('button');
+  retire.type = 'button';
+  retire.className = 'panel-action';
+  retire.textContent = STR.legacy.action;
+  retire.addEventListener('click', () => deps.onRetire());
+  const locked = document.createElement('p');
+  locked.className = 'mission-empty';
+  locked.textContent = STR.legacy.locked;
+  legacy.body.append(retire, locked);
+  inner.append(legacy.el);
+
   detail.append(inner);
   panel.append(toggle, detail);
   root.append(panel);
@@ -187,6 +211,13 @@ export function mountCityPanel(root: HTMLElement): CityPanelHandle {
     water.el.dataset['alarm'] = String(s.grid.waterSupply < s.grid.waterDemand);
     power.set(STR.panel.supply(s.grid.powerSupply, s.grid.powerDemand));
     power.el.dataset['alarm'] = String(s.grid.powerSupply < s.grid.powerDemand);
+
+    // The row exists only once retiring is possible, and the held total only
+    // once there is one — a zero here would be advertising a system the player
+    // has no way to use yet.
+    retire.hidden = !s.canRetire;
+    locked.hidden = s.canRetire;
+    legacyHeld.textContent = s.legacy > 0 ? STR.legacy.held(s.legacy) : '';
 
     demandRes.set(STR.format.percent(s.demand.res));
     demandCom.set(STR.format.percent(s.demand.com));
