@@ -496,6 +496,18 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- One-way streets ---------------------------------------------------------
+/**
+ * What a one-way tile carries, against a two-way one.
+ *
+ * More than the lane it stops giving to the other direction: there is no turn
+ * across the flow and no oncoming queue at the junctions. Worth having on its
+ * own, which is what makes the decision interesting — the whole cost of a
+ * one-way scheme is in what has to go round, so if the tile itself were not a
+ * gain there would be no reason ever to draw one.
+ */
+export const ONE_WAY_CAPACITY_BONUS = 1.55;
+
 // --- Visitors from the motorway ----------------------------------------------
 /**
  * Share of the through-traffic with a reason to stop.

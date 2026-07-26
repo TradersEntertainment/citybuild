@@ -8,7 +8,7 @@ devam edebilmesi için yazıldı. Üç bölüm: (1) şu ana kadar yapılanlar,
 - **Canlı:** citybuild-ten.vercel.app — `main`'e push = Vercel otomatik deploy
 - **Stack:** Vite + TypeScript (strict, `exactOptionalPropertyTypes`) + three.js + zustand + vitest
 - **Doğrulama:** `npx tsc --noEmit` → `npx vitest run` → `npm run build`
-- **Test durumu (`b65466f` itibarıyla):** 49 dosya / 625 test, yeşil
+- **Test durumu (`0ec2e8e` sonrası):** 50 dosya / 649 test, yeşil
 
 ---
 
@@ -105,11 +105,14 @@ Aşağıdaki §3'te plan olarak duran maddelerin hepsi yapıldı. Kısaca:
   bonusu yerini buna bıraktı (fallback olarak duruyor: alan verilmeyen
   çağrılar için). Renderer'da araçlar gerçekten sapıp park ediyor.
 
-### Sırada duran, yapılmayan tek şey
-**Tek yönlü yollar.** Oyuncunun fikri ("tek taraflı yaparsak sıkışsınlar").
-Yol katmanına yeni öznitelik + dock aracı + pathfinder değişikliği demek;
-başlanmadı. İstenen tıkanma etkisinin bir kısmı ziyaretçi alanından
-geliyor (dar/dolu sokak ziyaretçiyi geri çeviriyor).
+- **Tek yönlü yollar** (`sim/oneWay.ts`): oyuncunun fikri. `world.oneWay`
+  sütunu (kayıtta, RLE), yol sayfasında "tek yön" anahtarı, yön çizim
+  yönünden geliyor. Kural tek yerde: ok, kendisine **karşı** gitmeyi
+  yasaklar — üstünden geçmeyi ya da sapmayı yasaklamaz. Yük yayılımı,
+  ziyaretçi dalgası ve araç pathfinder'ı aynı `canTravel`'ı soruyor.
+  Ölçüldü: tıkanmış şehirde tek yön çifti kazandırıyor (net 2205→2466),
+  rahat şehirde kaybettiriyor (2678→2386), ters yönde felaket (ziyaretçi 0).
+  Yani gerçek bir karar, bedava yükseltme değil.
 
 ---
 
@@ -198,14 +201,13 @@ yavaşlıktır (yanılgıya düşme).
 artık bundan sonrası için.
 
 ### Sırada duran, başlanmamış
-1. **Tek yönlü yollar** (oyuncunun fikri). `world.road` için yön öznitelği
-   (2 bit yeter: yön yok / →↑ / ←↓), dock'ta bir anahtar, `findPath` ve
-   `buildGraph`'ta yön kontrolü, `computeTraffic`'te tek yönlü karonun
-   kapasitesi. Kazancı: ziyaretçi akışını bilerek daraltıp tıkamak.
-2. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip
+1. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip
    genişletebilse "faturayı öde" mekaniğinin olumlu kardeşi olurdu.
-3. **Turizm/otel.** Ziyaretçi alanı var ama ziyaretçi *kalmıyor*. Marina ve
+2. **Turizm/otel.** Ziyaretçi alanı var ama ziyaretçi *kalmıyor*. Marina ve
    ziyaretçi akışının kesiştiği yerde otel = gecelik gelir.
+3. **Tek yön için görsel geri bildirim.** Ok işaretleri var; eksik olan
+   "buraya giremiyorlar" uyarısı. Ters imzalanmış bir kavşak ziyaretçi
+   gelirini sessizce sıfırlıyor — feed'e bir satır hak ediyor.
 
 ### Denenmiş ve bilinçli olarak yapılmayanlar (tekrar açmadan önce oku)
 - **Ağaç salınımı:** on binlerce instance'ın matrisini her kare yazmak demek.

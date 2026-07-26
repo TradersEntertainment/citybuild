@@ -5,10 +5,11 @@ import { isServiceUnlocked, type ServiceKind } from '../data/services';
 import { isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 
 import { demolishArea, didDemolish, isEmptyRemoval, touchedRoads } from '../sim/demolish';
+import { setOneWayAlong } from '../sim/oneWay';
 import { buildRoad, estimateRoad, type RoadEstimate } from '../sim/roads';
 import type { GameState } from '../sim/state';
 import type { RoadKind, ZoneKind } from '../sim/tiles';
-import type { UndoStack } from '../sim/undo';
+import type { TileEdit, UndoStack } from '../sim/undo';
 import { brushArea, brushTiles, estimateZone, paintZone, type ZoneEstimate } from '../sim/zoning';
 import type { CameraRig } from '../render3d/cameraRig';
 import type { DraftRender } from './draft';
@@ -68,6 +69,16 @@ export class ToolController {
   private zoneKind: ZoneKind = 'res';
   private facility: FacilitySelection = { type: 'service', kind: 'fire' };
   private brush: number = BRUSH_SIZES[1];
+  /**
+   * Whether the next road stroke signs its street one-way.
+   *
+   * A toggle on the road tool rather than a tool of its own, and the direction
+   * comes from the stroke: the player already drew the street the way they want
+   * it to run, so asking them for a direction afterwards would be asking twice.
+   * Drawing with it off clears any arrows on the tiles drawn over, which is how
+   * a street is put back to two-way without a second verb.
+   */
+  private oneWay = false;
   private raw: TilePoint[] = [];
   private path: RoadPath | null = null;
   private painted: TilePoint[] = [];
@@ -90,6 +101,16 @@ export class ToolController {
 
   get activeRoadKind(): RoadKind {
     return this.roadKind;
+  }
+
+  get oneWayArmed(): boolean {
+    return this.oneWay;
+  }
+
+  setOneWay(on: boolean): void {
+    this.oneWay = on;
+    this.tool = 'road';
+    this.events.onChanged?.();
   }
 
   get activeZoneKind(): ZoneKind {
@@ -299,9 +320,17 @@ export class ToolController {
 
     const result = buildRoad(this.state.world, path.tiles, this.roadKind, this.state.money);
     this.state.money -= result.spent;
-    this.undo.push({ changes: result.changes, spent: result.spent });
-    if (result.changes.length > 0) {
-      this.events.onBuilt?.(result.changes.map((c) => ({ x: c.x, y: c.y })));
+    // Signing runs over the whole stroke, not only the tiles that were paid for:
+    // drawing the same tier over your own street costs nothing (those tiles are
+    // redundant) and is exactly how an existing street gets re-signed.
+    const ways = setOneWayAlong(this.state.world, path.tiles, !this.oneWay);
+    const changes: TileEdit[] = [
+      ...result.changes,
+      ...ways.map((edit) => ({ x: edit.x, y: edit.y, layer: 'oneWay' as const, previous: edit.previous })),
+    ];
+    this.undo.push({ changes, spent: result.spent });
+    if (changes.length > 0) {
+      this.events.onBuilt?.(changes.map((c) => ({ x: c.x, y: c.y })));
       this.events.onRoadsChanged?.();
     }
     return result.spent;

@@ -53,6 +53,12 @@ export interface World {
    */
   highwayBlocked: Uint8Array;
   /**
+   * Which way traffic must travel on each tile: 0 for both, otherwise one of
+   * the four directions (see sim/oneWay.ts). Saved with the roads, because the
+   * player drew it.
+   */
+  oneWay: Uint8Array;
+  /**
    * 1 where a working cargo port stands — a way into the country that is not
    * the motorway. Derived from the berths that exist, never saved; see
    * sim/ports.ts.
@@ -90,6 +96,7 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     highwayRoute: [],
     highwayDamage: new Uint8Array(cells),
     highwayBlocked: new Uint8Array(cells),
+    oneWay: new Uint8Array(cells),
     seaGate: new Uint8Array(cells),
     connected: new Uint8Array(cells),
   };

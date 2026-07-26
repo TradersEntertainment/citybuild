@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { decodeRoad, NONE, type RoadKind } from '../sim/tiles';
 import { index, type World } from '../sim/world';
 import { ROAD_LIFT, ROAD_WIDTH } from './constants';
+import { WAY, wayAt, wayStep, type Way } from '../sim/oneWay';
 import { buildRoadDeck, cacheRoadDeck, sampleDeck, type RoadDeck } from './roadDeck';
 
 /**
@@ -149,6 +150,14 @@ export function buildRoadGeometry(world: World): BuiltRoads {
       // ruined stretch read as ruined from the map height rather than as a
       // slightly darker road.
       const painted = MARKED.has(kind) && damage < MARKINGS_GONE;
+
+      // The arrows. Painted into the markings pass, so they get the same unlit
+      // near-white the lane stripes do and read at dusk — a one-way street the
+      // player cannot see the direction of is a rule they will break by accident.
+      const way = wayAt(world, x, y);
+      if (way !== WAY.both && damage < MARKINGS_GONE) {
+        pushArrow(markPositions, world, deck, x, y, way);
+      }
 
       if (shape === SHAPE.square) {
         pushCarriageway(positions, world, deck, x, y, kind);
@@ -340,6 +349,64 @@ function pushDiagonalBridges(
     added++;
   }
   return added;
+}
+
+/**
+ * A chevron pointing the way traffic must go.
+ *
+ * Two thin bars meeting at a point rather than a triangle: at map height a solid
+ * arrowhead on a 0.7-wide carriageway is a blob, and the chevron keeps a hole in
+ * the middle that survives being a few pixels across. Repeated on every tile of
+ * the run — a street signed once at its mouth is a street the player has to
+ * remember, and this game does not ask anybody to remember anything.
+ */
+function pushArrow(
+  out: number[],
+  world: World,
+  deck: RoadDeck,
+  x: number,
+  y: number,
+  way: Way,
+): void {
+  // Only every other tile carries one, like the lane dashes: an unbroken line of
+  // chevrons reads as a pattern rather than as a direction.
+  if (((x + y) & 1) === 1) return;
+  const { dx, dy } = wayStep(way);
+  const cx = x + 0.5;
+  const cy = y + 0.5;
+  const lift = ROAD_LIFT + 0.025;
+  // Along the direction of travel, and across it.
+  const ax = dx;
+  const ay = dy;
+  const px = -dy;
+  const py = dx;
+  const reach = 0.22;
+  const spread = 0.15;
+  const bar = 0.035;
+
+  // Each half of the chevron is a quad from the tip back along one diagonal.
+  for (const side of [-1, 1]) {
+    const tipX = cx + ax * reach;
+    const tipY = cy + ay * reach;
+    const tailX = cx - ax * reach * 0.4 + px * spread * side;
+    const tailY = cy - ay * reach * 0.4 + py * spread * side;
+    // Widen the bar perpendicular to its own run, not to the road.
+    const runX = tailX - tipX;
+    const runY = tailY - tipY;
+    const length = Math.hypot(runX, runY) || 1;
+    const offX = (-runY / length) * bar;
+    const offY = (runX / length) * bar;
+    pushRibbonQuad(
+      out,
+      world,
+      deck,
+      [tipX - offX, tipY - offY],
+      [tailX - offX, tailY - offY],
+      [tailX + offX, tailY + offY],
+      [tipX + offX, tipY + offY],
+      lift,
+    );
+  }
 }
 
 /**

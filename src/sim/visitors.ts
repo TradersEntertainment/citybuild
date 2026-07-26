@@ -8,6 +8,7 @@ import {
   VISITOR_SPEND,
 } from '../data/balance';
 import { highwayInterchanges, transitFlow } from './highway';
+import { canTravel } from './oneWay';
 import { nearestRoad } from './traffic';
 import type { Fields } from './fields';
 import type { GameState } from './state';
@@ -106,6 +107,12 @@ export function computeVisitors(
       if ((world.road[ni] ?? NONE) === NONE) continue;
       if ((world.highway[ni] ?? 0) === 1) continue;
       if ((world.connected[ni] ?? 0) !== 1) continue;
+      // A junction onto a street signed *toward* the motorway is an exit, not an
+      // entrance. Counting it as a gate divided the arrivals between a way in
+      // and a way out and then threw half of them away, which made a correctly
+      // built one-way pair earn less than the two-way street it replaced — the
+      // exact opposite of the point.
+      if (!canTravel(world, point.x, point.y, nx, ny)) continue;
       gates.push(ni);
     }
   }
@@ -149,6 +156,10 @@ export function computeVisitors(
         if ((world.road[ni] ?? NONE) === NONE) continue;
         // The motorway is not the city: visitors who rejoin it have left.
         if ((world.highway[ni] ?? 0) === 1) continue;
+        // And a one-way street they cannot legally take is not a way in
+        // (sim/oneWay.ts) — the sharpest lever a player has over where the
+        // country's money goes, and the easiest to point the wrong way.
+        if (!canTravel(world, x, y, nx, ny)) continue;
         if (seen[ni] === 1) continue;
         onward.push(ni);
       }

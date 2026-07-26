@@ -3,6 +3,7 @@ import { ROAD_SPECS } from '../data/roads';
 import { FLYING_YEAR, SHUTTLE_YEAR } from '../data/timeline';
 import { vehicleAgeFor, type VehicleAge, type VehicleEra } from '../data/vehicles';
 import { transitFlow } from '../sim/highway';
+import { canTravelOn } from '../sim/oneWay';
 import { VISITOR_SHARE } from '../data/balance';
 import type { GameState } from '../sim/state';
 import { decodeRoad, NONE } from '../sim/tiles';
@@ -630,6 +631,8 @@ interface Graph {
   size: number;
   /** Speed per tile from the road tier; 0 where no road runs. */
   speed: Float32Array;
+  /** Snapshot of the arrows, so a cached path cannot outlive its signage. */
+  oneWay: Uint8Array;
   /** Motorway tiles a player street touches — where freight leaves the map. */
   interchanges: number[];
   cache: Map<number, Int32Array | null>;
@@ -642,6 +645,10 @@ interface Graph {
 function buildGraph(world: World): Graph {
   const size = world.size;
   const speed = new Float32Array(size * size);
+  // A snapshot, not the live column: the graph is rebuilt whenever roads or
+  // arrows change, and a path cached against one set of arrows must not be
+  // walked under another.
+  const oneWay = new Uint8Array(world.oneWay);
   const interchanges: number[] = [];
   for (let i = 0; i < size * size; i++) {
     const kind = decodeRoad(world.road[i] ?? NONE);
@@ -660,6 +667,7 @@ function buildGraph(world: World): Graph {
   return {
     size,
     speed,
+    oneWay,
     interchanges,
     cache: new Map(),
     cameFrom: new Int32Array(size * size),
@@ -769,6 +777,10 @@ function findPath(g: Graph, from: number, to: number): Int32Array | null {
       const ni = ny * size + nx;
       const tierSpeed = g.speed[ni] ?? 0;
       if (tierSpeed <= 0) continue;
+      // The arrows (sim/oneWay.ts). Refusing the edge rather than pricing it:
+      // a one-way street a car is willing to drive the wrong way up for a small
+      // penalty is not a one-way street.
+      if (!canTravelOn(g.oneWay, size, cx, cy, nx, ny)) continue;
       const step = (d >= 4 ? 1.4142 : 1) / tierSpeed;
       const tentative = (g.gScore[current] ?? 0) + step;
       if (stamp[ni] === sid && tentative >= (g.gScore[ni] ?? Infinity)) continue;

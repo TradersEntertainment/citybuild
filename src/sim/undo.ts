@@ -11,7 +11,7 @@ import { index } from './world';
  * Edits name the column they touched, so one stack covers roads and zones and
  * will cover whatever the later phases add without growing a case per tool.
  */
-export type EditLayer = 'road' | 'zone';
+export type EditLayer = 'road' | 'zone' | 'oneWay';
 
 export interface TileEdit {
   x: number;
@@ -38,6 +38,7 @@ export function revertEdits(state: GameState, changes: readonly TileEdit[]): voi
   for (const change of changes) {
     const at = index(world, change.x, change.y);
     if (change.layer === 'road') world.road[at] = change.previous;
+    else if (change.layer === 'oneWay') world.oneWay[at] = change.previous;
     else world.zone[at] = change.previous;
   }
 }

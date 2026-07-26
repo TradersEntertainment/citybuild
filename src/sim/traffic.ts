@@ -9,6 +9,7 @@ import {
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import type { Fields } from './fields';
+import { canTravel, oneWayCapacity } from './oneWay';
 import { transitFlow } from './highway';
 import type { GameState } from './state';
 import { techFactor } from './tech';
@@ -97,7 +98,11 @@ export function computeTraffic(state: GameState, fields: Fields, traffic: Traffi
       const i = index(world, x, y);
       const kind = decodeRoad(world.road[i] ?? NONE);
       if (!kind) continue;
-      const capacity = ROAD_SPECS[kind].capacity * junctionFactor(world, x, y) * transit;
+      const capacity =
+        ROAD_SPECS[kind].capacity *
+        junctionFactor(world, x, y) *
+        transit *
+        oneWayCapacity(world, x, y);
       load[i] = capacity > 0 ? (flow[i] ?? 0) / capacity : 0;
     }
   }
@@ -119,9 +124,15 @@ function spreadAlongRoads(world: World, flow: Float32Array, scratch: Float32Arra
         if (here <= 0) continue;
         if (!isRoad(world, x, y)) continue;
 
+        // Only the ways traffic may actually go. A one-way street cannot push
+        // its load back upstream, so a badly signed district piles up at the far
+        // end instead of levelling out — which is the whole cost of a one-way
+        // scheme and the reason the tile's own capacity bonus is worth having.
         let neighbours = 0;
         for (const [dx, dy] of STEPS) {
-          if (isRoad(world, x + dx, y + dy)) neighbours++;
+          if (!isRoad(world, x + dx, y + dy)) continue;
+          if (!canTravel(world, x, y, x + dx, y + dy)) continue;
+          neighbours++;
         }
         if (neighbours === 0) continue;
 
@@ -133,6 +144,7 @@ function spreadAlongRoads(world: World, flow: Float32Array, scratch: Float32Arra
           const nx = x + dx;
           const ny = y + dy;
           if (!isRoad(world, nx, ny)) continue;
+          if (!canTravel(world, x, y, nx, ny)) continue;
           const ni = ny * size + nx;
           flow[ni] = (flow[ni] ?? 0) + shared;
         }

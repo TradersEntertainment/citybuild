@@ -97,6 +97,14 @@ export function demolishArea(state: GameState, tiles: readonly TilePoint[]): Dem
     if (road !== NONE && !isNationalHighway(world, tile.x, tile.y)) {
       changes.push({ x: tile.x, y: tile.y, layer: 'road', previous: road });
       world.road[at] = NONE;
+      // The arrow goes with the street it was painted on. Left behind it would
+      // be a traffic law on bare ground: invisible, and waiting to surprise
+      // whoever paves here next (sim/oneWay.ts).
+      const way = world.oneWay[at] ?? 0;
+      if (way !== 0) {
+        changes.push({ x: tile.x, y: tile.y, layer: 'oneWay', previous: way });
+        world.oneWay[at] = 0;
+      }
     }
 
     const zone = world.zone[at] ?? NONE;

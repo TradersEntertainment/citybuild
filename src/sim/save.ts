@@ -4,6 +4,7 @@ import { missionById } from '../data/missions';
 import { techById } from '../data/tech';
 import { totalDebt } from './credit';
 import { ensureSections, refreshHighwayDamage } from './highwayWear';
+import { pruneOneWay } from './oneWay';
 import { refreshSeaGates } from './ports';
 import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
@@ -60,6 +61,8 @@ export interface SaveData {
   lastSeen: number;
   /** Run-length encoded grid columns: [value, runLength, value, runLength, …]. */
   road: number[];
+  /** Which way each tile runs, RLE'd beside the roads it belongs to. */
+  oneWay: number[];
   zone: number[];
   parcelsOwned: number[];
   /** Buildings, flattened; see BUILDING_FIELDS for the column order. */
@@ -145,6 +148,7 @@ export function serialize(state: GameState): SaveData {
     nextBuildingId: state.nextBuildingId,
     lastSeen: state.lastSeen,
     road: encodeRuns(state.world.road),
+    oneWay: encodeRuns(state.world.oneWay),
     zone: encodeRuns(state.world.zone),
     parcelsOwned: encodeRuns(state.world.parcelsOwned),
     buildings,
@@ -228,6 +232,16 @@ export function deserialize(data: unknown): GameState | null {
   ) {
     return null;
   }
+  // Arrows arrived after the roads did, so a file without them is a city whose
+  // streets all run both ways — not a corrupt one. A malformed run is still
+  // refused: half a set of arrows is a city whose traffic laws disagree with
+  // its map.
+  if (Array.isArray(data.oneWay) && !decodeRuns(data.oneWay, state.world.oneWay)) {
+    return null;
+  }
+  // And nothing carries an arrow that is not a road: the road column is
+  // authoritative, and an arrow on bare ground would be a rule nobody can see.
+  pruneOneWay(state.world);
 
   if (data.buildings.length % BUILDING_FIELDS !== 0) return null;
   for (let i = 0; i < data.buildings.length; i += BUILDING_FIELDS) {

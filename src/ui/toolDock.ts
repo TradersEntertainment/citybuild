@@ -119,6 +119,37 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.textContent = '';
     sheet.append(sheetTitle(STR.tools.roadSheetTitle));
     for (const kind of ROAD_TIERS) sheet.append(roadRow(kind));
+    // Under the tiers, because it modifies whichever one is held rather than
+    // being a tier of its own.
+    sheet.append(sheetTitle(STR.tools.oneWayTitle));
+    sheet.append(sheetNote(STR.tools.oneWayNote));
+    sheet.append(oneWayRow());
+  }
+
+  /**
+   * The one-way switch: two states, and the direction comes from the stroke.
+   *
+   * Shaped like the brush row rather than as a checkbox, because on a phone a
+   * pair of wide buttons is a target and a checkbox is a dare.
+   */
+  function oneWayRow(): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'brush-row';
+    for (const on of [false, true]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'brush-button';
+      button.textContent = on ? STR.tools.oneWayOn : STR.tools.oneWayOff;
+      button.dataset['selected'] = String(deps.tools.oneWayArmed === on);
+      button.addEventListener('click', () => {
+        deps.tools.setOneWay(on);
+        haptics.tap();
+        refresh();
+        fillRoadSheet();
+      });
+      row.append(button);
+    }
+    return row;
   }
 
   function fillZoneSheet(): void {

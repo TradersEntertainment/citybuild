@@ -84,6 +84,14 @@ export const STR = {
     eraseNote:
       'Fırçanın altındaki her şeyi kaldırır: yol, bölge, bina ve tesis. ' +
       'Ücretsiz — tesislerin yarı parası geri gelir.',
+    oneWayTitle: 'Yön',
+    oneWayNote:
+      'Tek yön açıkken çizdiğin yol, çizdiğin yönde tek yönlü olur — daha çok ' +
+      'trafik taşır, ama ters yönde gidenler dolanmak zorunda kalır. ' +
+      'Kendi sokağının üstüne tekrar çizerek yönünü değiştirebilir ya da ' +
+      '"iki yön" ile kaldırabilirsin.',
+    oneWayOff: 'İki yön',
+    oneWayOn: 'Tek yön →',
     brushTitle: 'Fırça',
     brushSize: (size: number): string => `${size}×${size}`,
   },
