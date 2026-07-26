@@ -6,6 +6,7 @@ import type { CameraRig } from './cameraRig';
 import { createHazards, type HazardLayer } from './hazards';
 import { createIssues, type IssueLayer } from './issues';
 import { createOverlay, type OverlayLayer } from './overlay';
+import { createPedestrians, type PedestrianLayer } from './pedestrians';
 import { createRoads, type RoadMesh } from './roads';
 import { dayFraction, nightAmount } from '../sim/daytime';
 import { createSky, updateSky, type SkyRig } from './sky';
@@ -55,6 +56,7 @@ export class Renderer {
   private readonly buildings: BuildingMeshes;
   private readonly trees: TreeLayer;
   private readonly traffic: TrafficLayer;
+  private readonly pedestrians: PedestrianLayer;
   private readonly issues: IssueLayer;
   private readonly hazards: HazardLayer;
   private readonly stations: StationLayer;
@@ -102,6 +104,7 @@ export class Renderer {
     this.buildings = createBuildings();
     this.trees = createTrees(state.world);
     this.traffic = createTraffic(state.world);
+    this.pedestrians = createPedestrians(state.world);
     this.issues = createIssues();
     this.hazards = createHazards();
     this.stations = createStations();
@@ -116,6 +119,7 @@ export class Renderer {
       this.trees.group,
       this.buildings.group,
       this.traffic.group,
+      this.pedestrians.group,
       this.issues.group,
       this.hazards.group,
       this.stations.group,
@@ -161,6 +165,7 @@ export class Renderer {
     this.roads.rebuild();
     this.streetlights.rebuild();
     this.traffic.rebuildNetwork();
+    this.pedestrians.rebuildNetwork();
     this.zonesDirty = true;
   }
 
@@ -177,6 +182,10 @@ export class Renderer {
       // the same reasons the zone layer does — and both are grid scans, so they
       // share one throttle rather than each paying for their own.
       this.trees.rebuild();
+      // Pavement is ground that has nothing built on it, so it goes stale for
+      // exactly the same reason the trees do — and on the same throttle, rather
+      // than each grid scan buying its own timer.
+      this.pedestrians.rebuildNetwork();
       this.zonesDirty = false;
       this.lastZoneRebuild = frame.now;
     }
@@ -194,6 +203,12 @@ export class Renderer {
       this.camera.distance,
       frame.trafficLoad,
       frame.now,
+    );
+    this.pedestrians.update(
+      deltaMs / 1000,
+      frame.state.population,
+      frame.state.playedMs,
+      this.camera.distance,
     );
     this.issues.sync(frame.state, this.camera.distance, frame.now);
     this.hazards.sync(frame.state, this.camera.distance, frame.now);
@@ -249,6 +264,7 @@ export class Renderer {
     this.streetlights.dispose();
     this.trees.dispose();
     this.traffic.dispose();
+    this.pedestrians.dispose();
     this.issues.dispose();
     this.stations.dispose();
     this.buildings.dispose();
