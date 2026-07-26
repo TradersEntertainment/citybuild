@@ -1,5 +1,28 @@
 import * as THREE from 'three';
+import { daylightAmount, nightAmount, sunHeight } from '../sim/daytime';
 import { HEIGHT_SCALE, WORLD_SIZE } from './constants';
+
+/**
+ * The palette the day swings through. Kept here rather than in balance.ts
+ * because these are colours, not tunables — the same reason the archetypes and
+ * the road surfaces live beside the meshes that use them.
+ */
+const DAY_TOP = new THREE.Color('#3574B4');
+const DAY_HORIZON = new THREE.Color('#D8E4EC');
+const DAY_GROUND = new THREE.Color('#8A8578');
+const NIGHT_TOP = new THREE.Color('#050A17');
+const NIGHT_HORIZON = new THREE.Color('#16203A');
+const NIGHT_GROUND = new THREE.Color('#0A0E16');
+/** Dusk, which is where the low sun and the first lit windows overlap. */
+const DUSK_HORIZON = new THREE.Color('#E09A5A');
+const DAY_SUN = new THREE.Color('#FFEDC4');
+const DUSK_SUN = new THREE.Color('#FF9A4E');
+const DAY_BOUNCE = new THREE.Color('#BFD8EE');
+const NIGHT_BOUNCE = new THREE.Color('#2A3550');
+const SUN_INTENSITY = 2.75;
+const AMBIENT_DAY = 1.15;
+/** Never zero: a city lit by nothing is a city the player cannot read. */
+const AMBIENT_NIGHT = 0.34;
 
 /**
  * Sky, sun and atmosphere. Everything here is generated — a gradient shader for
@@ -27,6 +50,7 @@ const SKY_FRAGMENT = /* glsl */ `
   uniform vec3 sunDirection;
   uniform vec3 sunColor;
   uniform float time;
+  uniform float night;
   varying vec3 vWorldDirection;
 
   // Cheap value noise, four octaves — enough for cloud shapes that read as
@@ -73,6 +97,28 @@ const SKY_FRAGMENT = /* glsl */ `
 
     // Clouds: the dome direction projected onto a plane overhead, drifting
     // slowly. A clear sky is a screensaver; moving weather is a place.
+    // Stars, before the clouds so a cloud can cover them. Hashed on a coarse
+    // grid of the view direction: a real starfield would be a texture or a
+    // point cloud, and both cost more than a game that never asks the player to
+    // look up needs to spend.
+    if (night > 0.01 && dir.y > 0.0) {
+      vec2 grid = dir.xz / (dir.y + 0.35) * 34.0;
+      vec2 cell = floor(grid);
+      vec2 within = fract(grid) - 0.5;
+      float pick = hash21(cell);
+      if (pick > 0.86) {
+        // Position jittered inside the cell, or the sky is graph paper.
+        vec2 offset = vec2(hash21(cell + 3.1), hash21(cell + 7.7)) - 0.5;
+        float d = length(within - offset * 0.6);
+        float star = smoothstep(0.09, 0.0, d);
+        // Each one twinkles on its own phase, slowly.
+        float twinkle = 0.65 + 0.35 * sin(time * 1.7 + pick * 40.0);
+        // Fade the field out toward the horizon, where the haze owns the view.
+        star *= smoothstep(0.03, 0.3, dir.y);
+        colour += vec3(0.85, 0.9, 1.0) * star * twinkle * night * (pick - 0.86) * 7.0;
+      }
+    }
+
     if (dir.y > 0.015) {
       vec2 cloudUv = dir.xz / (dir.y + 0.22);
       cloudUv = cloudUv * 1.15 + vec2(time * 0.0062, time * 0.0024);
@@ -85,6 +131,9 @@ const SKY_FRAGMENT = /* glsl */ `
       vec3 cloudColor = mix(vec3(0.82, 0.84, 0.88), vec3(1.08, 1.05, 1.0), shade);
       float sunAmt = pow(clamp(cosAngle, 0.0, 1.0), 3.0);
       cloudColor += sunColor * 0.14 * sunAmt;
+      // A cloud is lit by the sun, so at night it is a dark shape against the
+      // stars rather than the same white it was at noon.
+      cloudColor = mix(cloudColor, vec3(0.07, 0.09, 0.15), night);
       colour = mix(colour, cloudColor, cloud * 0.85);
     }
 
@@ -96,8 +145,17 @@ export interface SkyRig {
   readonly dome: THREE.Mesh;
   readonly sun: THREE.DirectionalLight;
   readonly ambient: THREE.HemisphereLight;
-  /** Moves the sun; angle is time of day in radians, 0 = dawn, PI/2 = noon. */
-  setSunAngle(angle: number): void;
+  /**
+   * Sets the time of day, 0..1 from the sim's clock. Moves the sun, dims it,
+   * and swings the dome, the fog and the sky bounce from daylight to night.
+   *
+   * The only way to move the sun. There used to be a setSunAngle beside it that
+   * clamped the sun's height above the horizon — harmless while it was the only
+   * caller picking one fixed pleasant angle, and a silent fight with this one the
+   * moment both existed, because a sun that cannot go below the horizon cannot
+   * make a night.
+   */
+  setDayFraction(fraction: number): void;
   dispose(): void;
 }
 
@@ -112,6 +170,7 @@ export function createSky(scene: THREE.Scene): SkyRig {
       sunDirection: { value: sunDirection.clone() },
       sunColor: { value: new THREE.Color('#FFEFC9') },
       time: { value: 0 },
+      night: { value: 0 },
     },
     vertexShader: SKY_VERTEX,
     fragmentShader: SKY_FRAGMENT,
@@ -153,23 +212,64 @@ export function createSky(scene: THREE.Scene): SkyRig {
   const ambient = new THREE.HemisphereLight('#BFD8EE', '#6E6A5A', 1.15);
   scene.add(ambient);
 
-  const setSunAngle = (angle: number): void => {
-    sunDirection.set(Math.cos(angle) * 0.7, Math.max(0.12, Math.sin(angle)), 0.34).normalize();
-    material.uniforms['sunDirection']!.value.copy(sunDirection);
-  };
-  setSunAngle(Math.PI * 0.4);
+  // Scratch colours, so a per-frame lerp allocates nothing.
+  const top = new THREE.Color();
+  const horizon = new THREE.Color();
+  const ground = new THREE.Color();
+  const sunTint = new THREE.Color();
 
-  return {
+  const setDayFraction = (fraction: number): void => {
+    const height = sunHeight(fraction);
+    const night = nightAmount(fraction);
+    const daylight = daylightAmount(fraction);
+
+    // The sun tracks a full circle. Horizontal component swings east to west so
+    // shadows sweep across the city over the day rather than pivoting in place.
+    const travel = (fraction - 0.5) * Math.PI;
+    sunDirection.set(Math.sin(travel) * 0.85, height, Math.cos(travel) * 0.34).normalize();
+    material.uniforms['sunDirection']!.value.copy(sunDirection);
+
+    // Dusk reddens the light and the horizon: the sun's colour is a function of
+    // how much atmosphere it is shining through, which is what low means.
+    const low = 1 - Math.min(1, Math.max(0, height / 0.35));
+    sunTint.copy(DAY_SUN).lerp(DUSK_SUN, low);
+    rig.sun.color.copy(sunTint);
+    rig.sun.intensity = SUN_INTENSITY * daylight;
+    material.uniforms['sunColor']!.value.copy(sunTint);
+
+    top.copy(DAY_TOP).lerp(NIGHT_TOP, night);
+    horizon.copy(DAY_HORIZON).lerp(NIGHT_HORIZON, night);
+    // Dusk pushes the horizon band warm before the night takes it dark.
+    horizon.lerp(DUSK_HORIZON, low * (1 - night) * 0.8);
+    ground.copy(DAY_GROUND).lerp(NIGHT_GROUND, night);
+    material.uniforms['topColor']!.value.copy(top);
+    material.uniforms['horizonColor']!.value.copy(horizon);
+    material.uniforms['groundColor']!.value.copy(ground);
+
+    material.uniforms['night']!.value = night;
+
+    // Haze matches the horizon, or the far districts fade into yesterday's sky.
+    if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(horizon);
+
+    // Sky bounce is what keeps a night city from being pure black silhouettes.
+    ambient.intensity = AMBIENT_DAY * daylight + AMBIENT_NIGHT * night;
+    ambient.color.copy(DAY_BOUNCE).lerp(NIGHT_BOUNCE, night);
+  };
+
+  const rig: SkyRig = {
     dome,
     sun,
     ambient,
-    setSunAngle,
+    setDayFraction,
     dispose: () => {
       scene.remove(dome, sun, sun.target, ambient);
       dome.geometry.dispose();
       material.dispose();
     },
   };
+
+  setDayFraction(0.5);
+  return rig;
 }
 
 /**

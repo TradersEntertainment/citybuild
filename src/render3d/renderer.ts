@@ -7,6 +7,7 @@ import { createHazards, type HazardLayer } from './hazards';
 import { createIssues, type IssueLayer } from './issues';
 import { createOverlay, type OverlayLayer } from './overlay';
 import { createRoads, type RoadMesh } from './roads';
+import { dayFraction, nightAmount } from '../sim/daytime';
 import { createSky, updateSky, type SkyRig } from './sky';
 import { createStations, type StationLayer } from './stations';
 import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
@@ -191,6 +192,14 @@ export class Renderer {
     );
     this.issues.sync(frame.state, this.camera.distance, frame.now);
     this.hazards.sync(frame.state, this.camera.distance, frame.now);
+
+    // One clock for the whole frame: the sky, the lit windows and the streets
+    // all read the same fraction, so nothing can disagree about what time it is.
+    const dayFrac = dayFraction(frame.state.playedMs);
+    this.sky.setDayFraction(dayFrac);
+    // setNightFactor has existed since the facades were written and was never
+    // once called — the windows had an emissive map and no reason to glow.
+    this.buildings.setNightFactor(nightAmount(dayFrac));
 
     // The sky anchors on whoever is looking: the rig's orbit target normally,
     // the walker's own feet while the camera is on loan.

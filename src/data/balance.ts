@@ -378,6 +378,24 @@ export const OFFLINE_STEP_MIN_S = 30;
 /** Below this, an absence is a glance at another tab and gets no card. */
 export const OFFLINE_MIN_REPORT_MS = 120_000;
 
+// --- Day cycle (Paket 1 §2) --------------------------------------------------
+/**
+ * Seconds in one day/night cycle.
+ *
+ * Set equal to SECONDS_PER_YEAR so one year is one day: every new year opens
+ * with a dawn, and there is a single notion of how fast time passes rather than
+ * a sun that contradicts the year badge. The plan asked for 120, which would
+ * have put three years inside one sunrise.
+ */
+export const SECONDS_PER_DAY = 40;
+/**
+ * Share of the cycle the sun spends above the horizon.
+ *
+ * An even split leaves the city dark half the time it is being looked at. The
+ * night is worth having for the lights coming on, not for the dark.
+ */
+export const DAYLIGHT_SHARE = 0.68;
+
 // --- Legacy / prestige (§6 of Phase 6) ---------------------------------------
 /**
  * Population that scores one legacy point at the square root.
