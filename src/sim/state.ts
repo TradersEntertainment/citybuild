@@ -7,6 +7,7 @@ import { sectionCount } from './highwayWear';
 import { CALM_EFFECTS, type TimelineEffects } from './timeline';
 import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
+import type { Port } from './ports';
 import type { UtilityPlant } from './utilities';
 import type { Ledger } from './economy';
 import type { Era } from './tiles';
@@ -51,6 +52,11 @@ export interface GameState {
   services: Map<number, ServiceBuilding>;
   /** Waterworks and power stations, which reach along roads rather than by radius. */
   utilities: Map<number, UtilityPlant>;
+  /**
+   * Berths on the coast (§denize yatırım). Placed like stations, but the only
+   * facility whose worth comes from the terrain rather than from the city.
+   */
+  ports: Map<number, Port>;
   /** Painted farmland, recounted by the building pass; farms employ people. */
   farmTiles: number;
   /**
@@ -83,6 +89,7 @@ export interface GameState {
   nextBuildingId: number;
   nextServiceId: number;
   nextUtilityId: number;
+  nextPortId: number;
   /** Last computed income/outgoings, for the UI to read without recomputing. */
   ledger: Ledger;
   lastSeen: number;
@@ -126,6 +133,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     buildings: new Map(),
     services: new Map(),
     utilities: new Map(),
+    ports: new Map(),
     farmTiles: 0,
     fires: new Map(),
     nextFireId: 1,
@@ -138,6 +146,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     nextBuildingId: 1,
     nextServiceId: 1,
     nextUtilityId: 1,
+    nextPortId: 1,
     ledger: {
       taxIncome: 0,
       roadUpkeep: 0,
@@ -148,6 +157,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
       farmYield: 0,
       farmIncome: 0,
       transitIncome: 0,
+      seaIncome: 0,
+      portUpkeep: 0,
     },
     lastSeen: now,
   };

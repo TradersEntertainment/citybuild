@@ -82,12 +82,23 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const tax = row(STR.panel.tax);
   const transit = row(STR.panel.transit);
   const farmIncome = row(STR.panel.farmIncome);
+  const sea = row(STR.seaIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
   const debt = row(STR.panel.debt);
   const net = row(STR.panel.net, true);
-  books.body.append(tax.el, transit.el, farmIncome.el, roads.el, stations.el, plants.el, debt.el, net.el);
+  books.body.append(
+    tax.el,
+    transit.el,
+    sea.el,
+    farmIncome.el,
+    roads.el,
+    stations.el,
+    plants.el,
+    debt.el,
+    net.el,
+  );
 
   // Hidden until the era expects utilities at all, so a village is not shown a
   // shortfall in a system it is not meant to have.
@@ -199,6 +210,10 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     // should not read a row about money it has no way to make.
     transit.el.hidden = s.ledger.transitIncome <= 0;
     transit.set(`+${money(s.ledger.transitIncome)}`);
+    // Hidden until there is a waterfront, like the corridor and the harvest: an
+    // inland city is not shown a row it can never fill.
+    sea.el.hidden = s.ledger.seaIncome <= 0;
+    sea.set(`+${money(s.ledger.seaIncome)}`);
     farmIncome.el.hidden = s.ledger.farmIncome <= 0;
     farmIncome.set(`+${money(s.ledger.farmIncome)}`);
     roads.set(`−${money(s.ledger.roadUpkeep)}`);

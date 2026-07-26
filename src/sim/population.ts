@@ -16,6 +16,7 @@ import {
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
+import { portHappiness } from './ports';
 import type { GameState } from './state';
 
 /**
@@ -28,7 +29,8 @@ import type { GameState } from './state';
  */
 export function stepPopulation(state: GameState, totals: BuildingTotals, dt: number): void {
   const workers = state.population * LABOUR_PARTICIPATION;
-  const jobs = totals.commercialJobs + totals.industrialJobs + totals.farmJobs;
+  const jobs =
+    totals.commercialJobs + totals.industrialJobs + totals.farmJobs + totals.portJobs;
   const vacancy = totals.housing - state.population;
 
   updateHappiness(state, workers, jobs, dt);
@@ -52,6 +54,8 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // And history leans on the mood for years at a time: wars and depressions
   // press down, republics and booms lift.
   target += state.timelineEffects.happinessMod;
+  // A waterfront worth walking on is worth something to live near (sim/ports.ts).
+  target += portHappiness(state);
   target = clamp(target, 0, 100);
   // Mood moves slowly; a city that swung with every tick would be unreadable.
   state.happiness += (target - state.happiness) * Math.min(1, HAPPINESS_RESPONSE * dt);

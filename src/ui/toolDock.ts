@@ -1,6 +1,7 @@
 import { BRUSH_SIZES, ZONE_COST } from '../data/balance';
 import { ZONE_TINTS } from '../data/buildings';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
+import { PORT_ORDER, PORT_SPECS, isPortUnlocked, type PortKind } from '../data/ports';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
 import { UTILITY_ORDER, UTILITY_SPECS, isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 import { STR } from '../data/strings.tr';
@@ -193,6 +194,33 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     // separating them into their own tool would double the dock to say so.
     sheet.append(sheetTitle(STR.tools.utilitySheetTitle));
     for (const kind of UTILITY_ORDER) sheet.append(utilityRow(kind));
+    // And the waterfront, under the same tool for the same reason: it is placed
+    // with a tap on owned ground, so it belongs to the same verb.
+    sheet.append(sheetTitle(STR.portSheetTitle));
+    sheet.append(sheetNote(STR.portNote));
+    for (const kind of PORT_ORDER) sheet.append(portRow(kind));
+  }
+
+  function portRow(kind: PortKind): HTMLElement {
+    const spec = PORT_SPECS[kind];
+    const unlocked = isPortUnlocked(kind, deps.era());
+    const row = sheetRow(
+      STR.port[kind],
+      unlocked
+        ? STR.serviceCost(spec.cost, spec.upkeep)
+        : STR.lockedAt(STR.eraName[spec.unlockedAt]),
+    );
+    row.dataset['locked'] = String(!unlocked);
+    row.disabled = !unlocked;
+    const active = deps.tools.activeFacility;
+    row.dataset['selected'] = String(active.type === 'port' && active.kind === kind);
+    row.addEventListener('click', () => {
+      if (!deps.tools.setFacility({ type: 'port', kind })) return;
+      haptics.tap();
+      refresh();
+      closeSheet();
+    });
+    return row;
   }
 
   function utilityRow(kind: UtilityKind): HTMLElement {
@@ -345,7 +373,9 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
 
 /** Label for whichever facility the tool is holding. */
 function facilityName(selection: FacilitySelection): string {
-  return selection.type === 'service' ? STR.service[selection.kind] : STR.utility[selection.kind];
+  if (selection.type === 'service') return STR.service[selection.kind];
+  if (selection.type === 'utility') return STR.utility[selection.kind];
+  return STR.port[selection.kind];
 }
 
 function zoneCost(kind: ZoneKind): number {

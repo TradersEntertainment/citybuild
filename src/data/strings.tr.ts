@@ -95,6 +95,22 @@ export const STR = {
     police: 'Karakol',
   },
 
+  /** The waterfront (denize yatırım): the coast, finally worth something. */
+  port: {
+    fishing: 'Balıkçı barınağı',
+    cargo: 'Liman',
+    shipyard: 'Tersane',
+    marina: 'Marina',
+  },
+  portSheetTitle: 'Deniz yatırımı',
+  portNote:
+    'Kıyıya kurulur — önünde açık su olmalı. Liman şehri memlekete bağlar: ' +
+    'otoyol kapansa bile gemiler gelir.',
+  portBuilt: 'Deniz tesisi kuruldu.',
+  /** The panel row, once there is a waterfront to talk about. */
+  seaIncome: 'Deniz geliri',
+  seaGateOpen: 'Liman açıldı — şehir artık denizden de bağlı.',
+
   utility: {
     well: 'Su kuyusu',
     waterworks: 'Su arıtma',
@@ -112,6 +128,7 @@ export const STR = {
     unowned: 'Burası senin arazin değil.',
     occupied: 'Bu kare dolu.',
     noRoad: 'Yola çok uzak. Yol kenarına kur.',
+    noWater: 'Yeterli açık su yok. Kıyıya, denizin geniş olduğu yere kur.',
     // Only asphalt and above carry mains; a dirt track cannot be dug up for pipe.
     noMains: 'Şebeke taşıyan yol yok. Asfalt ya da bulvar kenarına kur.',
     tooDear: 'Bakiye yetmiyor.',

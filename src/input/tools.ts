@@ -1,5 +1,6 @@
 import { BRUSH_SIZES, COST_LABEL_OFFSET_PX } from '../data/balance';
 import { isRoadUnlocked } from '../data/roads';
+import { isPortUnlocked, type PortKind } from '../data/ports';
 import { isServiceUnlocked, type ServiceKind } from '../data/services';
 import { isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 
@@ -35,7 +36,8 @@ import { buildRoadPath, type RoadPath } from './pathSmoothing';
  */
 export type FacilitySelection =
   | { type: 'service'; kind: ServiceKind }
-  | { type: 'utility'; kind: UtilityKind };
+  | { type: 'utility'; kind: UtilityKind }
+  | { type: 'port'; kind: PortKind };
 
 export type ToolId = 'none' | 'road' | 'zone' | 'erase' | 'service';
 
@@ -131,7 +133,9 @@ export class ToolController {
     const unlocked =
       selection.type === 'service'
         ? isServiceUnlocked(selection.kind, this.state.era)
-        : isUtilityUnlocked(selection.kind, this.state.era);
+        : selection.type === 'utility'
+          ? isUtilityUnlocked(selection.kind, this.state.era)
+          : isPortUnlocked(selection.kind, this.state.era);
     if (!unlocked) return false;
     this.facility = selection;
     this.tool = 'service';

@@ -30,6 +30,7 @@ import { yearOf } from './sim/timeline';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
+import { hasSeaGate, placePort } from './sim/ports';
 import { placeService, utilitiesExpected } from './sim/services';
 import { research, techOffers } from './sim/tech';
 import { placePlant, utilityBalance } from './sim/utilities';
@@ -569,11 +570,17 @@ registerServiceWorker();
 function buildStation(tileX: number, tileY: number): void {
   const facility = tools.activeFacility;
   const name =
-    facility.type === 'service' ? STR.service[facility.kind] : STR.utility[facility.kind];
+    facility.type === 'service'
+      ? STR.service[facility.kind]
+      : facility.type === 'utility'
+        ? STR.utility[facility.kind]
+        : STR.port[facility.kind];
   const result =
     facility.type === 'service'
       ? placeService(game, systems.fields, facility.kind, tileX, tileY)
-      : placePlant(game, systems.fields, facility.kind, tileX, tileY);
+      : facility.type === 'utility'
+        ? placePlant(game, systems.fields, facility.kind, tileX, tileY)
+        : placePort(game, systems.fields, facility.kind, tileX, tileY);
 
   if (!result.ok) {
     sfx.play('blocked');
@@ -588,7 +595,10 @@ function buildStation(tileX: number, tileY: number): void {
   renderer.invalidateServices();
   syncUi();
   autosave.flush(game);
-  toast.show(STR.serviceBuilt, name);
+  // The first working harbour changes what the city fundamentally is: it now
+  // has a second way out of the country, and that is worth saying out loud.
+  const gateOpened = facility.type === 'port' && facility.kind === 'cargo' && hasSeaGate(game);
+  toast.show(gateOpened ? STR.seaGateOpen : STR.portBuilt, name);
 }
 
 // --- Viewport plumbing -------------------------------------------------------
@@ -981,6 +991,7 @@ function syncUi(): void {
       farmYield: game.ledger.farmYield,
       farmIncome: game.ledger.farmIncome,
       transitIncome: game.ledger.transitIncome,
+      seaIncome: game.ledger.seaIncome,
     },
     totals: {
       housing: totals.housing,

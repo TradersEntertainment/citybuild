@@ -12,6 +12,7 @@ import { dayFraction, nightAmount } from '../sim/daytime';
 import { weatherAt } from '../sim/weather';
 import { createSky, updateSky, type SkyRig } from './sky';
 import { createStreetlights, type StreetlightLayer } from './streetlights';
+import { createShips, type ShipLayer } from './ships';
 import { createStations, type StationLayer } from './stations';
 import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
 import { createTraffic, type TrafficLayer } from './traffic';
@@ -62,6 +63,7 @@ export class Renderer {
   private readonly issues: IssueLayer;
   private readonly hazards: HazardLayer;
   private readonly stations: StationLayer;
+  private readonly ships: ShipLayer;
   private readonly overlay: OverlayLayer;
   private readonly weather: WeatherFx;
 
@@ -112,6 +114,10 @@ export class Renderer {
     this.hazards = createHazards();
     this.stations = createStations();
     this.stations.rebuild(state);
+    // Ships share the stations' dirty flag: they exist because berths do, and
+    // both change on exactly the same events.
+    this.ships = createShips();
+    this.ships.rebuild(state);
     this.overlay = createOverlay(state.world);
     this.weather = createWeatherFx();
 
@@ -127,6 +133,7 @@ export class Renderer {
       this.issues.group,
       this.hazards.group,
       this.stations.group,
+      this.ships.group,
       this.overlay.group,
       this.weather.group,
     );
@@ -197,9 +204,11 @@ export class Renderer {
 
     if (this.stationsDirty) {
       this.stations.rebuild(frame.state);
+      this.ships.rebuild(frame.state);
       this.stationsDirty = false;
     }
 
+    this.ships.update(deltaMs / 1000, frame.state, this.camera.distance);
     this.overlay.setDraft(frame.draft);
     this.buildings.sync(frame.state, frame.now);
     this.traffic.update(
@@ -283,6 +292,7 @@ export class Renderer {
     this.pedestrians.dispose();
     this.issues.dispose();
     this.stations.dispose();
+    this.ships.dispose();
     this.buildings.dispose();
     this.overlay.dispose();
     this.weather.dispose();

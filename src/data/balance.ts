@@ -496,6 +496,16 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- Ports (denize yatırım) --------------------------------------------------
+/**
+ * Most mood the whole waterfront can be worth.
+ *
+ * A marina is a nice thing to have on your coast. A row of eight of them is not
+ * a happier city, it is an exploit, and capping it is cheaper than pricing every
+ * marina against how many are already there.
+ */
+export const SEA_GATE_HAPPINESS_CAP = 6;
+
 // --- Bridges -----------------------------------------------------------------
 /**
  * How far a bridge deck rides above the water, in world height units.

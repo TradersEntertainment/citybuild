@@ -1,9 +1,11 @@
 import { DEMOLITION_REFUND } from '../data/balance';
+import { PORT_SPECS } from '../data/ports';
 import { SERVICE_SPECS } from '../data/services';
 import { UTILITY_SPECS } from '../data/utilities';
 import type { TilePoint } from '../input/pathGeometry';
 import type { Building } from './buildings';
 import { isNationalHighway } from './highway';
+import type { Port } from './ports';
 import type { ServiceBuilding } from './services';
 import type { GameState } from './state';
 import { NONE } from './tiles';
@@ -29,6 +31,7 @@ import { inBounds, index } from './world';
 export interface RemovedEntities {
   services: ServiceBuilding[];
   utilities: UtilityPlant[];
+  ports: Port[];
   /** Grown buildings, kept whole so undo restores their level rather than a hut. */
   buildings: Building[];
 }
@@ -41,7 +44,7 @@ export interface DemolishResult {
 }
 
 export function createRemoved(): RemovedEntities {
-  return { services: [], utilities: [], buildings: [] };
+  return { services: [], utilities: [], ports: [], buildings: [] };
 }
 
 export function isEmptyRemoval(removed: RemovedEntities | undefined): boolean {
@@ -49,6 +52,7 @@ export function isEmptyRemoval(removed: RemovedEntities | undefined): boolean {
   return (
     removed.services.length === 0 &&
     removed.utilities.length === 0 &&
+    removed.ports.length === 0 &&
     removed.buildings.length === 0
   );
 }
@@ -127,6 +131,12 @@ export function demolishArea(state: GameState, tiles: readonly TilePoint[]): Dem
     removed.utilities.push(plant);
     spent -= refundOf(UTILITY_SPECS[plant.kind].cost);
   }
+  for (const port of [...state.ports.values()]) {
+    if (!cleared.has(index(world, port.x, port.y))) continue;
+    state.ports.delete(port.id);
+    removed.ports.push(port);
+    spent -= refundOf(PORT_SPECS[port.kind].cost);
+  }
 
   return { changes, removed, spent };
 }
@@ -141,6 +151,7 @@ export function demolishArea(state: GameState, tiles: readonly TilePoint[]): Dem
 export function restoreRemoved(state: GameState, removed: RemovedEntities): void {
   for (const service of removed.services) state.services.set(service.id, service);
   for (const plant of removed.utilities) state.utilities.set(plant.id, plant);
+  for (const port of removed.ports) state.ports.set(port.id, port);
   for (const building of removed.buildings) {
     state.buildings.set(building.id, building);
     state.world.building[index(state.world, building.x, building.y)] = building.id;

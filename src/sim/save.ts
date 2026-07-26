@@ -4,6 +4,8 @@ import { missionById } from '../data/missions';
 import { techById } from '../data/tech';
 import { totalDebt } from './credit';
 import { ensureSections, refreshHighwayDamage } from './highwayWear';
+import { refreshSeaGates } from './ports';
+import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
 import type { Building } from './buildings';
@@ -68,6 +70,9 @@ export interface SaveData {
   /** Waterworks and power stations, flattened the same way. */
   utilities: number[];
   nextUtilityId: number;
+  /** Berths on the coast, flattened the same way. */
+  ports: number[];
+  nextPortId: number;
 }
 
 /** Fields packed per building, in order. Zone is stored as an index. */
@@ -76,6 +81,7 @@ const BUILDING_FIELDS = 12;
 const LOAN_FIELDS = 5;
 const SERVICE_FIELDS = 4;
 const UTILITY_FIELDS = 4;
+const PORT_FIELDS = 4;
 
 export function serialize(state: GameState): SaveData {
   const buildings: number[] = [];
@@ -99,6 +105,11 @@ export function serialize(state: GameState): SaveData {
   const services: number[] = [];
   for (const service of state.services.values()) {
     services.push(service.id, SERVICE_ORDER.indexOf(service.kind), service.x, service.y);
+  }
+
+  const ports: number[] = [];
+  for (const port of state.ports.values()) {
+    ports.push(port.id, PORT_ORDER.indexOf(port.kind), port.x, port.y);
   }
 
   const utilities: number[] = [];
@@ -141,6 +152,8 @@ export function serialize(state: GameState): SaveData {
     nextServiceId: state.nextServiceId,
     utilities,
     nextUtilityId: state.nextUtilityId,
+    ports,
+    nextPortId: state.nextPortId,
   };
 }
 
@@ -255,6 +268,25 @@ export function deserialize(data: unknown): GameState | null {
     state.utilities.set(id, { id, kind, x, y });
   }
   state.nextUtilityId = Math.max(1, data.nextUtilityId ?? 1);
+
+  // Berths arrived with the sea, after the stations and the plants: a file from
+  // before them is a city with no waterfront, not a corrupt one.
+  const berths = Array.isArray(data.ports) ? data.ports : [];
+  if (berths.length % PORT_FIELDS !== 0) return null;
+  for (let i = 0; i < berths.length; i += PORT_FIELDS) {
+    const kind = PORT_ORDER[berths[i + 1] ?? -1];
+    if (!kind) return null;
+    const x = berths[i + 2] ?? 0;
+    const y = berths[i + 3] ?? 0;
+    if (x < 0 || y < 0 || x >= state.world.size || y >= state.world.size) return null;
+    const id = berths[i] ?? 0;
+    state.ports.set(id, { id, kind, x, y });
+  }
+  state.nextPortId = Math.max(1, data.nextPortId ?? 1);
+  // The gate column is derived, and the connectivity pass runs before anything
+  // else touches it — but a loaded city is asked about its harbour by the UI
+  // long before the first tick.
+  refreshSeaGates(state);
 
   state.population = 0;
   for (const building of state.buildings.values()) {

@@ -9,6 +9,7 @@ import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
 import type { Mission } from '../data/missions';
 import { settleMissions } from './missions';
 import { settlePetitions, type PetitionChanges, type PetitionKind } from './petitions';
+import { refreshSeaGates } from './ports';
 import { stepPopulation } from './population';
 import { createRng } from './rng';
 import { stepTimeline, type TimelineFired } from './timeline';
@@ -79,7 +80,10 @@ export class Systems {
   step(state: GameState, dt: number, hazardsLive = true): Era | null {
     if (this.fieldsDirty) {
       // Which streets reach the country decides which streets count at all;
-      // it has to be settled before road access is measured from them.
+      // it has to be settled before road access is measured from them — and a
+      // working harbour is one of the two ways to reach it (sim/ports.ts), so
+      // the gate column is written first.
+      refreshSeaGates(state);
       computeConnectivity(state.world);
       computeRoadDistance(state.world, this.fields.roadDistance);
       computeTraffic(state, this.fields, this.traffic);

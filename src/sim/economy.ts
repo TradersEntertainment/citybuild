@@ -10,6 +10,7 @@ import { ROAD_SPECS } from '../data/roads';
 import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
 import { highwayTradeFactor, transitIncome } from './highway';
+import { portUpkeep, seaIncome } from './ports';
 import { serviceUpkeep } from './services';
 import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
@@ -41,6 +42,10 @@ export interface Ledger {
   farmIncome: number;
   /** Through-traffic spending on the owned stretch of the national highway. */
   transitIncome: number;
+  /** What the berths land and ship — the coast, finally earning (§ports). */
+  seaIncome: number;
+  /** Berths cost the same every minute whether or not a ship came in. */
+  portUpkeep: number;
 }
 
 /**
@@ -90,16 +95,23 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
   taxIncome *= history;
   const farmIncome = farmYield * FOOD_PRICE * history;
   const transit = transitIncome(state) * history;
+  // The coast, earning. Moved by history like every other income line: a
+  // depression empties the docks as surely as it empties the shops.
+  const sea = seaIncome(state) * history;
+  const berths = portUpkeep(state) * admin;
   return {
     taxIncome,
     roadUpkeep: roads,
     serviceUpkeep: stations,
     utilityUpkeep: plants,
     debtService: debt,
-    net: taxIncome + farmIncome + transit - roads - stations - plants - debt,
+    net:
+      taxIncome + farmIncome + transit + sea - roads - stations - plants - berths - debt,
     farmYield,
     farmIncome,
     transitIncome: transit,
+    seaIncome: sea,
+    portUpkeep: berths,
   };
 }
 

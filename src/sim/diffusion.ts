@@ -8,6 +8,7 @@ import {
   POLLUTION_PER_INDUSTRIAL_JOB,
   TREE_ABSORPTION,
 } from '../data/balance';
+import { PORT_SPECS } from '../data/ports';
 import { ROAD_SPECS } from '../data/roads';
 import type { GameState } from './state';
 import { techFactor } from './tech';
@@ -124,6 +125,15 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
     const i = index(world, plant.x, plant.y);
     pollutionSource[i] = (pollutionSource[i] ?? 0) + emission;
     note(plant.x, plant.y);
+  }
+
+  // A shipyard is heavy industry with a hull in front of it, and smells like it.
+  for (const port of state.ports.values()) {
+    const emission = (PORT_SPECS[port.kind].pollution ?? 0) * sanitation;
+    if (emission <= 0) continue;
+    const i = index(world, port.x, port.y);
+    pollutionSource[i] = (pollutionSource[i] ?? 0) + emission;
+    note(port.x, port.y);
   }
 
   for (let y = 0; y < world.size; y++) {

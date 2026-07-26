@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PORT_ORDER, type PortKind } from '../data/ports';
 import { SERVICE_ORDER, type ServiceKind } from '../data/services';
 import { UTILITY_ORDER, type UtilityKind } from '../data/utilities';
 import type { GameState } from '../sim/state';
@@ -23,7 +24,7 @@ interface StationLook {
   mast: number;
 }
 
-type FacilityKind = ServiceKind | UtilityKind;
+type FacilityKind = ServiceKind | UtilityKind | PortKind;
 
 const LOOKS: Readonly<Record<FacilityKind, StationLook>> = {
   fire: { body: '#B9AFA3', accent: '#B03A2B', width: 0.78, height: 0.58, mast: 0.5 },
@@ -36,9 +37,20 @@ const LOOKS: Readonly<Record<FacilityKind, StationLook>> = {
   waterworks: { body: '#93A0A6', accent: '#3E86A8', width: 0.94, height: 0.5, mast: 0.4 },
   coalPlant: { body: '#7C7671', accent: '#4A4441', width: 0.96, height: 0.72, mast: 1.5 },
   gasPlant: { body: '#8B8E92', accent: '#5B6166', width: 0.94, height: 0.66, mast: 1.1 },
+  // The waterfront. Low sheds and tall thin masts: a crane is the one thing on
+  // a coast you can see from the other side of the bay, which is exactly what a
+  // player wants of a building they have to find the shoreline for.
+  fishing: { body: '#8E7654', accent: '#C9793B', width: 0.66, height: 0.34, mast: 0.5 },
+  cargo: { body: '#8D9297', accent: '#E0A32E', width: 0.98, height: 0.46, mast: 1.7 },
+  shipyard: { body: '#6F757A', accent: '#B24C3A', width: 1, height: 0.6, mast: 2 },
+  marina: { body: '#E8E6DF', accent: '#2F7FA8', width: 0.62, height: 0.3, mast: 1.3 },
 };
 
-const FACILITY_ORDER: readonly FacilityKind[] = [...SERVICE_ORDER, ...UTILITY_ORDER];
+const FACILITY_ORDER: readonly FacilityKind[] = [
+  ...SERVICE_ORDER,
+  ...UTILITY_ORDER,
+  ...PORT_ORDER,
+];
 
 const INITIAL_CAPACITY = 32;
 
@@ -112,7 +124,11 @@ export function createStations(): StationLayer {
   const rebuild = (state: GameState): void => {
     for (const kind of FACILITY_ORDER) counts.set(kind, 0);
 
-    const standing = [...state.services.values(), ...state.utilities.values()];
+    const standing = [
+      ...state.services.values(),
+      ...state.utilities.values(),
+      ...state.ports.values(),
+    ];
     for (const station of standing) {
       let bucket = buckets.get(station.kind);
       if (!bucket) continue;

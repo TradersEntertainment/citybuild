@@ -53,6 +53,12 @@ export interface World {
    */
   highwayBlocked: Uint8Array;
   /**
+   * 1 where a working cargo port stands — a way into the country that is not
+   * the motorway. Derived from the berths that exist, never saved; see
+   * sim/ports.ts.
+   */
+  seaGate: Uint8Array;
+  /**
    * 1 where a player road tile can reach the national highway through the
    * city's own streets. Derived, never saved: recomputed with the fields on
    * load. A street nobody can arrive by is a drawing, not a road (§6.1).
@@ -84,6 +90,7 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     highwayRoute: [],
     highwayDamage: new Uint8Array(cells),
     highwayBlocked: new Uint8Array(cells),
+    seaGate: new Uint8Array(cells),
     connected: new Uint8Array(cells),
   };
   claimStartingParcel(world);

@@ -29,7 +29,7 @@ export interface ServiceBuilding {
 export interface PlacementResult {
   ok: boolean;
   /** Why not, when ok is false — the UI says this rather than failing silently. */
-  reason?: 'locked' | 'unowned' | 'occupied' | 'noRoad' | 'tooDear';
+  reason?: 'locked' | 'unowned' | 'occupied' | 'noRoad' | 'tooDear' | 'noWater';
 }
 
 export function canPlaceService(

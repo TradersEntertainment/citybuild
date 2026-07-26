@@ -14,6 +14,7 @@ import {
 } from '../data/balance';
 import { capacityOf, isBuiltZone, type BuiltZone, type Level } from '../data/buildings';
 import { UNREACHABLE, type Fields } from './fields';
+import { portJobs } from './ports';
 import { serviceCoverageAt } from './services';
 import { techFactor } from './tech';
 import { congestionNear, type TrafficField } from './traffic';
@@ -316,6 +317,8 @@ export interface BuildingTotals {
   industrialJobs: number;
   /** Work on painted farmland, which grows no building of its own. */
   farmJobs: number;
+  /** Work on the waterfront, likewise placed rather than grown. */
+  portJobs: number;
 }
 
 export function totalBuildings(state: GameState): BuildingTotals {
@@ -325,6 +328,10 @@ export function totalBuildings(state: GameState): BuildingTotals {
     commercialJobs: 0,
     industrialJobs: 0,
     farmJobs: state.farmTiles * FARM_JOBS_PER_TILE * techFactor(state, 'agronomy'),
+    // The waterfront employs people too, and it employs them whether or not a
+    // house happens to have grown next to it — a berth is a workplace the player
+    // placed by hand, like a station, not one the growth loop produced.
+    portJobs: portJobs(state),
   };
 
   for (const building of state.buildings.values()) {

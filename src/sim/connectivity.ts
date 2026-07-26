@@ -20,9 +20,18 @@ export function computeConnectivity(world: World): void {
   const { connected } = world;
   connected.fill(0);
 
+  // A cargo port is the other way out of the country (sim/ports.ts). Every
+  // street that reaches one is wired into the world exactly as if it had reached
+  // the motorway, which is the strategic point of building one: a city with a
+  // working harbour stops being hostage to the single road it was founded on.
+  const gates: number[] = [];
+  for (let i = 0; i < world.seaGate.length; i++) {
+    if (world.seaGate[i] === 1) gates.push(i);
+  }
+
   // A world with no motorway at all — a stripped test fixture, say — has no
   // notion of "abroad" to be cut off from, so every street leads somewhere.
-  if (world.highwayRoute.length === 0) {
+  if (world.highwayRoute.length === 0 && gates.length === 0) {
     for (let i = 0; i < world.road.length; i++) {
       if ((world.road[i] ?? NONE) !== NONE) connected[i] = 1;
     }
@@ -42,12 +51,8 @@ export function computeConnectivity(world: World): void {
     queue[tail++] = i;
   };
 
-  for (const point of world.highwayRoute) {
-    const { x, y } = point;
-    // A barricaded stretch is not a way into the country. Nothing arrives
-    // through it, so nothing it touches counts as connected — which is the
-    // whole penalty for leaving the state's repair bill unpaid (highwayWear.ts).
-    if ((world.highwayBlocked[index(world, x, y)] ?? 0) === 1) continue;
+  /** Seeds every player road touching this tile. */
+  const seedAround = (x: number, y: number): void => {
     for (let d = 0; d < 4; d++) {
       const nx = x + DX[d]!;
       const ny = y + DY[d]!;
@@ -59,6 +64,20 @@ export function computeConnectivity(world: World): void {
       if ((world.highway[i] ?? 0) === 1) continue;
       seed(i);
     }
+  };
+
+  for (const point of world.highwayRoute) {
+    const { x, y } = point;
+    // A barricaded stretch is not a way into the country. Nothing arrives
+    // through it, so nothing it touches counts as connected — which is the
+    // whole penalty for leaving the state's repair bill unpaid (highwayWear.ts).
+    if ((world.highwayBlocked[index(world, x, y)] ?? 0) === 1) continue;
+    seedAround(x, y);
+  }
+
+  for (const at of gates) {
+    const x = at % world.size;
+    seedAround(x, (at - x) / world.size);
   }
 
   while (head < tail) {
