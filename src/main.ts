@@ -11,6 +11,9 @@ import { registerServiceWorker } from './pwa/registerSW';
 import { periodOf } from './render3d/archetypes';
 import { CameraRig } from './render3d/cameraRig';
 import { Renderer } from './render3d/renderer';
+import { SEA_Y } from './render3d/constants';
+import { sampleHeight } from './render3d/terrain';
+import { WalkMode } from './render3d/walkMode';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
@@ -29,7 +32,8 @@ import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
 import { NONE, type Era } from './sim/tiles';
 import { UndoStack } from './sim/undo';
-import { parcelOfTile, startingCentre } from './sim/world';
+import { index, parcelOfTile, startingCentre } from './sim/world';
+import { appendHistory, clearHistory } from './state/history';
 import { Autosave, loadCity, loadLegacy, nextSeed, retireCity } from './state/persistence';
 import { uiStore } from './state/store';
 import { mountChronicle } from './ui/chronicle';
@@ -49,6 +53,8 @@ import { mountToast } from './ui/toast';
 import { mountViewControls } from './ui/viewControls';
 import { mountToolDock } from './ui/toolDock';
 import { mountHint, mountTopBar } from './ui/topBar';
+import { mountHistoryPanel } from './ui/historyPanel';
+import { mountWalkHud } from './ui/walkHud';
 
 /**
  * Bootstrap and frame loop. This file wires modules together and owns nothing
@@ -60,8 +66,11 @@ const ui = document.querySelector<HTMLElement>('#ui');
 if (!canvas || !ui) throw new Error('Game shell missing from index.html');
 
 // A returning player gets their city back; a new one gets their own map rather
-// than the single hard-coded island everybody used to share.
-const game = loadCity() ?? createGameState(nextSeed(), Date.now(), loadLegacy());
+// than the single hard-coded island everybody used to share — and a blank
+// page in the history log: the diary belongs to the city, not the device.
+const savedCity = loadCity();
+if (!savedCity) clearHistory();
+const game = savedCity ?? createGameState(nextSeed(), Date.now(), loadLegacy());
 const autosave = new Autosave(AUTOSAVE_INTERVAL_S);
 const camera = new CameraRig();
 const renderer = new Renderer(canvas, camera, game);
@@ -271,13 +280,28 @@ let panFrom: { x: number; y: number } | null = null;
 
 const input = bindPointerInput(canvas, {
   onCameraPan: (dx, dy) => {
+    if (walk.active) return;
     dock.closeSheet();
     camera.panByScreen(dx, dy);
   },
-  onCameraZoom: (anchorX, anchorY, factor) => camera.zoomAt(anchorX, anchorY, factor),
-  onCameraTwist: (radians) => camera.orbitByAngle(radians),
-  onCameraOrbit: (dx, dy) => camera.orbitByScreen(dx, dy),
+  onCameraZoom: (anchorX, anchorY, factor) => {
+    if (walk.active) return;
+    camera.zoomAt(anchorX, anchorY, factor);
+  },
+  onCameraTwist: (radians) => {
+    if (walk.active) return;
+    camera.orbitByAngle(radians);
+  },
+  onCameraOrbit: (dx, dy) => {
+    if (walk.active) return;
+    camera.orbitByScreen(dx, dy);
+  },
   onStrokeStart: (sample) => {
+    // A walk turns every drag into a look-around; nothing else reaches the map.
+    if (walk.active) {
+      walkLook = { x: sample.x, y: sample.y };
+      return;
+    }
     // The advice sits mid-screen; get it out of the way of the ink the moment
     // the player starts drawing, not once the road is paid for.
     uiStore.getState().hideHint();
@@ -289,6 +313,13 @@ const input = bindPointerInput(canvas, {
     tools.strokeStart(sample.x, sample.y);
   },
   onStrokeMove: (sample) => {
+    if (walk.active) {
+      if (walkLook) {
+        walk.lookBy(sample.x - walkLook.x, sample.y - walkLook.y);
+        walkLook = { x: sample.x, y: sample.y };
+      }
+      return;
+    }
     if (panFrom) {
       camera.panByScreen(sample.x - panFrom.x, sample.y - panFrom.y);
       panFrom = { x: sample.x, y: sample.y };
@@ -297,16 +328,25 @@ const input = bindPointerInput(canvas, {
     tools.strokeMove(sample.x, sample.y);
   },
   onStrokeEnd: () => {
+    if (walk.active) {
+      walkLook = null;
+      return;
+    }
     panFrom = null;
     tools.strokeEnd();
     uiStore.getState().showHint();
   },
   onStrokeCancel: () => {
+    if (walk.active) {
+      walkLook = null;
+      return;
+    }
     panFrom = null;
     tools.cancelStroke();
     uiStore.getState().showHint();
   },
   onTap: (sample) => {
+    if (walk.active) return;
     dock.closeSheet();
     const world = camera.screenToWorld(sample.x, sample.y);
     const tileX = Math.floor(world.x);
@@ -322,7 +362,104 @@ const input = bindPointerInput(canvas, {
     parcelPrompt.show(offerFor(game, px, py));
   },
 });
-bindWheelZoom(canvas, (x, y, factor) => camera.zoomAt(x, y, factor));
+bindWheelZoom(canvas, (x, y, factor) => {
+  if (walk.active) return;
+  camera.zoomAt(x, y, factor);
+});
+
+// --- Street-level visits (§15) -------------------------------------------------
+// The same city, seen from eye height. The walk borrows the rig's camera, the
+// shell reroutes every gesture to it, and the sim runs on regardless — the
+// city does not pause because its mayor went for a stroll.
+const walkHud = mountWalkHud(ui, { onExit: () => exitWalk() });
+const walk = new WalkMode({
+  camera: camera.camera,
+  blocked: (tileX, tileY) => {
+    const world = game.world;
+    if (tileX < 0 || tileY < 0 || tileX >= world.size || tileY >= world.size) return true;
+    if ((world.building[index(world, tileX, tileY)] ?? 0) !== 0) return true;
+    if (sampleHeight(world, tileX + 0.5, tileY + 0.5) < SEA_Y - 0.4) return true;
+    for (const service of game.services.values()) {
+      if (service.x === tileX && service.y === tileY) return true;
+    }
+    for (const plant of game.utilities.values()) {
+      if (plant.x === tileX && plant.y === tileY) return true;
+    }
+    return false;
+  },
+  sampleHeight: (x, y) => sampleHeight(game.world, x, y),
+  startAt: () => ({ x: camera.x, y: camera.y }),
+  onExit: () => {},
+});
+
+/** A drag on the canvas is a look-around while the walk owns the camera. */
+let walkLook: { x: number; y: number } | null = null;
+const walkKeys = { forward: 0, strafe: 0, sprint: false };
+const heldKeys = new Set<string>();
+const WALK_KEY_CODES = new Set([
+  'KeyW',
+  'KeyA',
+  'KeyS',
+  'KeyD',
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'ShiftLeft',
+  'ShiftRight',
+]);
+
+function refreshWalkKeys(): void {
+  walkKeys.forward =
+    (heldKeys.has('KeyW') || heldKeys.has('ArrowUp') ? 1 : 0) -
+    (heldKeys.has('KeyS') || heldKeys.has('ArrowDown') ? 1 : 0);
+  walkKeys.strafe =
+    (heldKeys.has('KeyD') || heldKeys.has('ArrowRight') ? 1 : 0) -
+    (heldKeys.has('KeyA') || heldKeys.has('ArrowLeft') ? 1 : 0);
+  walkKeys.sprint = heldKeys.has('ShiftLeft') || heldKeys.has('ShiftRight');
+}
+
+window.addEventListener('keydown', (event) => {
+  if (!walk.active) return;
+  if (event.code === 'Escape') {
+    exitWalk();
+    return;
+  }
+  if (WALK_KEY_CODES.has(event.code)) {
+    event.preventDefault();
+    heldKeys.add(event.code);
+    refreshWalkKeys();
+  }
+});
+window.addEventListener('keyup', (event) => {
+  heldKeys.delete(event.code);
+  refreshWalkKeys();
+});
+
+function enterWalk(): void {
+  if (walk.active) return;
+  dock.closeSheet();
+  historyPanel.close();
+  walk.enter();
+  renderer.externalCameraControl = true;
+  ui!.dataset['walking'] = 'true';
+  walkHud.setActive(true);
+  haptics.tap();
+}
+
+function exitWalk(): void {
+  if (!walk.active) return;
+  walk.exit();
+  heldKeys.clear();
+  refreshWalkKeys();
+  renderer.externalCameraControl = false;
+  ui!.dataset['walking'] = 'false';
+  walkHud.setActive(false);
+  haptics.tap();
+}
+
+const historyPanel = mountHistoryPanel(ui);
+
 mountViewControls(ui, {
   // Anchored on the middle of the screen, which is what the player is looking
   // at when they reach for a button rather than a finger.
@@ -330,6 +467,8 @@ mountViewControls(ui, {
   onRotate: (radians) => camera.orbitByAngle(radians),
   soundOn: () => sfx.enabled,
   onToggleSound: () => sfx.setEnabled(!sfx.enabled),
+  onWalk: () => enterWalk(),
+  onHistory: () => historyPanel.toggle(),
 });
 bindAudioUnlock(canvas);
 registerServiceWorker();
@@ -417,6 +556,14 @@ function frame(now: number): void {
   lastFrame = now;
 
   input.tick(now);
+  if (walk.active) {
+    const stick = walkHud.stick();
+    walk.update(deltaMs, {
+      forward: walkKeys.forward + (walkHud.touchLayout ? -stick.y : 0),
+      strafe: walkKeys.strafe + (walkHud.touchLayout ? stick.x : 0),
+      sprint: walkKeys.sprint,
+    });
+  }
   const budget = clock.advance(deltaMs);
 
   if (budget.simTicks > 0) {
@@ -431,6 +578,14 @@ function frame(now: number): void {
       renderer.invalidateTerrain();
       // The biggest moment in the early game used to pass in total silence.
       toast.show(STR.era.reached(STR.eraName[era]), unlockedBy(era, before));
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: '🏙️',
+          title: STR.era.reached(STR.eraName[era]),
+          detail: unlockedBy(era, before),
+        },
+      ]);
       haptics.confirm();
       sfx.play('era');
       autosave.flush(game);
@@ -462,8 +617,9 @@ function frame(now: number): void {
   );
 
   updateCostLabel(tools.isDrawing ? tools.summary : null);
-  // Names get out of the way of the ink, the same as the hint does.
-  districtLabels.setHidden(tools.isDrawing);
+  // Names get out of the way of the ink, the same as the hint does — and out
+  // of a walk entirely: street level has no use for floating district names.
+  districtLabels.setHidden(tools.isDrawing || walk.active);
   districtLabels.reposition();
   // The dock relabels itself as tools change, so the ring is re-measured rather
   // than cached against coordinates that may have moved.
@@ -510,6 +666,15 @@ function announceTimeline(): void {
         : event.kind === 'celebration' || event.kind === 'boom' || event.kind === 'progress' ? 'calm'
         : 'warn',
       text: event.title,
+    })),
+  );
+  // The feed announces and forgets; the diary remembers the city's century.
+  appendHistory(
+    fired.map(({ event }) => ({
+      year: event.year,
+      icon: event.icon,
+      title: event.title,
+      detail: event.detail,
     })),
   );
   for (const { event } of fired) {
@@ -680,6 +845,15 @@ function publishReadout(): void {
 }
 
 syncUi();
+// A handle for the curious and for automated checks: reading is safe, writing
+// is your own adventure.
+(window as unknown as Record<string, unknown>)['__kadastro'] = {
+  game,
+  camera,
+  walk,
+  enterWalk,
+  exitWalk,
+};
 // Named on the first frame rather than on the sweep timer: a returning player
 // opens a city that already has neighbourhoods, and waiting a beat for them to
 // appear reads as the game noticing them rather than knowing them.

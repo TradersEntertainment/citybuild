@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { FIRE_TRUCK_DWELL_S } from '../data/balance';
+import { truckArrived } from '../sim/hazards';
 import { SERVICE } from '../sim/tiles';
 import type { GameState } from '../sim/state';
 import { index } from '../sim/world';
@@ -77,7 +79,37 @@ export function createHazards(): HazardLayer {
   sick.count = 0;
   sick.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-  group.add(flames, smoke, sick);
+  // The brigade: a red engine per dispatched run, drawn exactly where the sim
+  // says it has driven to, plus a light bar whose pulse is the one shared
+  // material property — every engine flashing in step reads as a convoy.
+  const engineGeometry = new THREE.BoxGeometry(0.3, 0.22, 0.6);
+  const engineMaterial = new THREE.MeshStandardMaterial({
+    color: '#C0272D',
+    roughness: 0.4,
+    metalness: 0.2,
+  });
+  const engines = new THREE.InstancedMesh(engineGeometry, engineMaterial, MAX_FIRES);
+  engines.castShadow = true;
+  engines.receiveShadow = false;
+  engines.frustumCulled = false;
+  engines.count = 0;
+  engines.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  const lightGeometry = new THREE.BoxGeometry(0.16, 0.08, 0.2);
+  const lightMaterial = new THREE.MeshStandardMaterial({
+    color: '#E8F4FF',
+    emissive: new THREE.Color('#5FB4FF'),
+    emissiveIntensity: 2,
+    roughness: 0.3,
+  });
+  const lightBars = new THREE.InstancedMesh(lightGeometry, lightMaterial, MAX_FIRES);
+  lightBars.castShadow = false;
+  lightBars.receiveShadow = false;
+  lightBars.frustumCulled = false;
+  lightBars.count = 0;
+  lightBars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  group.add(flames, smoke, sick, engines, lightBars);
 
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
@@ -90,21 +122,35 @@ export function createHazards(): HazardLayer {
       flames.count = 0;
       smoke.count = 0;
       sick.count = 0;
+      engines.count = 0;
+      lightBars.count = 0;
       return;
     }
 
     const seconds = now / 1000;
+    // The convoy's flash: one pulse for every engine on the road.
+    lightMaterial.emissiveIntensity = 1.1 + 1.4 * (0.5 + 0.5 * Math.sin(seconds * 12));
+
     let fireCount = 0;
+    let engineCount = 0;
     for (const fire of state.fires.values()) {
       if (fireCount >= MAX_FIRES) break;
       const x = fire.x + 0.5;
       const z = fire.y + 0.5;
       const ground = sampleHeight(state.world, x, z);
 
+      // Once the crew is at work the blaze visibly loses: the dwell fraction
+      // shrinks flame and smoke towards the all-clear.
+      let douse = 1;
+      if (fire.truck && truckArrived(fire)) {
+        const working = fire.truck.progress - (fire.truck.path.length - 1);
+        douse = Math.max(0.15, 1 - working / FIRE_TRUCK_DWELL_S);
+      }
+
       // Flicker from the clock and the id: fast enough to read as flame,
       // stable enough not to shimmer under a still camera.
-      const flicker = 0.85 + 0.28 * Math.sin(seconds * 13 + fire.id * 7.3);
-      const height = Math.min(1.6, 0.7 + fire.age * 0.03);
+      const flicker = (0.85 + 0.28 * Math.sin(seconds * 13 + fire.id * 7.3)) * douse;
+      const height = Math.min(1.6, 0.7 + fire.age * 0.03) * douse;
       position.set(x, ground + 0.55 * height * flicker, z);
       quaternion.setFromAxisAngle(axis, seconds * 2.4 + fire.id);
       scale.set(flicker, height * flicker, flicker);
@@ -126,11 +172,42 @@ export function createHazards(): HazardLayer {
       smoke.setMatrixAt(fireCount, matrix);
 
       fireCount++;
+
+      // The engine, mid-run or parked at the scene: the sim's path, the sim's
+      // odometer, drawn tile space like everything else on this layer.
+      const truck = fire.truck;
+      if (truck && engineCount < MAX_FIRES) {
+        const last = truck.path.length - 1;
+        const clamped = Math.min(truck.progress, last);
+        const seg = Math.min(Math.floor(clamped), Math.max(0, last - 1));
+        const a = truck.path[seg] as { x: number; y: number };
+        const b = truck.path[Math.min(seg + 1, last)] as { x: number; y: number };
+        const t = clamped - seg;
+        const tx = a.x + (b.x - a.x) * t + 0.5;
+        const tz = a.y + (b.y - a.y) * t + 0.5;
+        const heading = Math.atan2(b.x - a.x, b.y - a.y);
+        const tGround = sampleHeight(state.world, tx, tz);
+
+        position.set(tx, tGround + 0.18, tz);
+        quaternion.setFromAxisAngle(axis, heading);
+        scale.set(1, 1, 1);
+        matrix.compose(position, quaternion, scale);
+        engines.setMatrixAt(engineCount, matrix);
+
+        position.set(tx, tGround + 0.33, tz);
+        matrix.compose(position, quaternion, scale);
+        lightBars.setMatrixAt(engineCount, matrix);
+        engineCount++;
+      }
     }
     flames.count = fireCount;
     smoke.count = fireCount;
     flames.instanceMatrix.needsUpdate = true;
     smoke.instanceMatrix.needsUpdate = true;
+    engines.count = engineCount;
+    lightBars.count = engineCount;
+    engines.instanceMatrix.needsUpdate = true;
+    lightBars.instanceMatrix.needsUpdate = true;
 
     // Sick marks: only while an outbreak runs, only over homes with no health
     // cover — a covered street is visibly fine, which is the whole lesson.
@@ -165,12 +242,18 @@ export function createHazards(): HazardLayer {
       flames.dispose();
       smoke.dispose();
       sick.dispose();
+      engines.dispose();
+      lightBars.dispose();
       flameGeometry.dispose();
       smokeGeometry.dispose();
       sickGeometry.dispose();
+      engineGeometry.dispose();
+      lightGeometry.dispose();
       flameMaterial.dispose();
       smokeMaterial.dispose();
       sickMaterial.dispose();
+      engineMaterial.dispose();
+      lightMaterial.dispose();
       group.clear();
     },
   };

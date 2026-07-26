@@ -57,6 +57,12 @@ export class Renderer {
   private readonly stations: StationLayer;
   private readonly overlay: OverlayLayer;
 
+  /**
+   * Set by the walk mode (§15): while someone else drives the camera, the rig
+   * must not re-assert its orbit on the next frame.
+   */
+  externalCameraControl = false;
+
   private zonesDirty = true;
   private forSaleDirty = true;
   private stationsDirty = false;
@@ -157,7 +163,7 @@ export class Renderer {
   }
 
   render(frame: FrameInput, deltaMs: number): void {
-    this.camera.update();
+    if (!this.externalCameraControl) this.camera.update();
 
     if (this.zonesDirty && frame.now - this.lastZoneRebuild > ZONE_REBUILD_INTERVAL_MS) {
       this.overlay.rebuildZones();
@@ -186,8 +192,12 @@ export class Renderer {
     this.issues.sync(frame.state, this.camera.distance, frame.now);
     this.hazards.sync(frame.state, this.camera.distance, frame.now);
 
-    const targetY = sampleHeight(frame.state.world, this.camera.x, this.camera.y);
-    updateSky(this.sky, this.camera.camera, this.camera.x, targetY, this.camera.y);
+    // The sky anchors on whoever is looking: the rig's orbit target normally,
+    // the walker's own feet while the camera is on loan.
+    const anchorX = this.externalCameraControl ? this.camera.camera.position.x : this.camera.x;
+    const anchorY = this.externalCameraControl ? this.camera.camera.position.z : this.camera.y;
+    const targetY = sampleHeight(frame.state.world, anchorX, anchorY);
+    updateSky(this.sky, this.camera.camera, anchorX, targetY, anchorY);
     (this.water.userData['tick'] as ((seconds: number) => void) | undefined)?.(
       performance.now() / 1000,
     );

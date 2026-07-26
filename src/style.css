@@ -778,12 +778,18 @@ body {
   z-index: 10;
   pointer-events: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
   padding: 24px;
+  /* Short viewports (a scaled Windows laptop, devtools docked) used to push
+     the start button past the fold with no way to reach it: the card centres
+     when it fits and the sheet scrolls when it does not. */
+  overflow-y: auto;
   background: color-mix(in srgb, var(--murekkep) 82%, transparent);
   backdrop-filter: blur(10px);
   animation: intro-in 320ms ease-out both;
+}
+
+.intro-card {
+  margin: auto;
 }
 
 .intro[data-closing='true'] {
@@ -1354,4 +1360,204 @@ body {
   background: transparent;
   border: 1px solid color-mix(in srgb, var(--parsomen) 24%, transparent);
   color: var(--parsomen);
+}
+
+/* --- Street-level walk (§15) ------------------------------------------------- */
+
+/* While the walk owns the camera, the building UI steps aside. */
+#ui[data-walking='true'] .bar,
+#ui[data-walking='true'] .view-controls,
+#ui[data-walking='true'] .sheet,
+#ui[data-walking='true'] .hint,
+#ui[data-walking='true'] .coach-ring,
+#ui[data-walking='true'] .coach-bubble,
+#ui[data-walking='true'] .district-labels,
+#ui[data-walking='true'] .city-panel,
+#ui[data-walking='true'] .history-panel {
+  display: none;
+}
+
+.walk-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+  display: none;
+}
+
+.walk-hud[data-active='true'] {
+  display: block;
+}
+
+.walk-exit {
+  pointer-events: auto;
+  position: absolute;
+  top: calc(var(--safe-top) + 14px);
+  right: calc(var(--safe-right) + 14px);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 30%, transparent);
+  background: color-mix(in srgb, var(--murekkep) 88%, transparent);
+  backdrop-filter: blur(10px);
+  color: var(--parsomen);
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.walk-exit:hover {
+  border-color: color-mix(in srgb, var(--parsomen) 50%, transparent);
+}
+
+.walk-crosshair {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: color-mix(in srgb, var(--parsomen) 65%, transparent);
+  box-shadow: 0 0 6px rgb(0 0 0 / 45%);
+}
+
+.walk-hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--safe-bottom) + 26px);
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--murekkep) 80%, transparent);
+  color: color-mix(in srgb, var(--parsomen) 80%, transparent);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+/* Once seen, the hint retires — a returning walker does not need teaching. */
+.walk-hint[data-seen='true'] {
+  display: none;
+}
+
+.walk-stick {
+  pointer-events: auto;
+  position: absolute;
+  left: calc(var(--safe-left) + 22px);
+  bottom: calc(var(--safe-bottom) + 26px);
+  width: 108px;
+  height: 108px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--parsomen) 28%, transparent);
+  background: color-mix(in srgb, var(--murekkep) 55%, transparent);
+  backdrop-filter: blur(6px);
+  touch-action: none;
+}
+
+.walk-stick-nub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 44px;
+  height: 44px;
+  margin: -22px 0 0 -22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--parsomen) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--parsomen) 70%, transparent);
+}
+
+/* --- The history log (§14) --------------------------------------------------- */
+
+.history-panel {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--bar-height) + 10px);
+  right: calc(var(--safe-right) + 12px);
+  bottom: calc(var(--safe-bottom) + 12px);
+  width: min(340px, 86vw);
+  z-index: 8;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 18%, transparent);
+  background: color-mix(in srgb, var(--murekkep) 93%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 34px rgb(0 0 0 / 34%);
+  transform: translateX(calc(100% + 16px));
+  transition: transform 220ms ease-out;
+}
+
+.history-panel[data-open='true'] {
+  transform: translateX(0);
+}
+
+.history-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--parsomen) 12%, transparent);
+}
+
+.history-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+.history-close {
+  border: none;
+  background: transparent;
+  color: color-mix(in srgb, var(--parsomen) 70%, transparent);
+  font: inherit;
+  font-size: 15px;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.history-list {
+  overflow-y: auto;
+  padding: 10px 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-empty {
+  margin: 18px 4px;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--parsomen) 65%, transparent);
+  text-align: center;
+}
+
+.history-entry {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.history-year {
+  flex: 0 0 auto;
+  font-size: 12px;
+  color: var(--pirinc);
+}
+
+.history-body {
+  min-width: 0;
+}
+
+.history-headline {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+
+.history-detail {
+  margin: 3px 0 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--parsomen) 62%, transparent);
 }

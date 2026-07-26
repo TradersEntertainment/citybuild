@@ -5,13 +5,16 @@ import {
   FIRE_BURNOUT_S,
   FIRE_RESPONSE_S,
   FIRE_SPREAD_S,
+  FIRE_TRUCK_DWELL_S,
+  FIRE_TRUCK_SPEED,
 } from '../src/data/balance';
 import type { Building } from '../src/sim/buildings';
-import { stepHazards, type HazardEvent } from '../src/sim/hazards';
+import { stepHazards, truckArrived, type HazardEvent } from '../src/sim/hazards';
+import { buildRoad } from '../src/sim/roads';
 import { hashSeed } from '../src/sim/rng';
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
-import { SERVICE } from '../src/sim/tiles';
+import { NONE, SERVICE } from '../src/sim/tiles';
 import { index } from '../src/sim/world';
 
 /**
@@ -129,6 +132,7 @@ describe('fire', () => {
       age: 0,
       covered: false,
       lastSpread: 0,
+      truck: null,
     });
     const events: HazardEvent[] = [];
     for (let s = 0; s < FIRE_SPREAD_S; s++) events.push(...stepHazards(game, 1, scripted([], 0.1)));
@@ -224,5 +228,93 @@ describe('away time', () => {
     expect(game.fires.size).toBe(0);
     expect(game.epidemic).toBeNull();
     expect(systems.drainHazardEvents()).toHaveLength(0);
+  });
+});
+
+/** Takes the state motorway off the map, so test streets are the only roads. */
+function stripHighway(game: GameState): void {
+  const { highway, road } = game.world;
+  for (let i = 0; i < road.length; i++) {
+    if ((highway[i] ?? 0) === 1) road[i] = NONE;
+  }
+}
+
+describe('the fire brigade', () => {
+  it('a covered fire gets an engine that drives over and puts it out', () => {
+    const game = freshGame('village');
+    stripHighway(game);
+    // A straight street from the station's door to the burning home's door.
+    const lane: { x: number; y: number }[] = [];
+    for (let x = 148; x <= 158; x++) lane.push({ x, y: 148 });
+    buildRoad(game.world, lane, 'path', 100_000);
+    const home = addBuilding(game, 158, 149, 'res', 6); // fronts the street
+    // The station stands at the other end of the lane.
+    game.services.set(1, { id: 1, kind: 'fire', x: 148, y: 149 });
+    game.world.serviceMask[index(game.world, 158, 149)] = SERVICE.fire;
+
+    stepHazards(game, 1, scripted([0]));
+    expect(game.fires.size).toBe(1);
+    const fire = [...game.fires.values()][0]!;
+    expect(fire.covered).toBe(true);
+    expect(fire.truck).not.toBeNull();
+    const path = fire.truck!.path;
+    // Station end to fire end along the lane; the spiral scan picks the
+    // road tile north-west of the front door, so the run is ten tiles.
+    expect(path).toHaveLength(10);
+    expect(path[0]).toEqual({ x: 148, y: 148 });
+    expect(path[path.length - 1]).toEqual({ x: 157, y: 148 });
+
+    // Mid-run the engine is still coming; the fire still burns.
+    const travelSeconds = (path.length - 1) / FIRE_TRUCK_SPEED;
+    for (let s = 0; s < Math.floor(travelSeconds / 2); s++) {
+      stepHazards(game, 1, scripted([], 0.99));
+    }
+    expect(game.fires.size).toBe(1);
+    expect(fire.truck!.progress).toBeGreaterThan(0);
+
+    // Travel time plus the crew's dwell, then the all-clear — house standing.
+    const events: HazardEvent[] = [];
+    for (let s = 0; s < Math.ceil(travelSeconds) + FIRE_TRUCK_DWELL_S + 2; s++) {
+      events.push(...stepHazards(game, 1, scripted([], 0.99)));
+    }
+    expect(kinds(events)).toContain('fireOut');
+    expect(game.fires.size).toBe(0);
+    expect(game.buildings.has(home.id)).toBe(true);
+  });
+
+  it('the crew is only "at work" once the engine has actually arrived', () => {
+    const game = freshGame('village');
+    stripHighway(game);
+    const lane: { x: number; y: number }[] = [];
+    for (let x = 148; x <= 158; x++) lane.push({ x, y: 148 });
+    buildRoad(game.world, lane, 'path', 100_000);
+    addBuilding(game, 158, 149, 'res', 6);
+    game.services.set(1, { id: 1, kind: 'fire', x: 148, y: 149 });
+    game.world.serviceMask[index(game.world, 158, 149)] = SERVICE.fire;
+
+    // A small step: the engine has only just rolled out of the station.
+    stepHazards(game, 0.1, scripted([0]));
+    const fire = [...game.fires.values()][0]!;
+    expect(truckArrived(fire)).toBe(false);
+    fire.truck!.progress = fire.truck!.path.length - 1;
+    expect(truckArrived(fire)).toBe(true);
+  });
+
+  it('a covered street the engine cannot reach is fought by timer instead', () => {
+    const game = freshGame('village');
+    addBuilding(game, 158, 149, 'res', 6);
+    game.services.set(1, { id: 1, kind: 'fire', x: 148, y: 149 });
+    game.world.serviceMask[index(game.world, 158, 149)] = SERVICE.fire;
+    // No roads anywhere: the brigade has no route to drive.
+
+    stepHazards(game, 1, scripted([0]));
+    const fire = [...game.fires.values()][0]!;
+    expect(fire.truck).toBeNull();
+
+    const events: HazardEvent[] = [];
+    for (let s = 0; s < FIRE_RESPONSE_S + 1; s++) {
+      events.push(...stepHazards(game, 1, scripted([], 0.99)));
+    }
+    expect(kinds(events)).toContain('fireOut');
   });
 });

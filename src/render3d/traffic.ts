@@ -121,10 +121,11 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       mesh.visible = active;
       if (!active) continue;
       // One long run across the whole map, staggered per shuttle, wrapping
-      // forever — the same sky lane the flying cars queue under.
+      // forever — the same sky lane the flying cars queue under. Tile space,
+      // like the fleet below.
       const span = WORLD_SIZE * TILE * 1.3;
       const phase = ((seconds * (6 + i * 2.4) + i * 137) % span) - span * 0.15;
-      mesh.position.set(phase - WORLD_HALF * 0.3, 14 + i * 3.5, (i - 0.5) * WORLD_SIZE * TILE * 0.5);
+      mesh.position.set(phase, 14 + i * 3.5, WORLD_SIZE * TILE * (0.3 + i * 0.4));
       mesh.rotation.y = 0.2 + i * 0.5;
     }
   }
@@ -712,7 +713,6 @@ const scratchPosition = new THREE.Vector3();
 const scratchQuaternion = new THREE.Quaternion();
 const scratchScale = new THREE.Vector3(1, 1, 1);
 const scratchEuler = new THREE.Euler();
-const WORLD_HALF = (WORLD_SIZE * TILE) / 2;
 
 function composeMatrix(
   pose: Pose,
@@ -721,8 +721,12 @@ function composeMatrix(
   flying: boolean,
   seconds: number,
 ): THREE.Matrix4 {
-  const wx = pose.x - WORLD_HALF;
-  const wz = pose.z - WORLD_HALF;
+  // Tile space, like every other layer: the terrain, the buildings and the
+  // roads all render at raw tile coordinates. (A centered offset here once put
+  // the whole fleet half a map away from its own streets — "cars exist but
+  // never reach my city".)
+  const wx = pose.x;
+  const wz = pose.z;
   const ground = Math.max(sampleHeight(world, pose.x, pose.z), SEA_Y);
   // The space age: from 2050 the fleet rides above the road, not on it — a
   // gentle bob per vehicle so the sky lane reads as traffic, not a glitch.

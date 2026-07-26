@@ -110,6 +110,13 @@ export function mountIntro(root: HTMLElement, deps: IntroDeps): IntroHandle {
   overlay.addEventListener('click', (event) => {
     if (event.target === overlay) dismiss();
   });
+  // A keyboard is a first-class citizen: Escape leaves the way the button does.
+  const escapeListener = (event: KeyboardEvent): void => {
+    if (event.code !== 'Escape') return;
+    window.removeEventListener('keydown', escapeListener);
+    dismiss();
+  };
+  window.addEventListener('keydown', escapeListener);
 
   // Focus lands on the one control, so a keyboard or switch user starts here.
   window.setTimeout(() => start.focus(), 60);
@@ -119,6 +126,9 @@ export function mountIntro(root: HTMLElement, deps: IntroDeps): IntroHandle {
       return open;
     },
     dismiss,
-    dispose: () => overlay.remove(),
+    dispose: () => {
+      window.removeEventListener('keydown', escapeListener);
+      overlay.remove();
+    },
   };
 }

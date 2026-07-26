@@ -291,6 +291,10 @@ export const FIRE_LEVEL_IGNITION_STEP = 0.5;
 export const FIRE_COVERED_IGNITION_MULT = 0.2;
 /** …and how long it burns: fought fires are out in this many seconds. */
 export const FIRE_RESPONSE_S = 25;
+/** Tiles per second a dispatched engine covers on its way to the blaze. */
+export const FIRE_TRUCK_SPEED = 9;
+/** Seconds the crew works at the scene before the all-clear. */
+export const FIRE_TRUCK_DWELL_S = 3;
 /** An unfought fire takes the building after this many seconds. */
 export const FIRE_BURNOUT_S = 80;
 /** Seconds between spread rolls on an unfought fire. */

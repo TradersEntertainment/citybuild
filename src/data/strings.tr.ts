@@ -347,6 +347,19 @@ export const STR = {
     zoomOut: 'Uzaklaştır',
     rotate: 'Kamerayı çevir',
     sound: 'Sesi aç/kapat',
+    walk: 'Şehirde yürü',
+    history: 'Şehrin tarihçesi',
+  },
+
+  walk: {
+    exit: 'Haritaya dön',
+    hintKeys: 'WASD ile yürü · sürükleyerek etrafına bak · Esc ile çık',
+    hintTouch: 'Sol tarafla yürü · sağ tarafla etrafına bak',
+  },
+
+  history: {
+    title: 'Şehrin tarihçesi',
+    empty: 'Henüz bir olay yaşanmadı — tarih, şehir büyüdükçe yazılacak.',
   },
 
   camera: {

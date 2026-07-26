@@ -19,6 +19,10 @@ export interface ViewControlDeps {
   /** Current sound setting, and the switch for it. */
   soundOn(): boolean;
   onToggleSound(): void;
+  /** Drops the camera to street level for a walk through the city. */
+  onWalk(): void;
+  /** Opens the city's history log. */
+  onHistory(): void;
 }
 
 export interface ViewControlsHandle {
@@ -71,6 +75,8 @@ export function mountViewControls(
     make('+', STR.view.zoomIn, () => deps.onZoom(ZOOM_STEP)),
     make('−', STR.view.zoomOut, () => deps.onZoom(1 / ZOOM_STEP)),
     make('⟲', STR.view.rotate, () => deps.onRotate(ROTATE_STEP)),
+    make('🚶', STR.view.walk, () => deps.onWalk()),
+    make('📜', STR.view.history, () => deps.onHistory()),
     sound,
   );
   root.append(column);
