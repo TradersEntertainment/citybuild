@@ -211,6 +211,39 @@ export const STR = {
     icon: '📋',
   },
 
+  /** The war on the road: convoys wear the motorway, the state sends a bill. */
+  roadRepair: {
+    title: 'Karayolları müdürlüğü',
+    /** The feed, as each stretch crosses a line. */
+    damaged: (sections: number): string =>
+      sections > 1
+        ? `Ana yolun ${sections} kesimi askerî konvoylarda bozuldu.`
+        : 'Ana yol askerî konvoylarda bozuldu.',
+    blocked: (sections: number): string =>
+      sections > 1
+        ? `Ana yolun ${sections} kesimi kapandı — barikat kuruldu.`
+        : 'Ana yolun bir kesimi kapandı — barikat kuruldu.',
+    reopened: (sections: number): string =>
+      sections > 1 ? `Ana yolun ${sections} kesimi açıldı.` : 'Ana yol yeniden açıldı.',
+    /** The card. Says the price, and what happens if it is not paid. */
+    bill: (amount: number): string => `Tamir bedeli ₺${money.format(amount)}`,
+    warning: 'Ödenmezse bozuk kesim trafiğe kapanır: göç durur, geçiş geliri kesilir.',
+    urgent: 'Yol kapalı. Şehrin memleketle bağı kesildi.',
+    pay: 'Öde',
+    later: 'Sonra',
+    paid: 'Ana yol onarıldı.',
+    tooPoor: 'Kasa yetmiyor. Krediyle ödeyebilirsin.',
+    icon: '🚧',
+    /** The chronicle's telling of it. */
+    chronicleDamaged:
+      'Cephe yolu buradan geçiyordu. Tank taşıyıcıları ve top arabaları asfaltı söktü; ' +
+      'karayolları müdürlüğü tamir masrafını belediyeden istedi.',
+    chronicleBlocked:
+      'Bozuk kesime barikat kuruldu. Şehrin memlekete açılan tek yolu kapandı; ' +
+      'gelen giden kesildi, tezgâhın malı elinde kaldı.',
+    chronicleReopened: 'Ana yol yeniden trafiğe açıldı. Şehir memleketle yeniden buluştu.',
+  },
+
   /** Weather (Paket 2 §6). Announced when a spell begins, then left alone. */
   weather: {
     rain: 'Yağmur başladı. Yangın zor yayılır, tarla verir.',

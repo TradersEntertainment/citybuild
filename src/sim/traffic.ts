@@ -81,6 +81,9 @@ export function computeTraffic(state: GameState, fields: Fields, traffic: Traffi
   if (transitFlowVolume > 0) {
     for (const point of world.highwayRoute) {
       const i = index(world, point.x, point.y);
+      // Nothing rolls over a barricade; the stretch stands empty until it is
+      // paid for (highwayWear.ts).
+      if ((world.highwayBlocked[i] ?? 0) === 1) continue;
       flow[i] = (flow[i] ?? 0) + transitFlowVolume;
     }
   }

@@ -74,6 +74,9 @@ export function isNationalHighway(world: World, x: number, y: number): boolean {
 export function highwayInterchanges(world: World): number {
   let count = 0;
   for (const point of world.highwayRoute) {
+    // A junction onto a barricaded stretch is a junction onto nothing: no
+    // through-traffic to sell to, no way out for the city's own lorries.
+    if ((world.highwayBlocked[index(world, point.x, point.y)] ?? 0) === 1) continue;
     if (touchesPlayerRoad(world, point.x, point.y)) count++;
   }
   return count;

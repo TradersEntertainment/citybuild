@@ -41,6 +41,18 @@ export interface World {
   /** The highway's tiles in edge-to-edge order; empty until the route is laid. */
   highwayRoute: { x: number; y: number }[];
   /**
+   * How worn each motorway tile is, 0..255. Derived from the wear the state
+   * carries per maintained stretch, spread back over the tiles for the map to
+   * draw; never saved. See sim/highwayWear.ts.
+   */
+  highwayDamage: Uint8Array;
+  /**
+   * 1 where the motorway is barricaded — worn past use and not yet paid for.
+   * A shut tile seeds no connectivity and carries no interchange, which is the
+   * whole of the punishment; derived, never saved.
+   */
+  highwayBlocked: Uint8Array;
+  /**
    * 1 where a player road tile can reach the national highway through the
    * city's own streets. Derived, never saved: recomputed with the fields on
    * load. A street nobody can arrive by is a drawing, not a road (§6.1).
@@ -70,6 +82,8 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     parcelsOwned: new Uint8Array(parcelSide * parcelSide),
     highway: new Uint8Array(cells),
     highwayRoute: [],
+    highwayDamage: new Uint8Array(cells),
+    highwayBlocked: new Uint8Array(cells),
     connected: new Uint8Array(cells),
   };
   claimStartingParcel(world);

@@ -3,6 +3,7 @@ import type { BuiltZone, Level } from '../data/buildings';
 import { missionById } from '../data/missions';
 import { techById } from '../data/tech';
 import { totalDebt } from './credit';
+import { ensureSections, refreshHighwayDamage } from './highwayWear';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
 import type { Building } from './buildings';
@@ -47,6 +48,12 @@ export interface SaveData {
   techsDone: string[];
   /** Legacy points this city was founded with. */
   legacy: number;
+  /**
+   * Wear on each stretch of the national highway, as whole percent. The route
+   * is regenerated from the seed, so a stretch index means the same stretch on
+   * every load and only the number has to be stored.
+   */
+  highwayWear: number[];
   nextBuildingId: number;
   lastSeen: number;
   /** Run-length encoded grid columns: [value, runLength, value, runLength, …]. */
@@ -123,6 +130,7 @@ export function serialize(state: GameState): SaveData {
     missionsDone: [...state.missionsDone],
     techsDone: [...state.techsDone],
     legacy: state.legacy,
+    highwayWear: state.highwayWear.map((wear) => Math.round(wear * 100)),
     nextBuildingId: state.nextBuildingId,
     lastSeen: state.lastSeen,
     road: encodeRuns(state.world.road),
@@ -186,6 +194,19 @@ export function deserialize(data: unknown): GameState | null {
   );
   state.nextBuildingId = data.nextBuildingId;
   state.lastSeen = data.lastSeen;
+  // Road wear arrived after the first saves existed, like the loans and the
+  // stations before it: a file without it is a city whose motorway is in good
+  // repair, not a corrupt one. Sized against the regenerated route afterwards,
+  // so a save from a build that split the road differently cannot leave the
+  // array and the road disagreeing.
+  const wear = Array.isArray(data.highwayWear) ? data.highwayWear : [];
+  state.highwayWear = wear.map((percent) =>
+    typeof percent === 'number' && Number.isFinite(percent)
+      ? Math.min(1, Math.max(0, percent / 100))
+      : 0,
+  );
+  ensureSections(state);
+  refreshHighwayDamage(state);
 
   if (
     !decodeRuns(data.road, state.world.road) ||

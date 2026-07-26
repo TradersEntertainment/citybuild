@@ -34,6 +34,16 @@ import { sampleHeight } from './terrain';
 
 const MAX_CARS = 330;
 const MAX_TRUCKS = 90;
+/**
+ * Armour on the road at once. Small on purpose: a column of thirty tanks is a
+ * war film, and what a city sees of a war is a handful of transporters going
+ * past all week.
+ */
+const MAX_TANKS = 26;
+/** Share of the through-traffic that is military while a war runs. */
+const CONVOY_SHARE = 0.55;
+/** Armour moves at the speed of the slowest thing in the column. */
+const CONVOY_SPEED = 0.55;
 const CAR_Y = 0.16;
 const LANE_OFFSET = 0.21;
 /** Reroutes allowed per frame, so a demolition wave never stalls the loop. */
@@ -48,6 +58,8 @@ type Fleet = 'commute' | 'freight' | 'transit';
 interface Vehicle {
   fleet: Fleet;
   truck: boolean;
+  /** A war convoy on the motorway: drawn as armour, and slower for it. */
+  military: boolean;
   /** Tile indices to follow, in order. */
   path: Int32Array;
   /** Index of the tile the vehicle is heading toward. */
@@ -94,17 +106,25 @@ export function createTraffic(initialWorld: World): TrafficLayer {
   };
   let drawnAge: VehicleEra = 'modern';
   const truckGeometry = buildTruckGeometry();
+  const tankGeometry = buildTankGeometry();
   const cars = new THREE.InstancedMesh(carGeometries.modern, TRIM_MATERIALS, MAX_CARS);
   const trucks = new THREE.InstancedMesh(truckGeometry, TRIM_MATERIALS, MAX_TRUCKS);
+  // Its own mesh rather than a repainted lorry: the silhouette is the whole
+  // point, and one more draw call for the handful of war years is cheap.
+  const tanks = new THREE.InstancedMesh(tankGeometry, TRIM_MATERIALS, MAX_TANKS);
   cars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   trucks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  tanks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   cars.frustumCulled = false;
   trucks.frustumCulled = false;
+  tanks.frustumCulled = false;
   cars.castShadow = true;
   trucks.castShadow = true;
+  tanks.castShadow = true;
   cars.count = 0;
   trucks.count = 0;
-  group.add(cars, trucks);
+  tanks.count = 0;
+  group.add(cars, trucks, tanks);
 
   // Orbital shuttles: two bright specks crossing the sky on long straight
   // runs once the century turns spacefaring. Parked invisible until 2065.
@@ -215,10 +235,12 @@ export function createTraffic(initialWorld: World): TrafficLayer {
 
     let carCount = 0;
     let truckCount = 0;
+    let tankCount = 0;
     const hidden = cameraDistance > LOD_TRAFFIC_DISTANCE;
     for (let i = fleet.length - 1; i >= 0; i--) {
       const v = fleet[i] as Vehicle;
-      if (v.path.length === 0 || !advance(v, deltaSeconds * age.speed, g, jamLoad)) {
+      const pace = deltaSeconds * age.speed * (v.military ? CONVOY_SPEED : 1);
+      if (v.path.length === 0 || !advance(v, pace, g, jamLoad)) {
         // Trip finished, or the road died under the wheels: next trip. A
         // vehicle with nowhere new to go leaves the pool rather than idling
         // on a phantom road.
@@ -236,7 +258,12 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       const pose = poseOf(v, g);
       const matrix = composeMatrix(pose, v, state.world, flying, seconds);
       const color = vehicleColor(v, age);
-      if (v.truck) {
+      if (v.military) {
+        if (tankCount >= MAX_TANKS) continue;
+        tanks.setMatrixAt(tankCount, matrix);
+        tanks.setColorAt(tankCount, color);
+        tankCount++;
+      } else if (v.truck) {
         if (truckCount >= MAX_TRUCKS) continue;
         trucks.setMatrixAt(truckCount, matrix);
         trucks.setColorAt(truckCount, color);
@@ -250,6 +277,7 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     }
     cars.count = carCount;
     trucks.count = truckCount;
+    tanks.count = tankCount;
     if (carCount > 0) {
       cars.instanceMatrix.needsUpdate = true;
       if (cars.instanceColor) cars.instanceColor.needsUpdate = true;
@@ -257,6 +285,10 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     if (truckCount > 0) {
       trucks.instanceMatrix.needsUpdate = true;
       if (trucks.instanceColor) trucks.instanceColor.needsUpdate = true;
+    }
+    if (tankCount > 0) {
+      tanks.instanceMatrix.needsUpdate = true;
+      if (tanks.instanceColor) tanks.instanceColor.needsUpdate = true;
     }
   }
 
@@ -276,6 +308,7 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       const v: Vehicle = {
         fleet: kind,
         truck: kind === 'freight' || (kind === 'transit' && rng() < 0.35),
+        military: false,
         path: new Int32Array(0),
         at: 0,
         t: 0,
@@ -310,13 +343,24 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       if (route.length < 8) return false;
       const forward = v.seed < 0.5;
       const path = new Int32Array(route.length);
+      let length = 0;
       for (let i = 0; i < route.length; i++) {
         const point = route[forward ? i : route.length - 1 - i] as { x: number; y: number };
-        path[i] = point.y * state.world.size + point.x;
+        const tile = point.y * state.world.size + point.x;
+        // The run stops at a barricade rather than driving through it: the
+        // country's traffic backs up to the closed stretch and gets no further
+        // (sim/highwayWear.ts).
+        if ((state.world.highwayBlocked[tile] ?? 0) === 1) break;
+        path[length++] = tile;
       }
-      v.path = path;
+      if (length < 8) return false;
+      // A war puts armour on the state's road, which is the same road the wear
+      // is being done to. Rolled per trip, so the column thins out when the
+      // war ends rather than driving on into the peace.
+      v.military = state.timelineEffects.war && rng() < CONVOY_SHARE;
+      v.path = length === route.length ? path : path.slice(0, length);
       v.at = 1;
-      placeAtStart(v, g, path);
+      placeAtStart(v, g, v.path);
       return true;
     }
 
@@ -391,13 +435,15 @@ export function createTraffic(initialWorld: World): TrafficLayer {
   }
 
   function dispose(): void {
-    group.remove(cars, trucks);
+    group.remove(cars, trucks, tanks);
     cars.dispose();
     trucks.dispose();
+    tanks.dispose();
     // Every age's body, not just the one on screen — a Set because two ages
     // share the modern geometry and disposing it twice is not free.
     for (const geometry of new Set(Object.values(carGeometries))) geometry.dispose();
     truckGeometry.dispose();
+    tankGeometry.dispose();
     shuttleGeometry.dispose();
     shuttleMaterial.dispose();
     for (const material of TRIM_MATERIALS) material.dispose();
@@ -834,9 +880,12 @@ const scratchColor = new THREE.Color();
  * than as 1925.
  */
 function vehicleColor(v: Vehicle, age: VehicleAge): THREE.Color {
-  const palette = v.truck ? TRUCK_PAINTS : age.paints;
+  const palette = v.military ? MILITARY_PAINTS : v.truck ? TRUCK_PAINTS : age.paints;
   return scratchColor.setHex(palette[Math.floor(v.seed * 997) % palette.length] as number);
 }
+
+/** Field green and dust, in the four shades an army ever paints anything. */
+const MILITARY_PAINTS: readonly number[] = [0x4a5340, 0x3f4a38, 0x555a45, 0x6a6650];
 
 // --- Appearance ----------------------------------------------------------------
 
@@ -899,6 +948,23 @@ function buildEarlyCarGeometry(): THREE.BufferGeometry {
     { box: [0.19, 0.0, -0.34, 0.33, 0.2, -0.14], paint: false },
     { box: [-0.33, 0.0, 0.1, -0.19, 0.2, 0.3], paint: false },
     { box: [0.19, 0.0, 0.1, 0.33, 0.2, 0.3], paint: false },
+  ]);
+}
+
+/**
+ * Armour: a low wide hull, tracks proud of it on both sides, a turret set back,
+ * and a gun barrel reaching forward past the nose. The barrel is what does the
+ * work — at map height the silhouette is a smudge, and the one thing that
+ * separates it from a lorry is the thing sticking out of the front.
+ */
+function buildTankGeometry(): THREE.BufferGeometry {
+  return mergeBoxes([
+    { box: [-0.3, 0.08, -0.46, 0.3, 0.26, 0.4], paint: true }, // hull
+    { box: [-0.26, 0.26, -0.24, 0.26, 0.34, 0.22], paint: true }, // upper deck
+    { box: [-0.19, 0.34, -0.18, 0.19, 0.5, 0.14], paint: true }, // turret
+    { box: [-0.05, 0.38, 0.14, 0.05, 0.46, 0.62], paint: false }, // gun barrel
+    { box: [-0.4, 0.0, -0.46, -0.28, 0.22, 0.4], paint: false }, // tracks
+    { box: [0.28, 0.0, -0.46, 0.4, 0.22, 0.4], paint: false },
   ]);
 }
 

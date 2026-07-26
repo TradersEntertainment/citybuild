@@ -29,6 +29,11 @@ const SURFACE: Record<RoadKind, string> = {
 /** Tiers that get painted markings and kerbs; a dirt track has neither. */
 const MARKED: ReadonlySet<RoadKind> = new Set<RoadKind>(['asphalt', 'boulevard', 'highway']);
 
+/** What a chewed-up motorway tends toward: rubble and the earth beneath it. */
+const BROKEN = new THREE.Color('#6B5A45');
+/** Damage past which the lane markings are simply gone. */
+const MARKINGS_GONE = 0.6;
+
 /**
  * How a tile is paved. Worked out for the whole map first, because both the
  * surface and the corner bridges need to know what the *neighbour* is doing —
@@ -108,13 +113,28 @@ export function buildRoadGeometry(world: World): BuiltRoads {
       // drawn like it leads nowhere: faded, so the player reads the mistake
       // from the map rather than from a tooltip.
       const i = index(world, x, y);
-      const reachable = (world.highway[i] ?? 0) === 1 || (world.connected[i] ?? 0) === 1;
+      const blocked = (world.highwayBlocked[i] ?? 0) === 1;
+      const reachable =
+        ((world.highway[i] ?? 0) === 1 && !blocked) || (world.connected[i] ?? 0) === 1;
       const fade = reachable ? 1 : 0.55;
+      // A stretch the convoys have chewed up: broken asphalt turning back
+      // toward the earth under it, darkest where it is barricaded. The
+      // damage column is only ever set on the motorway (sim/highwayWear.ts),
+      // so this cannot touch the player's own pavement.
+      const damage = (world.highwayDamage[i] ?? 0) / 255;
+      if (damage > 0) {
+        colour.lerp(BROKEN, Math.min(1, damage * 0.85));
+        colour.multiplyScalar(1 - damage * 0.25);
+      }
       const tint = (quads: number): void => {
         for (let v = 0; v < quads * 6; v++) {
           colours.push(colour.r * drift * fade, colour.g * drift * fade, colour.b * drift * fade);
         }
       };
+      // Paint is the first thing to go. Dropping the stripe is what makes a
+      // ruined stretch read as ruined from the map height rather than as a
+      // slightly darker road.
+      const painted = MARKED.has(kind) && damage < MARKINGS_GONE;
 
       if (shape === SHAPE.square) {
         pushCarriageway(positions, world, x, y, kind);
@@ -123,13 +143,13 @@ export function buildRoadGeometry(world: World): BuiltRoads {
         // them orthogonally, the corner still has to be bridged; a ribbon
         // reaches its own corners already.
         tint(pushDiagonalBridges(positions, world, shapes, x, y));
-        if (MARKED.has(kind)) pushMarking(markPositions, world, x, y, kind);
+        if (painted) pushMarking(markPositions, world, x, y, kind);
         continue;
       }
 
       pushDiagonalRibbon(positions, world, x, y, kind, shape === SHAPE.rising);
       tint(1);
-      if (MARKED.has(kind)) {
+      if (painted) {
         pushDiagonalMarking(markPositions, world, x, y, kind, shape === SHAPE.rising);
       }
     }

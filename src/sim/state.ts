@@ -3,6 +3,7 @@ import type { Building } from './buildings';
 import type { Loan } from './credit';
 import type { Epidemic, Fire } from './hazards';
 import { layNationalHighway } from './highway';
+import { sectionCount } from './highwayWear';
 import { CALM_EFFECTS, type TimelineEffects } from './timeline';
 import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
@@ -68,6 +69,12 @@ export interface GameState {
   lastYear: number | null;
   /** What the current year's events press on the sim; recomputed each step. */
   timelineEffects: TimelineEffects;
+  /**
+   * Wear on each maintained stretch of the national highway, 0..1 (see
+   * sim/highwayWear.ts). Saved: a war that ruined the corridor must still have
+   * ruined it after a reload, or closing the tab would be free road repair.
+   */
+  highwayWear: number[];
   /** Goals already paid out, by id (§12.3). Order is completion order. */
   missionsDone: string[];
   /** Techs researched, by id (§12.2). */
@@ -125,6 +132,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     epidemic: null,
     lastYear: null,
     timelineEffects: { ...CALM_EFFECTS },
+    highwayWear: new Array<number>(sectionCount(world)).fill(0),
     missionsDone: [],
     techsDone: [],
     nextBuildingId: 1,

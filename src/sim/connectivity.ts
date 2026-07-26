@@ -44,6 +44,10 @@ export function computeConnectivity(world: World): void {
 
   for (const point of world.highwayRoute) {
     const { x, y } = point;
+    // A barricaded stretch is not a way into the country. Nothing arrives
+    // through it, so nothing it touches counts as connected — which is the
+    // whole penalty for leaving the state's repair bill unpaid (highwayWear.ts).
+    if ((world.highwayBlocked[index(world, x, y)] ?? 0) === 1) continue;
     for (let d = 0; d < 4; d++) {
       const nx = x + DX[d]!;
       const ny = y + DY[d]!;

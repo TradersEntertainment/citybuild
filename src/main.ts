@@ -2,7 +2,7 @@ import './style.css';
 import { bindAudioUnlock } from './audio/context';
 import { createAmbient } from './audio/ambient';
 import { createSfx } from './audio/sfx';
-import { AUTOSAVE_INTERVAL_S, PARCEL_SIZE } from './data/balance';
+import { AUTOSAVE_INTERVAL_S, HIGHWAY_BILL_REMINDER_S, PARCEL_SIZE } from './data/balance';
 import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
@@ -23,6 +23,7 @@ import { dayFraction, nightAmount } from './sim/daytime';
 import { borrow, loanOffer } from './sim/credit';
 import { connectedRoadTiles } from './sim/connectivity';
 import { highwayInterchanges } from './sim/highway';
+import { blockedSections, repairCost, repairHighway } from './sim/highwayWear';
 import { yearOf } from './sim/timeline';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
@@ -41,6 +42,7 @@ import { Autosave, loadCity, loadLegacy, nextSeed, retireCity } from './state/pe
 import { uiStore } from './state/store';
 import { mountChronicle } from './ui/chronicle';
 import { mountBankPrompt } from './ui/bankPrompt';
+import { mountRoadRepairPrompt } from './ui/roadRepairPrompt';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
@@ -203,6 +205,23 @@ const bank = mountBankPrompt(ui, {
     toast.show(STR.bank.taken, STR.bank.instalment(loan.instalment));
     return true;
   },
+});
+
+const roadRepair = mountRoadRepairPrompt(ui, {
+  onPay: () => {
+    if (!repairHighway(game)) return false;
+    // The barricades come down: which streets reach the country has changed,
+    // and so has how the motorway is drawn.
+    systems.invalidateFields();
+    renderer.invalidateRoads();
+    haptics.confirm();
+    sfx.play('coin');
+    syncUi();
+    autosave.flush(game);
+    toast.show(STR.roadRepair.paid);
+    return true;
+  },
+  onTooPoor: () => toast.show(STR.roadRepair.tooPoor),
 });
 
 /**
@@ -559,6 +578,8 @@ let readoutAccumulator = 0;
  * not greeted by news of weather that has been going on for an hour.
  */
 let announcedSpell = weatherAt(game).spell;
+/** Seconds since the repair bill was last put in front of the player. */
+let roadRepairReminder = 0;
 let lastAnnouncedKind = weatherAt(game).kind;
 /**
  * Balance below which the bank speaks up. Not zero: by the time the city is
@@ -621,6 +642,7 @@ function frame(now: number): void {
     announceTimeline();
     announceWeather();
     announcePetitions();
+    announceRoadDamage(seconds);
     checkBank();
   }
   if (budget.economyTicks > 0) {
@@ -758,6 +780,67 @@ function announcePetitions(): void {
       text: STR.petition.resolved[kind],
     })),
   ]);
+}
+
+/**
+ * The war's bill for the road.
+ *
+ * Two things happen here that the petitions do not need. The map is rebuilt,
+ * because a stretch shutting changes which streets reach the country and every
+ * one of them is drawn differently for it; and the bill is put in front of the
+ * player as a card rather than a line in the feed, because unlike a petition it
+ * is a decision with a price and a deadline.
+ *
+ * The reminder is the safety net. A player who taps "sonra" on a barricade and
+ * then forgets would otherwise watch their city empty with no way back on
+ * screen, so while anything is outstanding the card comes back — not often
+ * enough to nag, often enough that the way out is never more than a minute
+ * away.
+ */
+function announceRoadDamage(seconds: number): void {
+  const events = systems.drainRoadEvents();
+  const blocked = blockedSections(game);
+
+  if (events.length > 0) {
+    eventFeed.pushCustom(
+      events.map((event) => ({
+        icon: STR.roadRepair.icon,
+        tone: event.kind === 'reopened' ? ('calm' as const) : ('alarm' as const),
+        text: STR.roadRepair[event.kind](event.sections),
+      })),
+    );
+    appendHistory(
+      events.map((event) => ({
+        year: yearOf(game.playedMs),
+        icon: STR.roadRepair.icon,
+        title: STR.roadRepair[event.kind](event.sections),
+        detail:
+          event.kind === 'blocked'
+            ? STR.roadRepair.chronicleBlocked
+            : event.kind === 'reopened'
+              ? STR.roadRepair.chronicleReopened
+              : STR.roadRepair.chronicleDamaged,
+      })),
+    );
+    // A barricade going up or coming down changes the surface, the markings and
+    // every faded street behind it.
+    renderer.invalidateRoads();
+    if (events.some((event) => event.kind === 'blocked')) {
+      toast.show(STR.roadRepair.blocked(blocked));
+      sfx.play('alarm');
+    }
+  }
+
+  const cost = repairCost(game);
+  if (cost <= 0) {
+    roadRepairReminder = 0;
+    return;
+  }
+  roadRepairReminder += seconds;
+  const asked = events.some((event) => event.kind !== 'reopened');
+  if (!asked && roadRepairReminder < HIGHWAY_BILL_REMINDER_S) return;
+  roadRepairReminder = 0;
+  roadRepair.offer(cost, blocked > 0);
 }
 
 /**

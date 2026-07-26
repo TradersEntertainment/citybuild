@@ -433,6 +433,69 @@ export const SECONDS_PER_DAY = 40;
  */
 export const DAYLIGHT_SHARE = 0.68;
 
+// --- National highway wear (savaş ve yol bakımı) -----------------------------
+/**
+ * Tiles per stretch of motorway the state maintains as one unit.
+ *
+ * The route is a couple of hundred tiles long, so this makes about ten
+ * stretches. Per-tile damage would be confetti — a pothole here, a pothole
+ * there, none of it legible from the map height a player actually plays at. A
+ * stretch is long enough to see go bad and short enough that losing one is a
+ * setback rather than the end of the city.
+ */
+export const HIGHWAY_SECTION_TILES = 24;
+/**
+ * Wear a stretch takes per second of war, before the interchange weighting.
+ *
+ * One over two hundred: an untouched stretch would take two hundred seconds —
+ * five years at this calendar — to go from new to impassable. The Great War
+ * runs four years and the Second six, so a war ruins a busy corridor and merely
+ * scars a quiet one, which is the difference the interchange weighting is for.
+ */
+export const HIGHWAY_WEAR_PER_S = 1 / 200;
+/**
+ * Extra wear per interchange on the stretch.
+ *
+ * The convoys are the state's, but the lorries queueing to join them are the
+ * city's. A stretch the city actually plugs into carries more than one it
+ * merely runs past, and wears out sooner for it.
+ */
+export const HIGHWAY_WEAR_PER_INTERCHANGE = 0.2;
+/**
+ * Wear the state repairs for free, per second, in peacetime.
+ *
+ * Only below the invoice threshold: the state patches potholes on its own road,
+ * but a stretch it has already sent a bill for is the city's problem until the
+ * city pays. Slow enough — a quarter of the war rate — that a war leaves a mark
+ * on the decade after it.
+ */
+export const HIGHWAY_HEAL_PER_S = 1 / 800;
+/**
+ * What fraction of that trickles on once the bill has been sent.
+ *
+ * Not zero, and that is the whole point of the number. A city that genuinely
+ * cannot raise the money must not be locked out of the country forever — but at
+ * a quarter rate, waiting out a barricade costs twenty-odd minutes of a dead
+ * corridor, which is a far worse deal than paying. The escape hatch exists to
+ * be refused.
+ */
+export const HIGHWAY_BILLED_HEAL_SHARE = 0.25;
+/** Wear at which the state stops patching and sends the city an invoice. */
+export const HIGHWAY_WEAR_BILL = 0.55;
+/** Seconds between reminders while a stretch stands billed or barricaded. */
+export const HIGHWAY_BILL_REMINDER_S = 90;
+/** Flat part of a repair bill, in ₺. */
+export const HIGHWAY_REPAIR_BASE = 700;
+/**
+ * The part of the bill that scales with the city, per √resident.
+ *
+ * Square root, like the transit flow it mirrors: a village pays a village's
+ * share of the corridor and a metropolis pays more without paying a hundred
+ * times more. A bill that scaled linearly would be pocket change at ten
+ * thousand residents and confiscation at a hundred thousand.
+ */
+export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
+
 // --- Legacy / prestige (§6 of Phase 6) ---------------------------------------
 /**
  * Population that scores one legacy point at the square root.

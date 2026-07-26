@@ -28,6 +28,8 @@ export interface TimelineEffects {
   incomeMult: number;
   happinessMod: number;
   draftDrainPerSec: number;
+  /** Whether a war is running. Read by the systems that only happen in one. */
+  war: boolean;
 }
 
 export const CALM_EFFECTS: TimelineEffects = {
@@ -35,6 +37,7 @@ export const CALM_EFFECTS: TimelineEffects = {
   incomeMult: 1,
   happinessMod: 0,
   draftDrainPerSec: 0,
+  war: false,
 };
 
 /** The calendar year the city's played time has reached. */
@@ -47,8 +50,12 @@ export function computeTimelineEffects(year: number): TimelineEffects {
   const effects = { ...CALM_EFFECTS };
   for (const event of TIMELINE) {
     const span = event.durationYears ?? 0;
-    if (span === 0 || !event.effects) continue;
+    if (span === 0) continue;
     if (year < event.year || year >= event.year + span) continue;
+    // Read before the effects check: a war is a war whether or not it happens
+    // to press a multiplier on anything.
+    if (event.kind === 'war') effects.war = true;
+    if (!event.effects) continue;
     const e = event.effects;
     if (e.migrationMult !== undefined) effects.migrationMult *= e.migrationMult;
     if (e.incomeMult !== undefined) effects.incomeMult *= e.incomeMult;

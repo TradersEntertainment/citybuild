@@ -5,6 +5,7 @@ import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
 import { stepHazards, type HazardEvent } from './hazards';
+import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
 import type { Mission } from '../data/missions';
 import { settleMissions } from './missions';
 import { settlePetitions, type PetitionChanges, type PetitionKind } from './petitions';
@@ -22,6 +23,7 @@ import type { Era } from './tiles';
 /** Shared empty result, so the common no-goals-finished frame allocates nothing. */
 const EMPTY_MISSIONS: readonly Mission[] = [];
 const EMPTY_HAZARDS: readonly HazardEvent[] = [];
+const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 
 /**
@@ -48,6 +50,7 @@ export class Systems {
   private readonly standingPetitions = new Set<PetitionKind>();
   private readonly petitionChanges: PetitionChanges = { raised: [], resolved: [] };
   private readonly hazardEvents: HazardEvent[] = [];
+  private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   private readonly diffusion: DiffusionScratch;
   /** Steps so far; seeds the hazard dice, so a seed plus a count reproduces a blaze. */
@@ -125,6 +128,19 @@ export class Systems {
       const dice = createRng(state.seed ^ Math.imul(this.hazardTick + 1, 0x9e3779b1));
       this.hazardTick++;
       this.hazardEvents.push(...stepHazards(state, dt, () => dice.next()));
+
+      // The convoys wear the motorway down, and peace slowly patches it. Live
+      // only, and for the same reason as the fires: coming back from a night
+      // away to find the road out of the city barricaded would be a punishment
+      // for not playing. It also has to run after the timeline, which is what
+      // says whether there is a war on at all.
+      const road = stepHighwayWear(state, dt);
+      if (road.length > 0) {
+        this.roadEvents.push(...road);
+        // A stretch that shut or reopened changes which streets reach the
+        // country, and that is the whole point of it.
+        if (road.some((event) => event.kind !== 'damaged')) this.invalidateFields();
+      }
     }
 
     const totals = totalBuildings(state);
@@ -155,6 +171,12 @@ export class Systems {
   drainHazardEvents(): readonly HazardEvent[] {
     if (this.hazardEvents.length === 0) return EMPTY_HAZARDS;
     return this.hazardEvents.splice(0, this.hazardEvents.length);
+  }
+
+  /** Motorway stretches damaged, shut or reopened since the last drain. */
+  drainRoadEvents(): readonly HighwayWearEvent[] {
+    if (this.roadEvents.length === 0) return EMPTY_ROAD;
+    return this.roadEvents.splice(0, this.roadEvents.length);
   }
 
   /** History that arrived since the last drain, for the UI to announce. */
