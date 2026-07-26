@@ -1,4 +1,8 @@
 import {
+  HIGHWAY_END_DRIFT,
+  HIGHWAY_MIN_RUN,
+  HIGHWAY_WANDER,
+  HIGHWAY_WANDER_SCALE,
   TRANSIT_BASE_FLOW,
   TRANSIT_FLOW_MAX,
   TRANSIT_INTERCHANGE_PULL,
@@ -161,7 +165,10 @@ export function highwayTradeFactor(state: GameState, x: number, y: number): numb
 function plotRoute(world: World): HighwayPoint[] {
   const rng = createRng(world.seed ^ 0x51ab7e);
   const horizontal = rng.next() < 0.5;
-  const meander = createFbm(world.seed ^ 0x77c1d3, { octaves: 3, scale: 90 });
+  const meander = createFbm(world.seed ^ 0x77c1d3, {
+    octaves: 2,
+    scale: HIGHWAY_WANDER_SCALE,
+  });
 
   const centre = startingCentre(world);
   const size = world.size;
@@ -171,33 +178,57 @@ function plotRoute(world: World): HighwayPoint[] {
   // Where the line crosses the middle of the map: inside the starting parcel,
   // but pushed a seeded distance off its centre.
   const throughParcel = (rng.next() < 0.5 ? -1 : 1) * (8 + rng.next() * 10);
-  const targetMain = (horizontal ? centre.y : centre.x) + throughParcel;
-  // The far-field baseline: which band of the map the road favours away from
-  // the city. Rolled once — a baseline re-rolled per tile is a sawtooth, not
-  // a motorway.
-  const baseline = size * (0.28 + rng.next() * 0.44);
+  const target = (horizontal ? centre.y : centre.x) + throughParcel;
+  // Each end drifts from that crossing independently, which is what gives the
+  // road a tilt and a bend rather than making every map the same straight line.
+  const startDrift = (rng.next() * 2 - 1) * HIGHWAY_END_DRIFT;
+  const endDrift = (rng.next() * 2 - 1) * HIGHWAY_END_DRIFT;
+
+  // The ideal centreline, before it is made to fit the grid.
+  //
+  // Built to pass *through* the crossing rather than being pulled toward it. The
+  // old version blended a far-field baseline into the target with a Gaussian,
+  // which meant the line had to swerve up to ninety tiles across fifty — a
+  // gradient no amount of grid-fitting could make look like a road. Three fixed
+  // points and a small lobe keep the gradient inside what the deadband below can
+  // actually follow, which is the only reason a long straight run and a
+  // guaranteed crossing of the player's parcel are compatible at all.
+  const desired = (step: number): number => {
+    const t = step / span;
+    const tilt =
+      t < 0.5
+        ? target + startDrift * (1 - t * 2)
+        : target + endDrift * ((t - 0.5) * 2);
+    const wander = (meander(margin + step, 0) - 0.5) * 2 * HIGHWAY_WANDER;
+    return Math.min(size - 1 - margin, Math.max(margin, tilt + wander));
+  };
 
   const route: HighwayPoint[] = [];
   let previous: HighwayPoint | null = null;
+  let cross = Math.round(desired(0));
+  // Tiles since the last jog. Starts satisfied so the road may bend immediately
+  // if it needs to.
+  let since = HIGHWAY_MIN_RUN;
 
   for (let step = 0; step <= span; step++) {
     const along = margin + step;
-    const t = along / (size - 1);
-    // Low-frequency wander around the baseline, then a smooth pull toward the
-    // starting-parcel crossing that peaks at the middle of the map.
-    const wander = (meander(along, 0) - 0.5) * 2 * 34;
-    const pull = Math.exp(-Math.pow((t - 0.5) / 0.22, 2));
-    let across = baseline + wander;
-    across = across * (1 - pull) + (targetMain + wander * 0.35) * pull;
-    const cross = Math.round(Math.min(size - 1 - margin, Math.max(margin, across)));
+    since++;
+    // The deadband. One tile at a time and never sooner than the minimum run,
+    // so the line tracks the curve with a slight lag and cannot staircase faster
+    // than the road is allowed to bend. Half a tile of error is not worth a jog.
+    const want = desired(step);
+    if (since >= HIGHWAY_MIN_RUN && Math.abs(want - cross) >= 0.75) {
+      cross += Math.sign(want - cross);
+      since = 0;
+    }
 
     const point = horizontal ? { x: along, y: cross } : { x: cross, y: along };
     if (previous === null) {
       route.push(point);
     } else {
       // Walk from the last tile to this one in unit steps — along first, then
-      // across — so a steep meander still stamps a 4-connected path rather
-      // than jumping diagonals the traffic spread could never follow.
+      // across — so the stamped path is 4-connected. With the deadband above,
+      // this is only ever a single elbow every ten tiles or more.
       let cx = previous.x;
       let cy = previous.y;
       while (cx !== point.x || cy !== point.y) {

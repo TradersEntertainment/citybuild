@@ -4,6 +4,7 @@ import { FLYING_YEAR, SHUTTLE_YEAR } from '../data/timeline';
 import { vehicleAgeFor, type VehicleAge, type VehicleEra } from '../data/vehicles';
 import { transitFlow } from '../sim/highway';
 import { canTravelOn } from '../sim/oneWay';
+import { exitAhead, routeStepOf, throughLegs, type Along } from './transitRoute';
 import { VISITOR_SHARE } from '../data/balance';
 import type { GameState } from '../sim/state';
 import { decodeRoad, NONE } from '../sim/tiles';
@@ -415,7 +416,10 @@ export function createTraffic(initialWorld: World): TrafficLayer {
 
       const route = state.world.highwayRoute;
       if (route.length < 8) return false;
-      const forward = v.seed < 0.5;
+      // Re-rolled per trip rather than fixed to the vehicle's seed: the corridor
+      // should carry traffic both ways at every moment, not the same cars in the
+      // same direction forever.
+      const forward = rng() < 0.5;
       const path = new Int32Array(route.length);
       let length = 0;
       for (let i = 0; i < route.length; i++) {
@@ -518,13 +522,23 @@ export function createTraffic(initialWorld: World): TrafficLayer {
    * stops, which is the shop.
    */
   function planVisit(v: Vehicle, state: GameState, g: Graph, p: Pools): boolean {
+    const route = state.world.highwayRoute;
+    if (route.length < 8) return false;
     const entry = g.interchanges[Math.floor(rng() * g.interchanges.length)] as number;
-    const exit = g.interchanges[Math.floor(rng() * g.interchanges.length)] as number;
-    // The lead-in is the way out, walked backwards: the same stretch of motorway
-    // a lorry leaves by is the one a visitor arrives on.
-    const leadIn = reversed(highwayExit(state.world, entry));
-    const leadOut = highwayExit(state.world, exit);
-    if (leadIn.length === 0 && leadOut.length === 0) return false;
+    // Which way this driver is crossing the country. Rolled per trip, so the
+    // corridor carries traffic both ways rather than a one-way parade.
+    const along: Along = rng() < 0.5 ? 'forward' : 'backward';
+    const stepOf = (tile: number): number => routeStepOf(route, g.size, tile);
+    const entryStep = stepOf(entry);
+    if (entryStep < 0) return false;
+    // Rejoin at the next junction *ahead*. Asking for the nearer end of the road
+    // twice — which is what this used to do — made every visitor turn round and
+    // leave by the edge it arrived at.
+    const exit = exitAhead(g.interchanges, stepOf, entryStep, along);
+    if (exit < 0) return false;
+    const legs = throughLegs(route, g.size, entryStep, stepOf(exit), along);
+    if (!legs) return false;
+    const { leadIn, leadOut } = legs;
 
     const gateIn = playerRoadBeside(state.world, g, entry);
     const gateOut = playerRoadBeside(state.world, g, exit);
@@ -873,13 +887,6 @@ function playerRoadBeside(world: World, g: Graph, junction: number): number {
     return i;
   }
   return -1;
-}
-
-/** The same tiles, the other way along. */
-function reversed(path: Int32Array): Int32Array {
-  const out = new Int32Array(path.length);
-  for (let i = 0; i < path.length; i++) out[i] = path[path.length - 1 - i] as number;
-  return out;
 }
 
 // --- Driving -------------------------------------------------------------------

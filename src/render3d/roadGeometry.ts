@@ -431,7 +431,27 @@ function pushMarking(
   if (horizontal === vertical) return; // junction, stub or bend
 
   const lift = ROAD_LIFT + 0.02;
-  const half = kind === 'highway' ? 0.045 : 0.035;
+
+  // The motorway gets a median: two unbroken lines with a gap between them,
+  // which is what says "two carriageways going opposite ways" at a glance. A
+  // city street gets one dashed line, which says "one carriageway, overtake if
+  // you like". The road was drawing the street's marking at motorway width, so
+  // the country's road read as a very wide lane rather than as a dual
+  // carriageway — and the traffic on it looked like it was sharing one lane.
+  if (kind === 'highway') {
+    const bar = 0.03;
+    for (const side of [-1, 1]) {
+      const at = 0.5 + side * 0.055;
+      if (horizontal) {
+        pushQuad(out, world, deck, x, y + at - bar, x + 1, y + at + bar, lift);
+      } else {
+        pushQuad(out, world, deck, x + at - bar, y, x + at + bar, y + 1, lift);
+      }
+    }
+    return;
+  }
+
+  const half = 0.035;
   // Dashes, not a continuous line: every other tile carries paint.
   if (((x + y) & 1) === 0) return;
 

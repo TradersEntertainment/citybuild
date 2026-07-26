@@ -12,6 +12,7 @@ import {
   transitFlow,
   transitIncome,
 } from '../src/sim/highway';
+import { HIGHWAY_MIN_RUN } from '../src/data/balance';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad, removeRoad, tileCost } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
@@ -238,3 +239,90 @@ describe('the corridor economy', () => {
     expect(isNationalHighway(game.world, 1, 1)).toBe(false);
   });
 });
+
+/**
+ * The shape of the line.
+ *
+ * The route is a 4-connected staircase by necessity — the connectivity BFS, the
+ * load spread and the trip injection all read the grid four ways — so every
+ * change of direction is a one-tile jog, and how often those come is exactly how
+ * much the traffic weaves. It used to jog every 2.3 tiles with half its runs a
+ * single tile long, which no amount of spline smoothing on the vehicles could
+ * hide: the control points were the zigzag.
+ *
+ * These are the guardrails on the fix. They are deliberately statistical rather
+ * than exact, because the generator is allowed to change its mind about *where*
+ * the road goes; what it is not allowed to do is go back to stairs.
+ */
+describe('how straight the motorway runs', () => {
+  /** Direction changes per hundred tiles of route, averaged over many maps. */
+  function turnRate(seeds: number): number {
+    let turns = 0;
+    let tiles = 0;
+    for (let s = 0; s < seeds; s++) {
+      const world = worldOf(`shape-${s}`);
+      const route = world.highwayRoute;
+      let lastDx = 0;
+      let lastDy = 0;
+      for (let i = 1; i < route.length; i++) {
+        const dx = (route[i] as HighwayLike).x - (route[i - 1] as HighwayLike).x;
+        const dy = (route[i] as HighwayLike).y - (route[i - 1] as HighwayLike).y;
+        if (i > 1 && (dx !== lastDx || dy !== lastDy)) turns++;
+        lastDx = dx;
+        lastDy = dy;
+      }
+      turns += 0;
+      tiles += route.length;
+    }
+    return (turns / tiles) * 100;
+  }
+
+  it('bends far less often than one jog every few tiles', () => {
+    // The old generator sat at 39–71 turns per hundred tiles. A jog roughly
+    // every HIGHWAY_MIN_RUN tiles is two turns (out and back), so the ceiling is
+    // about 200/MIN_RUN with a margin for the elbows.
+    const rate = turnRate(30);
+    expect(rate).toBeLessThan((200 / HIGHWAY_MIN_RUN) * 1.1);
+    expect(rate).toBeLessThan(25);
+  });
+
+  it('still crosses the player’s own parcel on every map', () => {
+    // The whole reason the line is steered at all. A straighter road must not
+    // have bought its straightness by wandering off.
+    for (let s = 0; s < 40; s++) {
+      const world = worldOf(`parcel-${s}`);
+      const crosses = world.highwayRoute.some(
+        (p) => p.x >= 144 && p.x <= 191 && p.y >= 144 && p.y <= 191,
+      );
+      expect(crosses).toBe(true);
+    }
+  });
+
+  it('stays 4-connected, which every grid rule depends on', () => {
+    for (let s = 0; s < 20; s++) {
+      const route = worldOf(`connected-${s}`).highwayRoute;
+      for (let i = 1; i < route.length; i++) {
+        const a = route[i - 1] as HighwayLike;
+        const b = route[i] as HighwayLike;
+        expect(Math.abs(a.x - b.x) + Math.abs(a.y - b.y)).toBe(1);
+      }
+    }
+  });
+
+  it('reaches both edges of the map', () => {
+    for (let s = 0; s < 20; s++) {
+      const route = worldOf(`edges-${s}`).highwayRoute;
+      const first = route[0] as HighwayLike;
+      const last = route[route.length - 1] as HighwayLike;
+      const nearEdge = (p: HighwayLike): boolean =>
+        p.x <= 7 || p.y <= 7 || p.x >= 248 || p.y >= 248;
+      expect(nearEdge(first)).toBe(true);
+      expect(nearEdge(last)).toBe(true);
+    }
+  });
+});
+
+interface HighwayLike {
+  x: number;
+  y: number;
+}

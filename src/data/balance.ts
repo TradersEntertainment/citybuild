@@ -496,6 +496,35 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- The national highway's shape --------------------------------------------
+/**
+ * Fewest tiles between two jogs in the motorway's line.
+ *
+ * The number that decides whether the road looks like a motorway or like a
+ * mountain track. The route is a 4-connected staircase — it has to be, because
+ * the connectivity BFS, the load spread and the trip injection all read the grid
+ * four ways — so every change of direction is a one-tile jog, and how often those
+ * come *is* how much the traffic weaves. Measured before and after: the old
+ * curve jogged every 2.3 tiles with half of its runs a single tile long, which
+ * no amount of spline smoothing on the vehicles could hide, because the control
+ * points themselves were the zigzag.
+ */
+export const HIGHWAY_MIN_RUN = 10;
+/**
+ * How far each end of the road may sit from where it crosses the city, in tiles.
+ *
+ * This is the other half of the same constraint, and the two multiply: with one
+ * jog allowed per `HIGHWAY_MIN_RUN` tiles, a span of 250 tiles buys about
+ * twenty-five jogs, so the line cannot move more than about twenty-five tiles in
+ * total however it is drawn. Asking for more deviation than that is asking for
+ * the staircase back.
+ */
+export const HIGHWAY_END_DRIFT = 18;
+/** Amplitude of the gentle lobe on top of the tilt, in tiles. */
+export const HIGHWAY_WANDER = 7;
+/** Noise scale for that lobe. Long, so it is one bend and not a ripple. */
+export const HIGHWAY_WANDER_SCALE = 200;
+
 // --- One-way streets ---------------------------------------------------------
 /**
  * What a one-way tile carries, against a two-way one.
@@ -742,12 +771,20 @@ export const legacyPoints = (peakPopulation: number): number =>
 // --- Save (§16) --------------------------------------------------------------
 export const AUTOSAVE_INTERVAL_S = 20;
 /**
- * v4: the national highway exists and the road column may contain state-owned
- * tiles the old rules never met. Rather than half-merge an old city with a
- * motorway it was built without, old saves are declined — legacy points are
- * held separately and carry over either way.
+ * v5: the motorway's line changed shape (HIGHWAY_MIN_RUN), and the route is not
+ * in the save — it is regenerated from the seed. So a v4 city loaded by this
+ * build would keep its own streets and buildings and find the national road
+ * somewhere else entirely: interchanges gone, districts silently cut off, and
+ * nothing on screen to say why. Declining the file is the honest answer, the
+ * same one v4 gave when the highway first arrived. Legacy points are held
+ * separately and carry over either way.
+ *
+ * The rule this implies, for whoever changes the generator next: **touching
+ * plotRoute means bumping this number.** The map is deliberately not in the
+ * save, and that trade is only safe if the generator's output is treated as part
+ * of the save format.
  */
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 // --- Camera & input (§3, §14.5) ----------------------------------------------
 export const ZOOM_MIN = 0.35;

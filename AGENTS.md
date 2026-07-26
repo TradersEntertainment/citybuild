@@ -181,7 +181,16 @@ tests/         vitest — sim tarafındaki her özellik için test ZORUNLU
     kullanmalı** (artık `sim/traffic.ts`'ten export). İki farklı "hangi
     sokağın önündeyim" cevabı, dükkânı üstünde olmadığı sokak için ödemek
     demek.
-19. **Aynı kutuyu üçüncü kez yazma:** `render3d/boxMesh.ts` var
+19. **`plotRoute`'a dokunmak `SAVE_VERSION` bump'ı gerektirir.** Rota kayıtta
+    değil, tohumdan yeniden üretiliyor — yani üretici değişirse mevcut şehirler
+    kendi sokaklarıyla kalıp otoyolu başka yerde bulur: kavşaklar gider,
+    mahalleler sessizce kopar, ekranda sebebi yazmaz. v5 tam bu yüzden.
+20. **Rota 4-bağlantılı olmak zorunda** (connectivity BFS, yük yayılımı, trip
+    injection hepsi dört yönlü okuyor) — yani her viraj tek karelik bir
+    dirsektir ve zikzağın ölçüsü *viraj sayısıdır*, dirsek oranı değil. İlk
+    ölçümümde bunu karıştırdım: "%49 tek karelik koşu" yapısal, anlamlı sayı
+    "100 karede kaç viraj" (39–71'den 12'ye indi, `HIGHWAY_MIN_RUN`).
+21. **Aynı kutuyu üçüncü kez yazma:** `render3d/boxMesh.ts` var
     (`pushBox` / `pushColouredBox` / `pushTriangle` / `toMeshGeometry`).
     Ters sarılmış yüz dışarıdan görünmez içeriden siyahtır — arketip
     çatılarında bir kez yaşandı.
