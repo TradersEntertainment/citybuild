@@ -5,7 +5,6 @@ import {
   FIRE_HAPPINESS_CAP,
   FIRE_HAPPINESS_HIT,
   HAPPINESS_RESPONSE,
-  LABOUR_PARTICIPATION,
   MIGRATION_COEFFICIENT,
   MIGRATION_HAPPINESS_PIVOT,
   MIGRATION_HAPPINESS_SPAN,
@@ -16,6 +15,7 @@ import {
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
+import { burialHappiness, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
@@ -32,7 +32,10 @@ import type { GameState } from './state';
  * something to buy, and a reason to stay.
  */
 export function stepPopulation(state: GameState, totals: BuildingTotals, dt: number): void {
-  const workers = state.population * LABOUR_PARTICIPATION;
+  // Who works is discovered from the age bands rather than assumed to be half of
+  // everybody (sim/cohorts.ts). A city of children and pensioners genuinely
+  // cannot staff its factories, which is the point of having the bands at all.
+  const workers = state.population * workingShare(state);
   const jobs =
     totals.commercialJobs + totals.industrialJobs + totals.farmJobs + totals.portJobs;
   const vacancy = totals.housing - state.population;
@@ -59,6 +62,9 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // (sim/crime.ts). Only the unanswered ones count: a car already on its way is
   // the city working, not the city failing.
   target += crimeHappiness(state);
+  // And the dead nobody has buried (sim/cohorts.ts). Tolerant of a few, then
+  // not: a death wave in a city with no cemetery has to land as an event.
+  target += burialHappiness(state);
   // And history leans on the mood for years at a time: wars and depressions
   // press down, republics and booms lift.
   target += state.timelineEffects.happinessMod;
@@ -182,6 +188,25 @@ function moveIn(state: GameState, people: number): void {
     building.population += taken;
     remaining -= taken;
   }
+}
+
+/**
+ * Settles people into the city's spare rooms, filling the emptiest first.
+ *
+ * The counterpart to drainPopulation, and the path births take (sim/cohorts.ts):
+ * going through the housing check means a birth competes for the same empty room
+ * a newcomer would have taken, so it cannot overfill the city or short-circuit
+ * the vacancy loop the growth tests are tuned against. Returns how many actually
+ * found a home, which is fewer than asked for in a full city.
+ */
+export function settlePopulation(state: GameState, people: number): number {
+  if (people <= 0) return 0;
+  let room = 0;
+  for (const building of residential(state)) room += Math.max(0, vacancyOf(building));
+  const taken = Math.min(room, people);
+  if (taken <= 0) return 0;
+  moveIn(state, taken);
+  return taken;
 }
 
 /**

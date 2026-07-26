@@ -31,6 +31,9 @@ const LOOKS: Readonly<Record<FacilityKind, StationLook>> = {
   health: { body: '#E2DED4', accent: '#3E86A8', width: 0.72, height: 0.5, mast: 0.34 },
   education: { body: '#D6CDB6', accent: '#8A6B2E', width: 0.86, height: 0.44, mast: 0.28 },
   police: { body: '#C2C6CB', accent: '#2E4A7A', width: 0.74, height: 0.52, mast: 0.44 },
+  // Low, pale and wide, with nothing standing up off it: a cemetery should read
+  // as ground rather than as a building, because that is what it is.
+  cemetery: { body: '#C8CBBE', accent: '#7D8A6E', width: 0.9, height: 0.14, mast: 0.36 },
   // Infrastructure reads as heavier and squatter than a civic building, except
   // the chimneys — which are the tallest thing in a young city, and should be.
   well: { body: '#9FA9A4', accent: '#3E86A8', width: 0.6, height: 0.36, mast: 0.62 },

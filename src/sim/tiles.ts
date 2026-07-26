@@ -85,6 +85,7 @@ export const SERVICE = {
   health: 1 << 3,
   education: 1 << 4,
   police: 1 << 5,
+  cemetery: 1 << 6,
 } as const;
 
 /** Building.issues bit field (§19) — drives the icon over a failing building. */

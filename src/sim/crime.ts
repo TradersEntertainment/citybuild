@@ -17,6 +17,7 @@ import {
 import type { Building } from './buildings';
 import { dayFraction, nightAmount } from './daytime';
 import { dispatchFrom, runArrived, runFinished, type TruckRun } from './dispatch';
+import { schoolingCrimeFactor } from './cohorts';
 import { lightingShare } from './investments';
 import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
@@ -138,10 +139,14 @@ function startCrimes(
   // A karakol on every street is dearer than learning to catch people, which is
   // what this tech is for (data/tech.ts, forensics).
   const forensics = techFactor(state, 'forensics');
+  // And what the schools bought, a band late (sim/cohorts.ts). This is the pay-off
+  // a player waits for: children schooled now are the workforce that does not rob
+  // the place later, which is the longest-horizon decision in the game.
+  const schooling = schoolingCrimeFactor(state);
 
   for (const building of state.buildings.values()) {
     if (crimeAt(state, building.id) !== null) continue;
-    let chance = CRIME_PER_SEC * dt * nightMult * miseryMult * forensics;
+    let chance = CRIME_PER_SEC * dt * nightMult * miseryMult * forensics * schooling;
     if (building.zone === 'com') chance *= CRIME_COMMERCIAL_MULT;
     const covered = coveredByPolice(state, building);
     if (covered) chance *= CRIME_COVERED_MULT;

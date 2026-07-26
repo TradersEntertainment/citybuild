@@ -80,6 +80,27 @@ export const STR = {
     noStation: 'Karakol yok. Bir karakol kur ki ekip gönderebilelim.',
   },
 
+  /**
+   * Ageing, and the wave that follows a boom (sim/cohorts.ts).
+   *
+   * The city fills in waves and those waves grow old together, so a founding rush
+   * is a funeral an hour later. The player has to be told, or the mood drop looks
+   * like a bug.
+   */
+  cohort: {
+    backlog: 'Defin işleri yetişmiyor. Mezarlık kur.',
+    cleared: 'Defin işleri yeniden yetişiyor.',
+    title: 'Nüfus yapısı',
+    band: { child: 'Çocuk', young: 'Genç', adult: 'Yetişkin', elder: 'Yaşlı' },
+    working: (share: number): string => `Çalışma çağı %${Math.round(share * 100)}`,
+    schooled: (share: number): string => `Okumuş iş gücü %${Math.round(share * 100)}`,
+    waiting: (n: number): string => `${plain.format(Math.round(n))} defin bekliyor`,
+    /** The age structure as one line: "412 · 486 · 520 · 498". */
+    spread: (child: number, young: number, adult: number, elder: number): string =>
+      [child, young, adult, elder].map((n) => plain.format(Math.round(n))).join(' · '),
+    backlogRow: 'Defin bekleyen',
+  },
+
   tools: {
     road: 'yol',
     zone: 'bölge',
@@ -113,6 +134,7 @@ export const STR = {
     health: 'Sağlık ocağı',
     education: 'Okul',
     police: 'Karakol',
+    cemetery: 'Mezarlık',
   },
 
   /** The waterfront (denize yatırım): the coast, finally worth something. */

@@ -4,6 +4,7 @@ import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
+import { stepCohorts, type CohortEvent } from './cohorts';
 import { stepCrime, type CrimeEvent } from './crime';
 import { stepHazards, type HazardEvent } from './hazards';
 import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
@@ -28,6 +29,7 @@ import type { Era } from './tiles';
 const EMPTY_MISSIONS: readonly Mission[] = [];
 const EMPTY_HAZARDS: readonly HazardEvent[] = [];
 const EMPTY_CRIMES: readonly CrimeEvent[] = [];
+const EMPTY_COHORTS: readonly CohortEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
@@ -63,6 +65,7 @@ export class Systems {
   private readonly petitionChanges: PetitionChanges = { raised: [], resolved: [] };
   private readonly hazardEvents: HazardEvent[] = [];
   private readonly crimeEvents: CrimeEvent[] = [];
+  private readonly cohortEvents: CohortEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -179,6 +182,9 @@ export class Systems {
 
     const totals = totalBuildings(state);
     stepPopulation(state, totals, dt);
+    // After the migration that fills the bands, so a cohort is aged in the same
+    // step it arrived in rather than a tick late (sim/cohorts.ts).
+    this.cohortEvents.push(...stepCohorts(state, dt, hazardsLive));
     stepResearch(state, dt);
     const era = stepProgression(state);
 
@@ -205,6 +211,12 @@ export class Systems {
   drainHazardEvents(): readonly HazardEvent[] {
     if (this.hazardEvents.length === 0) return EMPTY_HAZARDS;
     return this.hazardEvents.splice(0, this.hazardEvents.length);
+  }
+
+  /** The city falling behind on its burials, or catching up (sim/cohorts.ts). */
+  drainCohortEvents(): readonly CohortEvent[] {
+    if (this.cohortEvents.length === 0) return EMPTY_COHORTS;
+    return this.cohortEvents.splice(0, this.cohortEvents.length);
   }
 
   /** Crimes started, solved or lost since the last drain. */

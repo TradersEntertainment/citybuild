@@ -236,8 +236,97 @@ export const MIGRATION_HAPPINESS_PIVOT = 40;
 export const MIGRATION_HAPPINESS_SPAN = 60;
 export const HAPPINESS_EXODUS_THRESHOLD = 35;
 export const HAPPINESS_START = 60;
-/** Share of residents who are of working age (§8). */
+/**
+ * Share of residents who are of working age (§8).
+ *
+ * Kept as the fallback for a city with no cohort breakdown yet — see
+ * sim/cohorts.ts, which derives the real figure from who actually lives there.
+ */
 export const LABOUR_PARTICIPATION = 0.5;
+
+// --- Who lives there (§8b): age, schooling, and the waves they arrive in ------
+/**
+ * Seconds a resident spends in each of the four age bands.
+ *
+ * Deliberately *not* the calendar. A band of twenty real years would be 800
+ * seconds at forty seconds to the year, which puts the annual death rate of a
+ * real population — about eight in a thousand — against a migration rate tuned
+ * per minute, and the arithmetic is brutal: a city of ten thousand would bury a
+ * hundred people a minute and no amount of happiness could refill it. So the
+ * band length is a game number, measured against gross migration rather than
+ * against demography, and set so that replacing the dead is a pressure a
+ * well-run city absorbs and a badly-run one does not.
+ *
+ * What survives from the real thing is the part worth having: a cohort that
+ * arrives together moves through the bands together and leaves together, so a
+ * founding boom is still a funeral three bands later.
+ *
+ * Measured, not guessed. At 420 seconds a band the whole population turned over
+ * every twenty minutes — a city of forty-seven hundred buried two hundred and
+ * forty people a minute, which is a treadmill rather than a city and would have
+ * wanted nine cemeteries. At 900 the lifetime is an hour, the steady rate is
+ * about one and a half per cent of the city a minute, two or three cemeteries
+ * cover it, and the first wave off a founding boom lands around forty-five
+ * minutes in — inside a long session, which is the whole reason to have it.
+ */
+export const COHORT_BAND_S = 900;
+/**
+ * Share of arrivals who are children rather than workers.
+ *
+ * A city fills from the motorway, and what comes up it is families. This is what
+ * makes a school a demand rather than a coverage statistic — and what makes the
+ * schooling decision pay off a full band later, when those children are the
+ * workforce.
+ */
+export const ARRIVAL_CHILD_SHARE = 0.28;
+/** …and share who are already old. Somebody's grandmother is on the bus. */
+export const ARRIVAL_ELDER_SHARE = 0.04;
+/**
+ * What an educated workforce is worth, as a multiplier at full schooling.
+ *
+ * Applied to commercial and industrial output, which is where a wage comes from.
+ * Modest on purpose: the point of schooling is that it compounds through the
+ * bands, not that it is a bigger lever than the road network.
+ */
+export const SCHOOLED_OUTPUT = 1.35;
+/** …and what it takes off the crime rate, likewise at full schooling. */
+export const SCHOOLED_CRIME = 0.6;
+/**
+ * Mood cost of the dead going uncollected, and the cap on it.
+ *
+ * A city with no cemetery does not notice for a long time and then notices all
+ * at once, which is exactly what a death wave should feel like.
+ */
+export const BURIAL_HAPPINESS_HIT = 14;
+/** Burials one cemetery clears per minute. */
+export const CEMETERY_RATE = 40;
+/** Bodies awaiting a plot before the city minds, per thousand residents. */
+export const BURIAL_TOLERANCE = 4;
+/**
+ * Children born per working-age resident per minute.
+ *
+ * Derived from the band length rather than chosen: at COHORT_BAND_S the steady
+ * death rate is a quarter of the city divided by a band, and the working bands
+ * are about half of it, so this is the figure at which a city that has stopped
+ * growing replaces itself instead of decaying. Without births at all the child
+ * band empties the moment migration slows, the schooling pipeline dries up with
+ * it, and a mature city is a decay curve rather than a place with generations in
+ * it — which was measured, not assumed.
+ *
+ * Births go in through the same housing check migration uses, so they compete for
+ * the same empty rooms and cannot overfill a city or short-circuit the demand
+ * loop the growth tests are tuned against.
+ */
+export const BIRTHS_PER_WORKER_MIN = (60 * 0.25) / (COHORT_BAND_S * 0.5);
+/**
+ * Share of housing standing empty at which the birth rate is at full tilt.
+ *
+ * Below it, births taper off smoothly. A ramp rather than a gate because the gate
+ * version read the vacancy stock, and a stock clips one coarse step harder than
+ * several fine ones — which put the offline catch-up and the frame loop fourteen
+ * per cent apart on the same hour.
+ */
+export const BIRTH_ROOM_RAMP = 0.05;
 /** Residents one commercial job serves; sets how much retail a city wants. */
 export const RESIDENTS_PER_COMMERCIAL_JOB = 14;
 /** Commercial jobs one industrial job supplies. */

@@ -1,6 +1,7 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
 import type { Loan } from './credit';
+import { createCohorts, type Cohorts } from './cohorts';
 import type { Crime } from './crime';
 import type { Epidemic, Fire } from './hazards';
 import { layNationalHighway } from './highway';
@@ -38,6 +39,16 @@ export interface GameState {
   loansClosed: number;
 
   population: number;
+  /**
+   * The same population, broken into age bands (sim/cohorts.ts).
+   *
+   * A decomposition of `population`, never a second source of truth for it: the
+   * cohort pass reconciles against it every step, so migration and epidemics land
+   * in the bands without knowing the bands exist. Derived, and therefore not
+   * saved — a loaded city re-fills its bands from its population within a tick,
+   * which costs one generation of schooling history and nothing else.
+   */
+  cohorts: Cohorts;
   happiness: number;
   research: number;
 
@@ -140,6 +151,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     loansClosed: 0,
 
     population: 0,
+    cohorts: createCohorts(),
     happiness: HAPPINESS_START,
     research: 0,
 

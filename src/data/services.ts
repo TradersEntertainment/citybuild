@@ -9,7 +9,7 @@ import { eraReached, SERVICE, type Era } from '../sim/tiles';
  * upkeep is not: every station costs money every minute, forever, so a city
  * that over-provides goes broke as surely as one that under-provides stalls.
  */
-export type ServiceKind = 'fire' | 'health' | 'education' | 'police';
+export type ServiceKind = 'fire' | 'health' | 'education' | 'police' | 'cemetery';
 
 export interface ServiceSpec {
   kind: ServiceKind;
@@ -27,6 +27,27 @@ export interface ServiceSpec {
 }
 
 export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
+  /**
+   * A cemetery is the odd one out: it covers no ground and its radius is
+   * meaningless, because the dead are brought to it from wherever they died
+   * (sim/cohorts.ts). What it has instead is a rate — so the question a player
+   * answers is "how many", not "where", and the answer is decided by a wave of
+   * deaths they can see coming a band in advance if they are paying attention.
+   *
+   * Opens at town, which is the first era with enough people for a wave to be
+   * a wave, and is not required at any era: nothing marks a city down for
+   * having no cemetery. The backlog does that on its own, and far more
+   * legibly than a coverage fraction could.
+   */
+  cemetery: {
+    kind: 'cemetery',
+    bit: SERVICE.cemetery,
+    requiredFrom: 'megacity',
+    unlockedAt: 'town',
+    cost: 7_600,
+    upkeep: 54,
+    radius: 4,
+  },
   fire: {
     kind: 'fire',
     bit: SERVICE.fire,
@@ -78,7 +99,13 @@ export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
   },
 };
 
-export const SERVICE_ORDER: readonly ServiceKind[] = ['fire', 'health', 'education', 'police'];
+export const SERVICE_ORDER: readonly ServiceKind[] = [
+  'fire',
+  'health',
+  'education',
+  'police',
+  'cemetery',
+];
 
 export function isServiceUnlocked(kind: ServiceKind, era: Era): boolean {
   return eraReached(era, SERVICE_SPECS[kind].unlockedAt);

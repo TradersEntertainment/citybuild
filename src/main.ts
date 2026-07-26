@@ -25,6 +25,7 @@ import { WalkMode } from './render3d/walkMode';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
+import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
 import { dayFraction, nightAmount } from './sim/daytime';
@@ -844,6 +845,7 @@ function frame(now: number): void {
     announceGoals();
     announceHazards();
     announceCrime();
+    announceCohorts();
     announceTimeline();
     announceWeather();
     announcePetitions();
@@ -947,6 +949,30 @@ function announceCrime(): void {
 
 /** Whether the player has been told what a crime marker is for. */
 let taughtCrime = false;
+
+/**
+ * The city falling behind on its burials, and catching up again (sim/cohorts.ts).
+ *
+ * Announced on the crossing in both directions. A death wave is a mood drop with
+ * no visible cause otherwise — nothing on the map changes when a generation dies —
+ * so this is the only way the player can connect the drop to the answer.
+ */
+function announceCohorts(): void {
+  const events = systems.drainCohortEvents();
+  if (events.length === 0) return;
+  for (const event of events) {
+    const behind = event.kind === 'burialBacklog';
+    toast.show(behind ? STR.cohort.backlog : STR.cohort.cleared);
+    eventFeed.pushCustom([
+      {
+        icon: behind ? '⚰️' : '🕊️',
+        tone: behind ? 'alarm' : 'calm',
+        text: behind ? STR.cohort.waiting(event.waiting) : STR.cohort.cleared,
+      },
+    ]);
+    if (behind) sfx.play('alarm');
+  }
+}
 
 /**
  * History, announced as it happens: every dated event goes to the feed with
@@ -1204,6 +1230,15 @@ function syncUi(): void {
       commercialJobs: totals.commercialJobs,
       industrialJobs: totals.industrialJobs,
       farmJobs: totals.farmJobs,
+    },
+    demography: {
+      child: bandCount(game, 'child'),
+      young: bandCount(game, 'young'),
+      adult: bandCount(game, 'adult'),
+      elder: bandCount(game, 'elder'),
+      working: workingShare(game),
+      schooled: schooledShare(game),
+      awaitingBurial: game.cohorts.awaitingBurial,
     },
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });

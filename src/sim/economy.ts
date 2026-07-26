@@ -16,6 +16,7 @@ import { investmentUpkeep, tradeNow } from './investments';
 import { portUpkeep, seaIncome } from './ports';
 import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
+import { skillFactor } from './cohorts';
 import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
 import { utilityUpkeep } from './utilities';
@@ -96,6 +97,10 @@ export function computeLedger(
   // it earned before the night meant anything — the loss is paid back over the
   // day — so this is an opportunity rather than a nerf.
   const hour = tradeNow(state, nightAmount(dayFraction(state.playedMs)));
+  // What the schools bought, a generation late (sim/cohorts.ts). A pure bonus: an
+  // unschooled city earns exactly what it earned before the bands existed, so a
+  // player who has never been shown a school is not marked down for lacking one.
+  const skill = skillFactor(state);
 
   for (const building of state.buildings.values()) {
     const landValue = fields.landValue[index(state.world, building.x, building.y)] ?? 0;
@@ -110,7 +115,7 @@ export function computeLedger(
       // so the player had nothing to aim at. Now it is the flow that actually
       // reaches the street the shop stands on (sim/visitors.ts).
       const corridor = trade(state, fields, visitors, building.x, building.y);
-      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor * hour;
+      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor * hour * skill;
       // What the visitors themselves spend, kept apart from the city's own
       // custom so the panel can say where the money came from.
       visitorTrade += building.output * (1 - 1 / corridor) * COMMERCIAL_TAX;
@@ -121,7 +126,7 @@ export function computeLedger(
       const corridor = 1 + (trade(state, fields, visitors, building.x, building.y) - 1) * 0.5;
       // A workshop keeps a night shift more readily than a shop keeps a
       // shopkeeper, so the dark costs it half as much.
-      building.output = building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5);
+      building.output = building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill;
       building.output *= corridor;
       visitorTrade += building.output * (1 - 1 / corridor) * INDUSTRIAL_TAX;
       taxIncome += building.output * INDUSTRIAL_TAX;

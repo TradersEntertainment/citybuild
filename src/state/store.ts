@@ -31,6 +31,7 @@ export interface UiState {
   /** Level bought in each civic programme, for the panel's buy buttons. */
   investments: Record<ProgrammeId, ProgrammeView>;
   totals: CityTotals;
+  demography: DemographyView;
   grid: GridView;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
@@ -95,6 +96,26 @@ export interface GridView {
 }
 
 /** What the city is made of, for the panel's population section. */
+/**
+ * Who lives there, as the panel draws it (sim/cohorts.ts).
+ *
+ * Measured by the sim, not derived here. The panel used to compute its workforce
+ * as half the population from the same flat constant the sim has stopped using,
+ * so a city of children reported a workforce it did not have.
+ */
+export interface DemographyView {
+  child: number;
+  young: number;
+  adult: number;
+  elder: number;
+  /** Share of working age, 0..1. */
+  working: number;
+  /** Share of the workforce that went to school, 0..1. */
+  schooled: number;
+  /** Bodies waiting for a plot. */
+  awaitingBurial: number;
+}
+
 export interface CityTotals {
   housing: number;
   residents: number;
@@ -121,6 +142,7 @@ export interface SimSnapshot {
   /** Level bought in each civic programme, for the panel's buy buttons. */
   investments: Record<ProgrammeId, ProgrammeView>;
   totals: CityTotals;
+  demography: DemographyView;
   grid: GridView;
 }
 
@@ -171,6 +193,15 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     farmJobs: 0,
     portJobs: 0,
   },
+  demography: {
+    child: 0,
+    young: 0,
+    adult: 0,
+    elder: 0,
+    working: 0,
+    schooled: 0,
+    awaitingBurial: 0,
+  },
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
   hintVisible: true,
@@ -216,7 +247,17 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       current.grid.waterDemand === snapshot.grid.waterDemand &&
       current.grid.powerSupply === snapshot.grid.powerSupply &&
       current.grid.powerDemand === snapshot.grid.powerDemand &&
-      current.grid.expected === snapshot.grid.expected
+      current.grid.expected === snapshot.grid.expected &&
+      // The bands move every step, so comparing them is what keeps the panel from
+      // repainting twice a second over a rounding.
+      Math.round(current.demography.child) === Math.round(snapshot.demography.child) &&
+      Math.round(current.demography.young) === Math.round(snapshot.demography.young) &&
+      Math.round(current.demography.adult) === Math.round(snapshot.demography.adult) &&
+      Math.round(current.demography.elder) === Math.round(snapshot.demography.elder) &&
+      Math.round(current.demography.awaitingBurial) ===
+        Math.round(snapshot.demography.awaitingBurial) &&
+      Math.round(current.demography.schooled * 100) ===
+        Math.round(snapshot.demography.schooled * 100)
         ? current
         : { ...current, ...snapshot },
     ),

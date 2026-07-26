@@ -1,4 +1,3 @@
-import { LABOUR_PARTICIPATION } from '../data/balance';
 import {
   isTierUnlocked,
   PROGRAMME_ORDER,
@@ -86,7 +85,21 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const vacancy = row(STR.panel.vacancy);
   const workers = row(STR.panel.workers);
   const unemployment = row(STR.panel.unemployment);
-  people.body.append(housing.el, vacancy.el, workers.el, unemployment.el);
+  // Who those people actually are (sim/cohorts.ts). A city cannot be planned
+  // around its age structure unless the age structure is on the screen — and the
+  // schooled figure is the only visible return on a school for a whole band.
+  const ages = row(STR.cohort.title);
+  const schooling = row(STR.cohort.schooled(0));
+  const burials = row(STR.cohort.backlogRow);
+  people.body.append(
+    housing.el,
+    vacancy.el,
+    workers.el,
+    unemployment.el,
+    ages.el,
+    schooling.el,
+    burials.el,
+  );
 
   const books = section(STR.panel.books);
   const tax = row(STR.panel.tax);
@@ -225,7 +238,11 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     paintGoals(s);
     for (const [id, built] of programmeRows) built.paint(s.investments[id], s.money, s.era);
     const jobs = t.commercialJobs + t.industrialJobs + t.farmJobs;
-    const workforce = s.population * LABOUR_PARTICIPATION;
+    // From the bands, not from a flat constant. The sim stopped assuming half of
+    // everyone works; a panel that carried on assuming it would have reported a
+    // workforce a city of children does not have.
+    const d = s.demography;
+    const workforce = s.population * d.working;
     const idle = workforce > 0 ? Math.max(0, (workforce - jobs) / workforce) : 0;
     const empty = Math.max(0, t.housing - s.population);
 
@@ -240,6 +257,17 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     unemployment.set(STR.format.percent(idle));
     // Unemployment is the number that quietly stalls a city, so it says so.
     unemployment.el.dataset['alarm'] = String(idle > 0.35 && s.population > 30);
+    // The age structure, as four counts on one line: children, young, adult, old.
+    // Four rows would bury the section; one reads as a shape.
+    ages.set(STR.cohort.spread(d.child, d.young, d.adult, d.elder));
+    // Hidden until a school has produced somebody, so a village is not shown a
+    // permanent zero about a system it has not met.
+    schooling.el.hidden = d.schooled <= 0;
+    schooling.set(STR.format.percent(d.schooled));
+    // Likewise: only once there is a backlog worth minding.
+    burials.el.hidden = d.awaitingBurial < 1;
+    burials.set(count(d.awaitingBurial));
+    burials.el.dataset['alarm'] = String(d.awaitingBurial > Math.max(4, s.population / 250));
 
     tax.set(`+${money(s.ledger.taxIncome)}`);
     // Income sources that are zero stay hidden: a village with no junction yet
