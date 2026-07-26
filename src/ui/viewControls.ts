@@ -16,6 +16,9 @@ import { STR } from '../data/strings.tr';
 export interface ViewControlDeps {
   onZoom(factor: number): void;
   onRotate(radians: number): void;
+  /** Whether one finger currently drags the map instead of drawing on it. */
+  panLocked(): boolean;
+  onTogglePanLock(): void;
   /** Current sound setting, and the switch for it. */
   soundOn(): boolean;
   onToggleSound(): void;
@@ -26,6 +29,8 @@ export interface ViewControlDeps {
 }
 
 export interface ViewControlsHandle {
+  /** Repaints the latches when something else changed them. */
+  refresh(): void;
   dispose(): void;
 }
 
@@ -71,7 +76,24 @@ export function mountViewControls(
   };
   paintSound();
 
+  // Moving the map on a phone meant two fingers, because one was always drawing.
+  // Two fingers is a gesture people manage on a tablet and fumble on a phone
+  // held in one hand, which is how most of this game is played. This latch makes
+  // one finger the camera until it is pressed again — the hand tool every
+  // drawing program has had for thirty years, for the same reason.
+  const pan = make('✋', STR.view.pan, () => {
+    deps.onTogglePanLock();
+    paintPan();
+  });
+  const paintPan = (): void => {
+    const on = deps.panLocked();
+    pan.dataset['active'] = String(on);
+    pan.setAttribute('aria-pressed', String(on));
+  };
+  paintPan();
+
   column.append(
+    pan,
     make('+', STR.view.zoomIn, () => deps.onZoom(ZOOM_STEP)),
     make('−', STR.view.zoomOut, () => deps.onZoom(1 / ZOOM_STEP)),
     make('⟲', STR.view.rotate, () => deps.onRotate(ROTATE_STEP)),
@@ -81,5 +103,11 @@ export function mountViewControls(
   );
   root.append(column);
 
-  return { dispose: () => column.remove() };
+  return {
+    refresh: () => {
+      paintPan();
+      paintSound();
+    },
+    dispose: () => column.remove(),
+  };
 }

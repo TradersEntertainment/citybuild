@@ -1229,6 +1229,15 @@ body {
   border-color: color-mix(in srgb, var(--parsomen) 14%, transparent);
 }
 
+/* A latch, not a button: the hand tool has to look held down while it is on,
+   because the only other way to know is to try to draw and fail. */
+.view-button[data-active='true'] {
+  background: color-mix(in srgb, var(--pirinc) 62%, transparent);
+  border-color: var(--pirinc);
+  color: var(--murekkep);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--pirinc) 40%, transparent);
+}
+
 /* --- Neighbourhood names -------------------------------------------------- */
 
 .district-labels {

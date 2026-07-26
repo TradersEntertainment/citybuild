@@ -496,6 +496,52 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- Keyboard camera ---------------------------------------------------------
+/**
+ * Screen pixels a second the keys pan the map.
+ *
+ * Pixels rather than tiles on purpose: the pan goes through the same drag maths
+ * the finger uses, so zooming out covers more ground per keystroke — which is
+ * what a player expects, because that is what dragging does.
+ */
+export const KEY_PAN_SPEED = 900;
+/** Multiplier while shift is held. Crossing the map should take seconds. */
+export const KEY_SPRINT = 2.6;
+/** Radians a second for Q/E. */
+export const KEY_ROTATE_SPEED = 1.5;
+/** Zoom factor per second held. */
+export const KEY_ZOOM_SPEED = 2.4;
+/**
+ * Longest frame the keys are paid for, in seconds.
+ *
+ * Guards against a returning tab flinging the camera across the map, and
+ * nothing else. Deliberately loose — four frames a second — because a tight cap
+ * quietly halves the pan speed on cheap phones, which are the devices that
+ * needed the keys in the first place.
+ */
+export const KEY_MAX_FRAME_S = 0.25;
+
+// --- Music -------------------------------------------------------------------
+/**
+ * Overall level of the music bus.
+ *
+ * Above the ambient bed and below the effects. Music a player has to turn down
+ * is music they turn off, and turning the sound off costs you every other cue
+ * the game has.
+ */
+export const MUSIC_GAIN = 0.16;
+/** Beats per minute. Slow enough that a note is an event rather than a rhythm. */
+export const MUSIC_TEMPO = 68;
+/** How long a piece runs, in seconds, before the city goes quiet again. */
+export const MUSIC_PIECE_S = 110;
+/**
+ * How long the quiet between pieces lasts.
+ *
+ * Longer than most players expect, and deliberately so. Continuous music stops
+ * being heard within ten minutes; music that comes back is heard every time.
+ */
+export const MUSIC_REST_S = 150;
+
 // --- Legacy / prestige (§6 of Phase 6) ---------------------------------------
 /**
  * Population that scores one legacy point at the square root.

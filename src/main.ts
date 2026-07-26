@@ -1,12 +1,14 @@
 import './style.css';
 import { bindAudioUnlock } from './audio/context';
 import { createAmbient } from './audio/ambient';
+import { createMusic } from './audio/music';
 import { createSfx } from './audio/sfx';
 import { AUTOSAVE_INTERVAL_S, HIGHWAY_BILL_REMINDER_S, PARCEL_SIZE } from './data/balance';
 import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
-import { bindPointerInput, bindWheelZoom } from './input/pointer';
+import { bindMouseCamera, bindPointerInput, bindWheelZoom } from './input/pointer';
+import { bindKeyboardCamera } from './input/keyboardCamera';
 import { ToolController } from './input/tools';
 import { registerServiceWorker } from './pwa/registerSW';
 import { periodOf } from './render3d/archetypes';
@@ -84,6 +86,7 @@ const undo = new UndoStack();
 const systems = new Systems(game.world.size);
 const sfx = createSfx();
 const ambient = createAmbient();
+const music = createMusic();
 
 // Derived fields — road distance, land value — are not saved, so a loaded city
 // has to recompute them before its first tick.
@@ -300,6 +303,15 @@ else if (!intro.open) coach.start(coachFacts());
  * real mode and one finger drags the city in it.
  */
 let panFrom: { x: number; y: number } | null = null;
+/**
+ * The hand tool, latched.
+ *
+ * "No tool" already pans with one finger, but reaching it means opening the
+ * dock and putting down whatever you were drawing with, which is the opposite
+ * of what somebody who just wants to look at the other side of their city
+ * wants. This latch pans without disturbing the tool in hand.
+ */
+let panLocked = false;
 
 const input = bindPointerInput(canvas, {
   onCameraPan: (dx, dy) => {
@@ -329,7 +341,7 @@ const input = bindPointerInput(canvas, {
     // the player starts drawing, not once the road is paid for.
     uiStore.getState().hideHint();
     dock.closeSheet();
-    if (tools.activeTool === 'none') {
+    if (panLocked || tools.activeTool === 'none') {
       panFrom = { x: sample.x, y: sample.y };
       return;
     }
@@ -376,8 +388,10 @@ const input = bindPointerInput(canvas, {
     const tileY = Math.floor(world.y);
 
     // With the service tool up, a tap builds. Otherwise it is the only way to
-    // buy land: free to try, and tapping their own city just dismisses.
-    if (tools.activeTool === 'service') {
+    // buy land: free to try, and tapping their own city just dismisses. With
+    // the hand latched the finger is the camera, so a tap that did not quite
+    // move must not put a fire station down.
+    if (tools.activeTool === 'service' && !panLocked) {
       buildStation(tileX, tileY);
       return;
     }
@@ -389,6 +403,39 @@ bindWheelZoom(canvas, (x, y, factor) => {
   if (walk.active) return;
   camera.zoomAt(x, y, factor);
 });
+// A mouse has one pointer, so the two-finger camera rule leaves a desktop
+// player who is holding a tool with no way to move. Middle drags, right turns.
+bindMouseCamera(canvas, {
+  onPan: (dx, dy) => {
+    dock.closeSheet();
+    camera.panByScreen(dx, dy);
+  },
+  onOrbit: (dx, dy) => camera.orbitByScreen(dx, dy),
+  isBlocked: () => walk.active,
+});
+// And the keys, which are what a desktop player actually reaches for. The walk
+// mode owns WASD while it is running, so it is asked rather than told.
+const keyboard = bindKeyboardCamera(() => walk.active);
+announceKeyboard();
+
+/**
+ * Tells a desktop player once that the keys work.
+ *
+ * A control nobody knows about is a control that does not exist, and this one
+ * is the answer to the single most common complaint about the game. Said once
+ * ever, remembered in localStorage beside the intro's own flag, and never said
+ * at all on a touch device where it would be a lie.
+ */
+function announceKeyboard(): void {
+  if (window.matchMedia('(pointer: coarse)').matches) return;
+  try {
+    if (window.localStorage.getItem('kadastro.keyboardHint') === '1') return;
+    window.localStorage.setItem('kadastro.keyboardHint', '1');
+  } catch {
+    // Private browsing: say it this once rather than not at all.
+  }
+  window.setTimeout(() => toast.show(STR.view.keyboardHint), 2600);
+}
 
 // --- Street-level visits (§15) -------------------------------------------------
 // The same city, seen from eye height. The walk borrows the rig's camera, the
@@ -488,13 +535,26 @@ mountViewControls(ui, {
   // at when they reach for a button rather than a finger.
   onZoom: (factor) => camera.zoomAt(camera.viewportWidth / 2, camera.viewportHeight / 2, factor),
   onRotate: (radians) => camera.orbitByAngle(radians),
+  panLocked: () => panLocked,
+  onTogglePanLock: () => {
+    panLocked = !panLocked;
+    // Whatever was mid-stroke when the hand went down is abandoned rather than
+    // finished: the player has just said they meant to move the map.
+    tools.cancelStroke();
+    panFrom = null;
+    haptics.tap();
+    toast.show(panLocked ? STR.view.panOn : STR.view.panOff);
+  },
   soundOn: () => sfx.enabled,
   onToggleSound: () => {
     sfx.setEnabled(!sfx.enabled);
     // Muting means the game, not the button that happened to be pressed. The
     // bed is torn down rather than turned to zero so a muted session is not
     // holding an audio graph open for nothing.
-    if (!sfx.enabled) ambient.stop();
+    if (!sfx.enabled) {
+      ambient.stop();
+      music.stop();
+    }
   },
   onWalk: () => enterWalk(),
   onHistory: () => historyPanel.toggle(),
@@ -597,6 +657,21 @@ function frame(now: number): void {
   lastFrame = now;
 
   input.tick(now);
+  // The keys move the map through the same drag maths the finger uses, so a
+  // held key and a dragged finger agree however the view is turned.
+  if (!walk.active && keyboard.keys.anyHeld) {
+    const nudge = keyboard.keys.nudge(deltaMs / 1000);
+    if (nudge.panX !== 0 || nudge.panY !== 0) {
+      dock.closeSheet();
+      camera.panByScreen(nudge.panX, nudge.panY);
+    }
+    if (nudge.rotate !== 0) camera.orbitByAngle(nudge.rotate);
+    if (nudge.zoom !== 1) {
+      camera.zoomAt(camera.viewportWidth / 2, camera.viewportHeight / 2, nudge.zoom);
+    }
+  }
+  // The music runs on the audio clock; this only keeps its lookahead topped up.
+  if (sfx.enabled) music.tick(deltaMs / 1000);
   if (walk.active) {
     const stick = walkHud.stick();
     walk.update(deltaMs, {
@@ -990,11 +1065,13 @@ function publishReadout(): void {
   // a second and a half, so telling it more often than twice a second would be
   // scheduling changes it has not finished making.
   if (sfx.enabled) {
+    const night = nightAmount(dayFraction(game.playedMs));
     ambient.setScene({
       population: game.population,
-      night: nightAmount(dayFraction(game.playedMs)),
+      night,
       cameraDistance: camera.distance,
     });
+    music.setScene({ year: yearOf(game.playedMs), night });
   }
   syncUi();
   uiStore.getState().setFps(renderer.stats.fps);

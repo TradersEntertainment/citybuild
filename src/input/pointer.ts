@@ -96,6 +96,84 @@ export function bindPointerInput(
 }
 
 /**
+ * Desktop convenience: the middle button drags the map and the right button
+ * turns it, whatever tool is selected.
+ *
+ * A mouse has one pointer, so the two-finger rule that gives touch a camera has
+ * nothing to work with: with a tool in hand, a desktop player could draw and
+ * could not move. These two buttons are the answer every map application on
+ * every desktop already uses, and neither can be pressed by accident while
+ * drawing, because drawing is the left one.
+ *
+ * Deliberately outside the gesture recogniser. It is a state machine about
+ * fingers and tools, and this is neither.
+ */
+export interface MouseCameraHandlers {
+  onPan(dx: number, dy: number): void;
+  onOrbit(dx: number, dy: number): void;
+  /** Asked before every drag; a walk owns the mouse for looking around. */
+  isBlocked?(): boolean;
+}
+
+const MIDDLE = 1;
+const RIGHT = 2;
+
+export function bindMouseCamera(
+  element: HTMLElement,
+  handlers: MouseCameraHandlers,
+): () => void {
+  let dragging: { id: number; button: number; x: number; y: number } | null = null;
+
+  const onDown = (event: PointerEvent): void => {
+    if (event.pointerType !== 'mouse') return;
+    if (event.button !== MIDDLE && event.button !== RIGHT) return;
+    if (handlers.isBlocked?.()) return;
+    event.preventDefault();
+    element.setPointerCapture(event.pointerId);
+    dragging = { id: event.pointerId, button: event.button, x: event.clientX, y: event.clientY };
+  };
+
+  const onMove = (event: PointerEvent): void => {
+    if (!dragging || event.pointerId !== dragging.id) return;
+    event.preventDefault();
+    const dx = event.clientX - dragging.x;
+    const dy = event.clientY - dragging.y;
+    dragging.x = event.clientX;
+    dragging.y = event.clientY;
+    if (dragging.button === MIDDLE) handlers.onPan(dx, dy);
+    else handlers.onOrbit(dx, dy);
+  };
+
+  const onUp = (event: PointerEvent): void => {
+    if (!dragging || event.pointerId !== dragging.id) return;
+    if (element.hasPointerCapture(event.pointerId)) {
+      element.releasePointerCapture(event.pointerId);
+    }
+    dragging = null;
+  };
+
+  // Capture phase, so this runs before the stroke binding claims the event and
+  // before the browser starts an autoscroll on the middle button.
+  element.addEventListener('pointerdown', onDown, { capture: true });
+  element.addEventListener('pointermove', onMove, { capture: true });
+  element.addEventListener('pointerup', onUp, { capture: true });
+  element.addEventListener('pointercancel', onUp, { capture: true });
+  element.addEventListener('auxclick', preventDefault);
+
+  return () => {
+    element.removeEventListener('pointerdown', onDown, { capture: true });
+    element.removeEventListener('pointermove', onMove, { capture: true });
+    element.removeEventListener('pointerup', onUp, { capture: true });
+    element.removeEventListener('pointercancel', onUp, { capture: true });
+    element.removeEventListener('auxclick', preventDefault);
+  };
+}
+
+function preventDefault(event: Event): void {
+  event.preventDefault();
+}
+
+/**
  * Desktop convenience: wheel zooms around the cursor. Never a game mechanic —
  * everything here has a touch equivalent (§0.7).
  */

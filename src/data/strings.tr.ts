@@ -419,6 +419,11 @@ export const STR = {
     sound: 'Sesi aç/kapat',
     walk: 'Şehirde yürü',
     history: 'Şehrin tarihçesi',
+    pan: 'Haritayı kaydır (tek parmak)',
+    panOn: 'Kaydırma açık — tek parmakla haritayı sürükle.',
+    panOff: 'Kaydırma kapalı — tek parmak yine çiziyor.',
+    /** Shown once, the first time a desktop city opens. */
+    keyboardHint: 'WASD / ok tuşları ile haritayı gezebilirsin · Q E çevirir · R F yakınlaştırır',
   },
 
   walk: {
