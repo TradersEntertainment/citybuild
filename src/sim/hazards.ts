@@ -17,6 +17,7 @@ import {
 import { demolish, type Building } from './buildings';
 import { dispatchFrom, runArrived, type TruckRun } from './dispatch';
 import { drainPopulation } from './population';
+import { rubbishEpidemicFactor } from './rubbish';
 import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
 import type { GameState } from './state';
@@ -256,7 +257,10 @@ function stepEpidemic(
     // every several minutes of city time and no city is ever simply done
     // with them.
     if (state.population < EPIDEMIC_MIN_POP) return;
-    if (rand() >= EPIDEMIC_PER_SEC * dt) return;
+    // Rubbish is the cause this hazard never had: before it, an outbreak arrived
+    // out of nowhere on a timer and the only lever was a hospital to soften it
+    // afterwards (sim/rubbish.ts).
+    if (rand() >= EPIDEMIC_PER_SEC * dt * rubbishEpidemicFactor(state)) return;
 
     const coveredShare = healthCoveredShare(state);
     state.epidemic = {

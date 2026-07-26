@@ -86,6 +86,7 @@ export const SERVICE = {
   education: 1 << 4,
   police: 1 << 5,
   cemetery: 1 << 6,
+  depot: 1 << 7,
 } as const;
 
 /** Building.issues bit field (§19) — drives the icon over a failing building. */
@@ -96,6 +97,7 @@ export const ISSUE = {
   pollution: 1 << 3,
   noService: 1 << 4,
   noise: 1 << 5,
+  noRubbish: 1 << 6,
 } as const;
 
 export interface RoadSegment {

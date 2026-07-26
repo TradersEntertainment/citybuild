@@ -27,7 +27,14 @@ import { ISSUE } from './tiles';
  * resolution every few seconds; the gap between them is what makes "sorted" mean
  * sorted.
  */
-export type PetitionKind = 'water' | 'power' | 'traffic' | 'pollution' | 'services' | 'noise';
+export type PetitionKind =
+  | 'water'
+  | 'power'
+  | 'traffic'
+  | 'pollution'
+  | 'services'
+  | 'noise'
+  | 'rubbish';
 
 interface Complaint {
   kind: PetitionKind;
@@ -45,6 +52,7 @@ const COMPLAINTS: readonly Complaint[] = [
   { kind: 'traffic', flag: ISSUE.traffic },
   { kind: 'pollution', flag: ISSUE.pollution },
   { kind: 'noise', flag: ISSUE.noise },
+  { kind: 'rubbish', flag: ISSUE.noRubbish },
 ];
 
 export interface PetitionReading {

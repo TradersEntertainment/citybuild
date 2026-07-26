@@ -32,6 +32,10 @@ const BANDS: readonly Band[] = [
   { mask: ISSUE.noise, colour: '#D2A03A' },
   { mask: ISSUE.traffic, colour: '#C77A2F' },
   { mask: ISSUE.noService, colour: '#8C8F94' },
+  // Last, because a street the lorry misses is the least urgent of these — but
+  // it is on the list at all because the city-wide backlog says how much rubbish
+  // is uncollected and nothing else says where (sim/rubbish.ts).
+  { mask: ISSUE.noRubbish, colour: '#6E7A4A' },
 ];
 
 const INITIAL_CAPACITY = 128;

@@ -494,6 +494,40 @@ export const CRIME_ESCAPE_HAPPINESS = 3;
 /** How long that sting lasts, in seconds. */
 export const CRIME_ESCAPE_MEMORY_S = 90;
 
+// --- Rubbish (§15): the service that is nobody's favourite ---------------------
+/**
+ * Rubbish a resident puts out per minute, and what a job adds on top.
+ *
+ * Small numbers on purpose: what matters is the ratio to a depot's capacity, and
+ * these are set so a town wants its first depot at around the point it wants its
+ * first fire station — early enough to learn the system, late enough not to
+ * clutter the opening.
+ */
+export const RUBBISH_PER_RESIDENT_MIN = 0.05;
+export const RUBBISH_PER_JOB_MIN = 0.08;
+/** What one depot clears per minute. Two hundred residents' worth. */
+export const RUBBISH_DEPOT_RATE = 10;
+/**
+ * Days of uncollected rubbish the city tolerates before it starts to mind.
+ *
+ * Measured in minutes of its own output, so a big city tolerates proportionally
+ * more rather than being punished for being big.
+ */
+export const RUBBISH_TOLERANCE_MIN = 3;
+/** Mood cost of the bins overflowing, and the ceiling on it. */
+export const RUBBISH_HAPPINESS_HIT = 16;
+/**
+ * How much a rubbish backlog raises the chance of an outbreak, at its worst.
+ *
+ * The link the epidemic system never had: an outbreak arrived out of nowhere on
+ * a timer, and the only lever was a hospital to soften it. Now there is a cause
+ * the player can act on before it happens, which is the difference between a
+ * hazard and a weather report.
+ */
+export const RUBBISH_EPIDEMIC_MULT = 2.6;
+/** Pollution a full skip adds to its own tile, on the 0..100 field's scale. */
+export const RUBBISH_POLLUTION = 22;
+
 // --- Roads (§5.2, §20) -------------------------------------------------------
 export const JUNCTION_PENALTY_4WAY = 0.25; // KAVŞAK_CEZASI
 export const JUNCTION_PENALTY_3WAY = 0.1;

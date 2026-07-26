@@ -91,6 +91,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const ages = row(STR.cohort.title);
   const schooling = row(STR.cohort.schooled(0));
   const burials = row(STR.cohort.backlogRow);
+  const bins = row(STR.rubbish.row);
   people.body.append(
     housing.el,
     vacancy.el,
@@ -99,6 +100,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     ages.el,
     schooling.el,
     burials.el,
+    bins.el,
   );
 
   const books = section(STR.panel.books);
@@ -268,6 +270,11 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     burials.el.hidden = d.awaitingBurial < 1;
     burials.set(count(d.awaitingBurial));
     burials.el.dataset['alarm'] = String(d.awaitingBurial > Math.max(4, s.population / 250));
+    // Hidden until there is anything in the bins, so a founding settlement is not
+    // shown a row about a service it has not met.
+    bins.el.hidden = s.rubbish.waiting < 1;
+    bins.set(count(s.rubbish.waiting));
+    bins.el.dataset['alarm'] = String(s.rubbish.strain > 0);
 
     tax.set(`+${money(s.ledger.taxIncome)}`);
     // Income sources that are zero stay hidden: a village with no junction yet

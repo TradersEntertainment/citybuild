@@ -91,6 +91,16 @@ export interface GameState {
    * only exists to make a moment land.
    */
   crimeSting: number;
+  /**
+   * Rubbish waiting to be collected, in the depots' own units (sim/rubbish.ts).
+   *
+   * Not saved: a reload starts the bins empty, which is a small mercy and cheaper
+   * than a schema change. If the depots really are short it builds back within a
+   * minute of play, so nothing is being given away.
+   */
+  rubbish: number;
+  /** Whether the city has already been told the bins are overflowing. */
+  rubbishOverflowing: boolean;
   /** The outbreak underway, if any — likewise a moment, never saved. */
   epidemic: Epidemic | null;
   /**
@@ -172,6 +182,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     crimes: new Map(),
     nextCrimeId: 1,
     crimeSting: 0,
+    rubbish: 0,
+    rubbishOverflowing: false,
     epidemic: null,
     lastYear: null,
     timelineEffects: { ...CALM_EFFECTS },

@@ -9,7 +9,13 @@ import { eraReached, SERVICE, type Era } from '../sim/tiles';
  * upkeep is not: every station costs money every minute, forever, so a city
  * that over-provides goes broke as surely as one that under-provides stalls.
  */
-export type ServiceKind = 'fire' | 'health' | 'education' | 'police' | 'cemetery';
+export type ServiceKind =
+  | 'fire'
+  | 'health'
+  | 'education'
+  | 'police'
+  | 'cemetery'
+  | 'depot';
 
 export interface ServiceSpec {
   kind: ServiceKind;
@@ -39,6 +45,25 @@ export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
    * having no cemetery. The backlog does that on its own, and far more
    * legibly than a coverage fraction could.
    */
+  /**
+   * The rubbish depot. Unlike the cemetery it has a real radius as well as a
+   * rate, because both questions matter: how many lorries the city runs, and
+   * whether one of them comes down your street (sim/rubbish.ts).
+   *
+   * Required from town, which is where the first backlog starts to bite — and
+   * unlike the other required services this one announces itself long before the
+   * coverage score notices, because the bins are the loudest thing in a city
+   * that has stopped collecting them.
+   */
+  depot: {
+    kind: 'depot',
+    bit: SERVICE.depot,
+    requiredFrom: 'city',
+    unlockedAt: 'town',
+    cost: 4_800,
+    upkeep: 68,
+    radius: 16,
+  },
   cemetery: {
     kind: 'cemetery',
     bit: SERVICE.cemetery,
@@ -105,6 +130,7 @@ export const SERVICE_ORDER: readonly ServiceKind[] = [
   'education',
   'police',
   'cemetery',
+  'depot',
 ];
 
 export function isServiceUnlocked(kind: ServiceKind, era: Era): boolean {

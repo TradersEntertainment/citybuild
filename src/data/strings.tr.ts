@@ -145,6 +145,15 @@ export const STR = {
     education: 'Okul',
     police: 'Karakol',
     cemetery: 'Mezarlık',
+    depot: 'Çöp toplama',
+  },
+
+  /** The bins (sim/rubbish.ts): the service nobody builds a city for. */
+  rubbish: {
+    piling: 'Çöp toplanmıyor. Çöp toplama tesisi kur.',
+    cleared: 'Çöpler yeniden toplanıyor.',
+    row: 'Bekleyen çöp',
+    issue: 'Çöp alınmıyor',
   },
 
   /** The waterfront (denize yatırım): the coast, finally worth something. */
@@ -336,6 +345,7 @@ export const STR = {
       traffic: 'Trafik dilekçesi: sokaklar tıkanıyor.',
       pollution: 'Hava kirliliği şikâyeti geldi.',
       noise: 'Gürültü şikâyeti geldi.',
+      rubbish: 'Çöpler alınmıyor diye dilekçe verildi.',
     },
     resolved: {
       water: 'Su sorunu çözüldü, dilekçe geri çekildi.',
@@ -344,6 +354,7 @@ export const STR = {
       traffic: 'Trafik rahatladı, dilekçe geri çekildi.',
       pollution: 'Hava temizlendi, dilekçe geri çekildi.',
       noise: 'Gürültü azaldı, dilekçe geri çekildi.',
+      rubbish: 'Çöpler toplanmaya başladı, dilekçe geri çekildi.',
     },
     icon: '📋',
   },

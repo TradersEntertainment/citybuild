@@ -32,6 +32,7 @@ export interface UiState {
   investments: Record<ProgrammeId, ProgrammeView>;
   totals: CityTotals;
   demography: DemographyView;
+  rubbish: RubbishView;
   grid: GridView;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
@@ -116,6 +117,13 @@ export interface DemographyView {
   awaitingBurial: number;
 }
 
+/** The bins, as the panel draws them (sim/rubbish.ts). */
+export interface RubbishView {
+  waiting: number;
+  /** How badly it is overflowing, 0..1. */
+  strain: number;
+}
+
 export interface CityTotals {
   housing: number;
   residents: number;
@@ -143,6 +151,7 @@ export interface SimSnapshot {
   investments: Record<ProgrammeId, ProgrammeView>;
   totals: CityTotals;
   demography: DemographyView;
+  rubbish: RubbishView;
   grid: GridView;
 }
 
@@ -202,6 +211,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     schooled: 0,
     awaitingBurial: 0,
   },
+  rubbish: { waiting: 0, strain: 0 },
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
   hintVisible: true,
@@ -257,7 +267,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       Math.round(current.demography.awaitingBurial) ===
         Math.round(snapshot.demography.awaitingBurial) &&
       Math.round(current.demography.schooled * 100) ===
-        Math.round(snapshot.demography.schooled * 100)
+        Math.round(snapshot.demography.schooled * 100) &&
+      Math.round(current.rubbish.waiting) === Math.round(snapshot.rubbish.waiting)
         ? current
         : { ...current, ...snapshot },
     ),

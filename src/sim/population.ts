@@ -17,6 +17,7 @@ import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
 import { burialHappiness, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
+import { rubbishHappiness } from './rubbish';
 import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
 import { portHappiness } from './ports';
@@ -65,6 +66,9 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // And the dead nobody has buried (sim/cohorts.ts). Tolerant of a few, then
   // not: a death wave in a city with no cemetery has to land as an event.
   target += burialHappiness(state);
+  // And the bins (sim/rubbish.ts). The loudest thing in a city that has stopped
+  // collecting them, and the one the player can fix in one tap.
+  target += rubbishHappiness(state);
   // And history leans on the mood for years at a time: wars and depressions
   // press down, republics and booms lift.
   target += state.timelineEffects.happinessMod;

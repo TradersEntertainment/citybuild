@@ -27,6 +27,7 @@ import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
 import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
+import { rubbishStrain } from './sim/rubbish';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
 import { dayFraction, nightAmount } from './sim/daytime';
 import { borrow, loanOffer } from './sim/credit';
@@ -847,6 +848,7 @@ function frame(now: number): void {
     announceCrime();
     announceCohorts();
     announceSeams();
+    announceRubbish();
     announceTimeline();
     announceWeather();
     announcePetitions();
@@ -950,6 +952,30 @@ function announceCrime(): void {
 
 /** Whether the player has been told what a crime marker is for. */
 let taughtCrime = false;
+
+/**
+ * The bins overflowing, and being caught up with (sim/rubbish.ts).
+ *
+ * Announced on the crossing in both directions, like the burials. Rubbish is a
+ * slow slide with no single visible moment — a mood drop and a scatter of marks —
+ * so without a line saying what changed the player has a falling city and no
+ * cause to point at.
+ */
+function announceRubbish(): void {
+  const events = systems.drainRubbishEvents();
+  if (events.length === 0) return;
+  for (const event of events) {
+    const piling = event.kind === 'rubbishPiling';
+    toast.show(piling ? STR.rubbish.piling : STR.rubbish.cleared);
+    eventFeed.pushCustom([
+      {
+        icon: piling ? '🗑️' : '♻️',
+        tone: piling ? 'alarm' : 'calm',
+        text: piling ? STR.rubbish.piling : STR.rubbish.cleared,
+      },
+    ]);
+  }
+}
 
 /**
  * A seam worked out (sim/resources.ts).
@@ -1264,6 +1290,7 @@ function syncUi(): void {
       schooled: schooledShare(game),
       awaitingBurial: game.cohorts.awaitingBurial,
     },
+    rubbish: { waiting: game.rubbish, strain: rubbishStrain(game) },
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });
   store.setMissions(

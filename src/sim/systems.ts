@@ -13,6 +13,7 @@ import {
 import { stepCohorts, type CohortEvent } from './cohorts';
 import { stepCrime, type CrimeEvent } from './crime';
 import { stepResources, type ResourceEvent } from './resources';
+import { markUncollected, stepRubbish, type RubbishEvent } from './rubbish';
 import { stepHazards, type HazardEvent } from './hazards';
 import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
 import type { Mission } from '../data/missions';
@@ -38,6 +39,7 @@ const EMPTY_HAZARDS: readonly HazardEvent[] = [];
 const EMPTY_CRIMES: readonly CrimeEvent[] = [];
 const EMPTY_COHORTS: readonly CohortEvent[] = [];
 const EMPTY_RESOURCES: readonly ResourceEvent[] = [];
+const EMPTY_RUBBISH: readonly RubbishEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
@@ -75,6 +77,7 @@ export class Systems {
   private readonly crimeEvents: CrimeEvent[] = [];
   private readonly cohortEvents: CohortEvent[] = [];
   private readonly resourceEvents: ResourceEvent[] = [];
+  private readonly rubbishEvents: RubbishEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -131,6 +134,8 @@ export class Systems {
       // After the civic services, because it clears only the two bits it owns
       // and would otherwise be wiped by the wholesale rebuild above.
       computeUtilityCoverage(state, this.fields);
+      // Reads the depot bit the civic pass just wrote, so it runs after it.
+      markUncollected(state);
       this.fieldsDirty = false;
     }
 
@@ -202,6 +207,9 @@ export class Systems {
     // After the migration that fills the bands, so a cohort is aged in the same
     // step it arrived in rather than a tick late (sim/cohorts.ts).
     this.cohortEvents.push(...stepCohorts(state, dt, hazardsLive));
+    // The bins fill whether or not anybody is watching; only the pile-up waits
+    // for a player, which is the same rule the fires and the burials keep.
+    this.rubbishEvents.push(...stepRubbish(state, dt, hazardsLive));
     stepResearch(state, dt);
     const era = stepProgression(state);
 
@@ -234,6 +242,12 @@ export class Systems {
   drainCohortEvents(): readonly CohortEvent[] {
     if (this.cohortEvents.length === 0) return EMPTY_COHORTS;
     return this.cohortEvents.splice(0, this.cohortEvents.length);
+  }
+
+  /** The bins overflowing, or being caught up with (sim/rubbish.ts). */
+  drainRubbishEvents(): readonly RubbishEvent[] {
+    if (this.rubbishEvents.length === 0) return EMPTY_RUBBISH;
+    return this.rubbishEvents.splice(0, this.rubbishEvents.length);
   }
 
   /** Seams worked out since the last drain (sim/resources.ts). */
