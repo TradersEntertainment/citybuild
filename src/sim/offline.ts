@@ -132,7 +132,10 @@ export function applyOfflineProgress(
   const steps = Math.min(OFFLINE_STEPS, Math.max(1, Math.ceil(seconds / OFFLINE_STEP_MIN_S)));
   const step = seconds / steps;
   for (let i = 0; i < steps; i++) {
-    const era = systems.step(state, step);
+    // Hazards off: a city that burned down or lay plague-struck while nobody
+    // was watching punishes the player for being away — the one thing an idle
+    // game must never do. Away time earns; it does not destroy.
+    const era = systems.step(state, step, false);
     if (era) report.eraReached = era;
     systems.stepEconomy(state, step);
   }

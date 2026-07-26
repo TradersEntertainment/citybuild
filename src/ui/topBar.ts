@@ -17,6 +17,7 @@ export function mountTopBar(root: HTMLElement): () => void {
   const netElement = required(root, '#hud-net');
   const populationElement = required(root, '#hud-population');
   const happinessElement = required(root, '#hud-happiness');
+  const yearElement = required(root, '#hud-year');
   const fpsElement = required(root, '#hud-fps');
   const demandBars = {
     res: required(root, '#demand-res'),
@@ -29,7 +30,7 @@ export function mountTopBar(root: HTMLElement): () => void {
   let from = shown;
   let startedAt = 0;
   let animating = false;
-  const last = { happiness: '', population: '', net: '', fps: '' };
+  const last = { happiness: '', population: '', net: '', fps: '', year: '' };
 
   const reducedMotion =
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -87,6 +88,10 @@ export function mountTopBar(root: HTMLElement): () => void {
     // zoom factor, which is what this slot used to hold, told them nothing.
     write(happinessElement, last, 'happiness', STR.hud.happiness(state.happiness));
     happinessElement.dataset['mood'] = moodOf(state.happiness);
+
+    // The year is the city's clock and its warning label both: a crisis the
+    // century is carrying arrives on a date, and the date is on screen.
+    write(yearElement, last, 'year', STR.hud.year(state.year));
 
     // Kept on screen deliberately: this is a realistic 3D city on a phone, and
     // the frame budget is the constraint most likely to be broken by a change

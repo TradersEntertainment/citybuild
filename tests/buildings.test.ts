@@ -7,6 +7,7 @@ import {
 import { capacityOf } from '../src/data/buildings';
 import type { TilePoint } from '../src/input/pathGeometry';
 import { evaluateBuildings, neighbourFit, suitability, totalBuildings } from '../src/sim/buildings';
+import { computeConnectivity } from '../src/sim/connectivity';
 import { computeLandValue, computeRoadDistance, createFields, UNREACHABLE } from '../src/sim/fields';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad, removeRoad } from '../src/sim/roads';
@@ -46,6 +47,7 @@ function flatten(state: GameState, cx: number, cy: number, radius: number): void
 }
 
 function refresh(): void {
+  computeConnectivity(game.world);
   computeRoadDistance(game.world, fields.roadDistance);
   computeLandValue(game.world, fields);
 }

@@ -22,6 +22,7 @@ export type Cue =
   | 'spawn'
   | 'goal'
   | 'era'
+  | 'alarm'
   | 'coin';
 
 /** A minor pentatonic on A, which is hard to make sound wrong. */
@@ -85,6 +86,12 @@ const CUES: Record<Cue, readonly Voice[]> = {
     { step: 7, at: 0, duration: 0.06, gain: 0.22, type: 'square' },
     { step: 9, at: 0.05, duration: 0.1, gain: 0.18, type: 'square' },
   ],
+  // A catastrophe. A low falling minor second, twice — a siren, not a tune,
+  // and deliberately outside the pentatonic calm of everything else.
+  alarm: [
+    { step: 2, at: 0, duration: 0.16, gain: 0.3, type: 'sawtooth', to: 1 },
+    { step: 2, at: 0.22, duration: 0.24, gain: 0.26, type: 'sawtooth', to: 0 },
+  ],
 };
 
 /**
@@ -98,6 +105,7 @@ const THROTTLE_MS: Partial<Record<Cue, number>> = {
   spawn: 110,
   tap: 40,
   build: 60,
+  alarm: 500,
 };
 
 const STORAGE_KEY = 'kadastro.sound';

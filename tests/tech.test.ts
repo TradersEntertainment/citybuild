@@ -12,8 +12,23 @@ import { deserialize, serialize } from '../src/sim/save';
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
 import { research, stepResearch, techFactor, techOffers } from '../src/sim/tech';
-import { index, startingCentre } from '../src/sim/world';
+import { NONE } from '../src/sim/tiles';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway; a motorway through the working
+ * area would move every figure they measure. With the highway stripped there
+ * is no "abroad" to be cut off from, so every street connects (§6.1).
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+  world.connected.fill(0);
+}
 
 /**
  * Research points accrued from Phase 0 with nowhere to spend them — the same
@@ -48,6 +63,7 @@ function grow(seconds: number): void {
 
 beforeEach(() => {
   game = createGameState(hashSeed('tech'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 12, y: Math.floor(centre.y) };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 24);
@@ -177,6 +193,7 @@ describe('what a tech actually changes', () => {
 
     // The same city again, with the codes researched from the start.
     game = createGameState(hashSeed('tech'), 0);
+  stripHighway(game.world);
     const centre = startingCentre(game.world);
     origin = { x: Math.floor(centre.x) - 12, y: Math.floor(centre.y) };
     flatten(game, Math.floor(centre.x), Math.floor(centre.y), 24);

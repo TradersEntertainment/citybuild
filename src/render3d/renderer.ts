@@ -3,6 +3,7 @@ import type { DraftRender } from '../input/draft';
 import type { GameState } from '../sim/state';
 import { createBuildings, type BuildingMeshes } from './buildings';
 import type { CameraRig } from './cameraRig';
+import { createHazards, type HazardLayer } from './hazards';
 import { createIssues, type IssueLayer } from './issues';
 import { createOverlay, type OverlayLayer } from './overlay';
 import { createRoads, type RoadMesh } from './roads';
@@ -52,6 +53,7 @@ export class Renderer {
   private readonly trees: TreeLayer;
   private readonly traffic: TrafficLayer;
   private readonly issues: IssueLayer;
+  private readonly hazards: HazardLayer;
   private readonly stations: StationLayer;
   private readonly overlay: OverlayLayer;
 
@@ -91,6 +93,7 @@ export class Renderer {
     this.trees = createTrees(state.world);
     this.traffic = createTraffic(state.world);
     this.issues = createIssues();
+    this.hazards = createHazards();
     this.stations = createStations();
     this.stations.rebuild(state);
     this.overlay = createOverlay(state.world);
@@ -103,6 +106,7 @@ export class Renderer {
       this.buildings.group,
       this.traffic.group,
       this.issues.group,
+      this.hazards.group,
       this.stations.group,
       this.overlay.group,
     );
@@ -177,8 +181,10 @@ export class Renderer {
       frame.state,
       this.camera.distance,
       frame.trafficLoad,
+      frame.now,
     );
     this.issues.sync(frame.state, this.camera.distance, frame.now);
+    this.hazards.sync(frame.state, this.camera.distance, frame.now);
 
     const targetY = sampleHeight(frame.state.world, this.camera.x, this.camera.y);
     updateSky(this.sky, this.camera.camera, this.camera.x, targetY, this.camera.y);

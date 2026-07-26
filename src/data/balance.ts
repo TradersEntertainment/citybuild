@@ -277,6 +277,45 @@ export const FARM_JOBS_PER_TILE = 0.35;
 export const COMMERCIAL_TAX = 0.06;
 export const INDUSTRIAL_TAX = 0.05;
 
+// --- Hazards (§13): the chaos services answer --------------------------------
+/**
+ * Per-building chance of a fire starting, per second. ~0.0012 a minute: a
+ * village of thirty buildings meets its first blaze around the half-hour
+ * mark, a town of a hundred every eight minutes or so — often enough that a
+ * brigade is a real purchase, rare enough that the city survives learning.
+ */
+export const FIRE_IGNITION_PER_SEC = 0.00002;
+/** Taller buildings burn a little more readily; per level above one. */
+export const FIRE_LEVEL_IGNITION_STEP = 0.5;
+/** Fire coverage cuts both the chance a fire starts… */
+export const FIRE_COVERED_IGNITION_MULT = 0.2;
+/** …and how long it burns: fought fires are out in this many seconds. */
+export const FIRE_RESPONSE_S = 25;
+/** An unfought fire takes the building after this many seconds. */
+export const FIRE_BURNOUT_S = 80;
+/** Seconds between spread rolls on an unfought fire. */
+export const FIRE_SPREAD_S = 12;
+/** Chance each spread roll ignites a neighbour… */
+export const FIRE_SPREAD_CHANCE = 0.3;
+/** …within this many tiles (manhattan). */
+export const FIRE_SPREAD_RADIUS = 2;
+/** Mood cost of each burning building, capped so the scale stays readable. */
+export const FIRE_HAPPINESS_HIT = 9;
+export const FIRE_HAPPINESS_CAP = 30;
+/** Below this population an epidemic cannot take hold. */
+export const EPIDEMIC_MIN_POP = 120;
+/**
+ * Per-second chance of an outbreak once the city is big enough. About one a
+ * half-hour: a rhythm the player can answer, not a weather system.
+ */
+export const EPIDEMIC_PER_SEC = 0.0006;
+/** How long an uncovered outbreak runs, in seconds. */
+export const EPIDEMIC_DURATION_S = 150;
+/** Share of the population taken per second at full severity. */
+export const EPIDEMIC_DRAIN_PER_SEC = 0.0009;
+/** Mood cost of an outbreak at full severity. */
+export const EPIDEMIC_HAPPINESS_HIT = 26;
+
 // --- Roads (§5.2, §20) -------------------------------------------------------
 export const JUNCTION_PENALTY_4WAY = 0.25; // KAVŞAK_CEZASI
 export const JUNCTION_PENALTY_3WAY = 0.1;

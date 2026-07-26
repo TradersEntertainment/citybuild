@@ -78,8 +78,12 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
   const plants = utilityUpkeep(state) * admin;
   const debt = debtService(state);
   const farmYield = farmTiles(state) * FARM_YIELD * techFactor(state, 'agronomy');
-  const farmIncome = farmYield * FOOD_PRICE;
-  const transit = transitIncome(state);
+  // History moves every income line at once: a depression year starves the
+  // treasury, a boom decade fills it, whatever the tax rate says.
+  const history = state.timelineEffects.incomeMult;
+  taxIncome *= history;
+  const farmIncome = farmYield * FOOD_PRICE * history;
+  const transit = transitIncome(state) * history;
   return {
     taxIncome,
     roadUpkeep: roads,

@@ -6,8 +6,23 @@ import { decodeRuns, deserialize, encodeRuns, serialize } from '../src/sim/save'
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
 import { hashSeed } from '../src/sim/rng';
-import { index, startingCentre } from '../src/sim/world';
+import { NONE } from '../src/sim/tiles';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway; a motorway through the working
+ * area would move every figure they measure. With the highway stripped there
+ * is no "abroad" to be cut off from, so every street connects (§6.1).
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+  world.connected.fill(0);
+}
 
 /**
  * A save that loses a city is worse than no save at all, and a save that loads
@@ -16,6 +31,8 @@ import { paintZone } from '../src/sim/zoning';
  */
 function playedCity(seconds = 90): GameState {
   const game = createGameState(hashSeed('save'), 1_700_000_000_000);
+  stripHighway(game.world);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   const cx = Math.floor(centre.x);
   const cy = Math.floor(centre.y);

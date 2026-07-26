@@ -1,6 +1,9 @@
 import {
   COMMERCIAL_PER_INDUSTRIAL_JOB,
   DEMAND_RESPONSE,
+  EPIDEMIC_HAPPINESS_HIT,
+  FIRE_HAPPINESS_CAP,
+  FIRE_HAPPINESS_HIT,
   HAPPINESS_RESPONSE,
   LABOUR_PARTICIPATION,
   MIGRATION_COEFFICIENT,
@@ -41,7 +44,15 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   const employmentScore = 100 - excess * UNEMPLOYMENT_PENALTY;
   const taxScore = 100 - (state.taxRate / TAX_RATE_MAX) * 70;
 
-  const target = clamp(employmentScore * 0.55 + taxScore * 0.45, 0, 100);
+  let target = clamp(employmentScore * 0.55 + taxScore * 0.45, 0, 100);
+  // Chaos is felt before it is counted: a city watching itself burn, or queue
+  // at a closed hospital, is not a content one whatever the tax rate says.
+  target -= Math.min(FIRE_HAPPINESS_CAP, state.fires.size * FIRE_HAPPINESS_HIT);
+  if (state.epidemic) target -= state.epidemic.severity * EPIDEMIC_HAPPINESS_HIT;
+  // And history leans on the mood for years at a time: wars and depressions
+  // press down, republics and booms lift.
+  target += state.timelineEffects.happinessMod;
+  target = clamp(target, 0, 100);
   // Mood moves slowly; a city that swung with every tick would be unreadable.
   state.happiness += (target - state.happiness) * Math.min(1, HAPPINESS_RESPONSE * dt);
 }
@@ -119,7 +130,13 @@ export function migrationPerMinute(happiness: number, vacancy: number): number {
 }
 
 function migrate(state: GameState, vacancy: number, dt: number): void {
-  const perMinute = migrationPerMinute(state.happiness, vacancy);
+  let perMinute = migrationPerMinute(state.happiness, vacancy);
+  // Nobody takes the motorway *into* a plague town: the sicker the outbreak,
+  // the thinner the stream of new arrivals, until it stops entirely.
+  if (state.epidemic && perMinute > 0) perMinute *= 1 - state.epidemic.severity * 0.9;
+  // History decides how full the road in is: a draft empties it, a boom
+  // decade fills every bus.
+  if (perMinute > 0) perMinute *= state.timelineEffects.migrationMult;
   const change = (perMinute * dt) / 60;
   if (change === 0) return;
 
@@ -146,6 +163,15 @@ function moveIn(state: GameState, people: number): void {
     building.population += taken;
     remaining -= taken;
   }
+}
+
+/**
+ * Removes people from the city outright — the way an epidemic takes them.
+ * Distinct from migration, which is the market deciding; this is the morgue
+ * and the evacuation bus. Empties the worst homes first, like any exodus.
+ */
+export function drainPopulation(state: GameState, people: number): void {
+  moveOut(state, people);
 }
 
 /** Empties the worst homes first — decline shows where the city failed. */

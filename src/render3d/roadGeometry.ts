@@ -104,9 +104,15 @@ export function buildRoadGeometry(world: World): BuiltRoads {
       // Slight per-tile tonal drift: a kilometre of identical asphalt looks
       // like a solid, not a surface.
       const drift = 1 + (hash2(x, y) - 0.5) * 0.09;
+      // A street that cannot reach the national highway leads nowhere, and is
+      // drawn like it leads nowhere: faded, so the player reads the mistake
+      // from the map rather than from a tooltip.
+      const i = index(world, x, y);
+      const reachable = (world.highway[i] ?? 0) === 1 || (world.connected[i] ?? 0) === 1;
+      const fade = reachable ? 1 : 0.55;
       const tint = (quads: number): void => {
         for (let v = 0; v < quads * 6; v++) {
-          colours.push(colour.r * drift, colour.g * drift, colour.b * drift);
+          colours.push(colour.r * drift * fade, colour.g * drift * fade, colour.b * drift * fade);
         }
       };
 

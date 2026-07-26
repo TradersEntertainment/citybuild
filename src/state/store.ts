@@ -1,5 +1,6 @@
 import { createStore } from 'zustand/vanilla';
 import { STARTING_MONEY, STARTING_TAX_RATE, HAPPINESS_START } from '../data/balance';
+import { START_YEAR } from '../data/timeline';
 import type { MissionGoal } from '../data/missions';
 import type { Era } from '../sim/tiles';
 
@@ -12,6 +13,8 @@ export type OverlayId = 'none' | 'traffic' | 'pollution' | 'landValue' | 'servic
 
 export interface UiState {
   era: Era;
+  /** The calendar year the city's played time has reached (§14). */
+  year: number;
   money: number;
   /** Outstanding across every loan; zero hides the panel's debt row. */
   debt: number;
@@ -88,6 +91,8 @@ export interface CityTotals {
 
 export interface SimSnapshot {
   era: Era;
+  /** The calendar year the city's played time has reached (§14). */
+  year: number;
   money: number;
   debt: number;
   legacy: number;
@@ -118,6 +123,7 @@ export interface UiActions {
 
 export const uiStore = createStore<UiState & UiActions>()((set) => ({
   era: 'founding',
+  year: START_YEAR,
   money: STARTING_MONEY,
   debt: 0,
   population: 0,
@@ -153,6 +159,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       // Identity when nothing moved, so subscribers do not repaint on a tick
       // that changed nothing.
       current.money === snapshot.money &&
+      current.year === snapshot.year &&
       current.debt === snapshot.debt &&
       current.canRetire === snapshot.canRetire &&
       current.legacy === snapshot.legacy &&

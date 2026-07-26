@@ -49,10 +49,23 @@ export const STR = {
 
   empty: {
     noRoads: 'Henüz yol yok. Bir hat çiz — şehir yolun kenarında büyür.',
+    disconnected:
+      'Yolun ulusal otoyola bağlantısı yok — kimse bu yoldan şehre gelemez. Yolu otoyola kadar uzat.',
     noZones: 'Bölge boyanmamış. Yolun kenarını konuta ayır.',
     noPeople: 'Konut boyandı. İlk hane birazdan taşınır.',
     noJobs: 'İşsizlik yüksek. Ticaret ya da sanayi bölgesi boya.',
     noHomes: 'İş var, ev yok. Yol kenarına konut boya.',
+  },
+
+  /** Fires and epidemics (§13): the event feed and the toast share these. */
+  hazard: {
+    fireStart: 'Yangın çıktı!',
+    fireOut: 'İtfaiye yangını söndürdü.',
+    fireLost: 'Bir bina kül oldu.',
+    fireRaging: 'Şehir yanıyor — itfaiye şart!',
+    epidemicStart: 'Salgın başladı!',
+    epidemicEndMild: 'Salgın atlatıldı.',
+    epidemicEndSevere: 'Salgın şehri kırıp geçirdi — hastane yoksa sonu bu.',
   },
 
   tools: {
@@ -116,6 +129,8 @@ export const STR = {
     population: (value: number): string => `${plain.format(Math.round(value))} kişi`,
     happiness: (value: number): string => `mutluluk ${Math.round(value)}`,
     fps: (value: number): string => `${Math.round(value)} fps`,
+    /** The calendar year, the city's clock. */
+    year: (value: number): string => `${value}`,
     /** Net income per minute, signed. */
     net: (value: number): string =>
       `${value >= 0 ? '+' : '−'}${money.format(Math.abs(Math.round(value)))} ₺/dk`,

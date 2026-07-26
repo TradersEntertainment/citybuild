@@ -40,6 +40,12 @@ export interface World {
   highway: Uint8Array;
   /** The highway's tiles in edge-to-edge order; empty until the route is laid. */
   highwayRoute: { x: number; y: number }[];
+  /**
+   * 1 where a player road tile can reach the national highway through the
+   * city's own streets. Derived, never saved: recomputed with the fields on
+   * load. A street nobody can arrive by is a drawing, not a road (§6.1).
+   */
+  connected: Uint8Array;
 }
 
 export const PARCELS_PER_SIDE = WORLD_SIZE / PARCEL_SIZE;
@@ -64,6 +70,7 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     parcelsOwned: new Uint8Array(parcelSide * parcelSide),
     highway: new Uint8Array(cells),
     highwayRoute: [],
+    connected: new Uint8Array(cells),
   };
   claimStartingParcel(world);
   return world;

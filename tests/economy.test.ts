@@ -3,6 +3,7 @@ import { ROAD_SPECS } from '../src/data/roads';
 import { ZONE_COST } from '../src/data/balance';
 import type { TilePoint } from '../src/input/pathGeometry';
 import { evaluateBuildings } from '../src/sim/buildings';
+import { computeConnectivity } from '../src/sim/connectivity';
 import { computeLandValue, computeRoadDistance, createFields } from '../src/sim/fields';
 import { computeLedger, roadUpkeep, stepEconomy } from '../src/sim/economy';
 import { migrationPerMinute } from '../src/sim/population';
@@ -10,8 +11,23 @@ import { eraForPopulation, nextEraGap, stepProgression } from '../src/sim/progre
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
-import { index, startingCentre } from '../src/sim/world';
+import { NONE } from '../src/sim/tiles';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { brushTiles, canZone, estimateZone, paintZone, zoneAt } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway; a motorway through the working
+ * area would move every figure they measure. With the highway stripped there
+ * is no "abroad" to be cut off from, so every street connects (§6.1).
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+  world.connected.fill(0);
+}
 
 let game: GameState;
 let fields: ReturnType<typeof createFields>;
@@ -23,6 +39,7 @@ function row(length: number, dy = 0): TilePoint[] {
 
 beforeEach(() => {
   game = createGameState(hashSeed('economy'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 10, y: Math.floor(centre.y) };
   for (let y = origin.y - 8; y <= origin.y + 8; y++) {
@@ -33,6 +50,7 @@ beforeEach(() => {
     }
   }
   fields = createFields(game.world.size);
+  computeConnectivity(game.world);
   computeRoadDistance(game.world, fields.roadDistance);
   computeLandValue(game.world, fields);
 });
@@ -88,7 +106,8 @@ describe('ledger', () => {
   it('taxes residents, and taxes them more on better land', () => {
     buildRoad(game.world, row(12), 'path', 1e6);
     paintZone(game.world, row(12, 1), 'res', 1e6);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     computeLandValue(game.world, fields);
     game.demand.res = 1;
     evaluateBuildings(game, fields, 3);
@@ -103,7 +122,8 @@ describe('ledger', () => {
   it('earns nothing at a zero tax rate', () => {
     buildRoad(game.world, row(12), 'path', 1e6);
     paintZone(game.world, row(12, 1), 'res', 1e6);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     game.demand.res = 1;
     evaluateBuildings(game, fields, 3);
 

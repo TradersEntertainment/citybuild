@@ -1,11 +1,15 @@
 import { BUILDING_EVAL_S, FIELD_DIFFUSION_S, TRAFFIC_REFRESH_S } from '../data/balance';
 import { evaluateBuildings, totalBuildings } from './buildings';
+import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
+import { stepHazards, type HazardEvent } from './hazards';
 import type { Mission } from '../data/missions';
 import { settleMissions } from './missions';
 import { stepPopulation } from './population';
+import { createRng } from './rng';
+import { stepTimeline, type TimelineFired } from './timeline';
 import { stepResearch } from './tech';
 import { computeServiceCoverage } from './services';
 import { computeTraffic, createTrafficField, type TrafficField } from './traffic';
@@ -16,6 +20,8 @@ import type { Era } from './tiles';
 
 /** Shared empty result, so the common no-goals-finished frame allocates nothing. */
 const EMPTY_MISSIONS: readonly Mission[] = [];
+const EMPTY_HAZARDS: readonly HazardEvent[] = [];
+const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 
 /**
  * Runs the simulation's systems at their own cadences (§11). Heavy passes are
@@ -33,7 +39,11 @@ export class Systems {
   private trafficTimer = TRAFFIC_REFRESH_S;
   private fieldsDirty = true;
   private readonly completedMissions: Mission[] = [];
+  private readonly hazardEvents: HazardEvent[] = [];
+  private readonly timelineFired: TimelineFired[] = [];
   private readonly diffusion: DiffusionScratch;
+  /** Steps so far; seeds the hazard dice, so a seed plus a count reproduces a blaze. */
+  private hazardTick = 0;
 
   constructor(size: number) {
     this.fields = createFields(size);
@@ -49,9 +59,17 @@ export class Systems {
   /**
    * Advances the world by `dt` seconds. Returns the era if one was reached, so
    * the caller can react without polling.
+   *
+   * Hazards only strike while somebody is watching (`hazardsLive`): a fire is
+   * a drama you answer, and a city that burned down during an eight-hour
+   * absence is a punishment for not playing, which is the one thing an idle
+   * game must never do. Away time stays calm — see offline.ts.
    */
-  step(state: GameState, dt: number): Era | null {
+  step(state: GameState, dt: number, hazardsLive = true): Era | null {
     if (this.fieldsDirty) {
+      // Which streets reach the country decides which streets count at all;
+      // it has to be settled before road access is measured from them.
+      computeConnectivity(state.world);
       computeRoadDistance(state.world, this.fields.roadDistance);
       computeTraffic(state, this.fields, this.traffic);
       computeLandValue(state.world, this.fields, this.traffic);
@@ -87,6 +105,20 @@ export class Systems {
       this.buildingTimer = 0;
     }
 
+    // History and chaos keep the same rule: they only happen to a watching
+    // city. Away time passes in years, but the events wait for somebody to
+    // happen to.
+    if (hazardsLive) {
+      this.timelineFired.push(...stepTimeline(state, dt));
+
+      // Chaos on its own clock: a fire does not wait for the building pass.
+      // The dice come from the seed and the step count — no Math.random under
+      // src/sim, so a test can replay a blaze exactly.
+      const dice = createRng(state.seed ^ Math.imul(this.hazardTick + 1, 0x9e3779b1));
+      this.hazardTick++;
+      this.hazardEvents.push(...stepHazards(state, dt, () => dice.next()));
+    }
+
     const totals = totalBuildings(state);
     stepPopulation(state, totals, dt);
     stepResearch(state, dt);
@@ -104,6 +136,18 @@ export class Systems {
   drainCompletedMissions(): readonly Mission[] {
     if (this.completedMissions.length === 0) return EMPTY_MISSIONS;
     return this.completedMissions.splice(0, this.completedMissions.length);
+  }
+
+  /** Fires and outbreaks since the last drain, for the UI to announce. */
+  drainHazardEvents(): readonly HazardEvent[] {
+    if (this.hazardEvents.length === 0) return EMPTY_HAZARDS;
+    return this.hazardEvents.splice(0, this.hazardEvents.length);
+  }
+
+  /** History that arrived since the last drain, for the UI to announce. */
+  drainTimelineEvents(): readonly TimelineFired[] {
+    if (this.timelineFired.length === 0) return EMPTY_TIMELINE;
+    return this.timelineFired.splice(0, this.timelineFired.length);
   }
 
   /** Called at the economy cadence (1 Hz), separately from the sim step. */

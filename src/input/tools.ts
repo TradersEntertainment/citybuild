@@ -346,11 +346,25 @@ export class ToolController {
 
     this.path = buildRoadPath(this.raw);
     if (this.tool === 'erase') {
-      // A continuous line, then widened by the brush: the line is what stops a
-      // fast drag leaving un-erased gaps between frames, and the width is what
-      // lets a mis-painted block come out in one sweep rather than a tile at a
-      // time. Un-zonable ground is included — a bridge stands on water.
-      this.painted = brushArea(this.state.world, this.path.tiles, this.brush);
+      // A tap is surgery, a drag is a sweep. Erasing used to widen every
+      // stroke by the brush, so a tap on one bad tile bulldozed its neighbours
+      // along with it — the "I only meant that one" failure. A stroke that
+      // never leaves a tile and a half removes exactly the tile it lands on;
+      // only a real drag earns the brush's width. Un-zonable ground counts
+      // either way — a bridge stands on water.
+      const first = this.raw[0]!;
+      const last = this.raw[this.raw.length - 1]!;
+      const span = Math.hypot(last.x - first.x, last.y - first.y);
+      if (span < 1.5) {
+        const x = Math.round(last.x);
+        const y = Math.round(last.y);
+        this.painted =
+          x >= 0 && y >= 0 && x < this.state.world.size && y < this.state.world.size
+            ? [{ x, y }]
+            : [];
+      } else {
+        this.painted = brushArea(this.state.world, this.path.tiles, this.brush);
+      }
       this.roadEstimate = null;
       return;
     }

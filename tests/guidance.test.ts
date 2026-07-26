@@ -27,6 +27,9 @@ function facts(over: Partial<CityFacts> = {}): CityFacts {
     population: 0,
     totals: totals(),
     interchanges: 0,
+    // The chain below only applies to streets that lead somewhere; the
+    // disconnected case gets its own test.
+    connectedRoadTiles: 1,
     ...over,
   };
 }
@@ -38,6 +41,12 @@ describe('player guidance', () => {
 
   it('asks for zoning once a road exists, rather than promising magic', () => {
     expect(guidanceFor(facts({ roadTiles: 20 }))).toBe(STR.empty.noZones);
+  });
+
+  it('calls out a road that cannot reach the national highway before anything else', () => {
+    expect(guidanceFor(facts({ roadTiles: 20, connectedRoadTiles: 0 }))).toBe(
+      STR.empty.disconnected,
+    );
   });
 
   it('says to wait once land is zoned but nothing has grown yet', () => {

@@ -15,7 +15,9 @@ import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
 import { borrow, loanOffer } from './sim/credit';
+import { connectedRoadTiles } from './sim/connectivity';
 import { highwayInterchanges } from './sim/highway';
+import { yearOf } from './sim/timeline';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
@@ -42,6 +44,7 @@ import { mountRetirePrompt } from './ui/retirePrompt';
 import { guidanceFor } from './ui/guidance';
 import { mountIntro } from './ui/intro';
 import * as haptics from './ui/haptics';
+import { mountEventFeed } from './ui/eventFeed';
 import { mountToast } from './ui/toast';
 import { mountViewControls } from './ui/viewControls';
 import { mountToolDock } from './ui/toolDock';
@@ -127,6 +130,7 @@ mountCityPanel(ui, {
 });
 mountHint(ui);
 const toast = mountToast(ui);
+const eventFeed = mountEventFeed(ui);
 
 const parcelPrompt = mountParcelPrompt(ui, {
   onBuy: (offer) => {
@@ -438,6 +442,8 @@ function frame(now: number): void {
       renderer.onBuildingsChanged();
     }
     announceGoals();
+    announceHazards();
+    announceTimeline();
     checkBank();
   }
   if (budget.economyTicks > 0) {
@@ -465,6 +471,57 @@ function frame(now: number): void {
   publishReadout();
 
   requestAnimationFrame(frame);
+}
+
+/**
+ * Fires and outbreaks, drained like the goals: every event goes to the feed,
+ * and the two genuine catastrophes also take the toast — a city burning down
+ * is allowed to interrupt.
+ */
+function announceHazards(): void {
+  const events = systems.drainHazardEvents();
+  if (events.length === 0) return;
+  eventFeed.push(events);
+  for (const event of events) {
+    if (event.kind === 'fireRaging') {
+      toast.show(STR.hazard.fireRaging);
+      sfx.play('alarm');
+    } else if (event.kind === 'epidemicEndSevere') {
+      toast.show(STR.hazard.epidemicEndSevere);
+      sfx.play('alarm');
+    }
+  }
+  // A building lost to fire changes what the zoning layer has left to show.
+  if (events.some((event) => event.kind === 'fireLost')) renderer.onBuildingsChanged();
+}
+
+/**
+ * History, announced as it happens: every dated event goes to the feed with
+ * its icon, and the violent ones also take the toast and the siren — the year
+ * the fault line lets go is allowed to interrupt.
+ */
+function announceTimeline(): void {
+  const fired = systems.drainTimelineEvents();
+  if (fired.length === 0) return;
+  eventFeed.pushCustom(
+    fired.map(({ event }) => ({
+      icon: event.icon,
+      tone: event.disaster || event.kind === 'war' || event.kind === 'crisis' ? 'alarm'
+        : event.kind === 'celebration' || event.kind === 'boom' || event.kind === 'progress' ? 'calm'
+        : 'warn',
+      text: event.title,
+    })),
+  );
+  for (const { event } of fired) {
+    if (event.disaster) {
+      toast.show(event.title);
+      sfx.play('alarm');
+    }
+  }
+  // An earthquake knocks buildings down; the zoning layer has less left to show.
+  if (fired.some(({ event }) => event.disaster === 'earthquake')) {
+    renderer.onBuildingsChanged();
+  }
 }
 
 /**
@@ -511,6 +568,7 @@ function syncUi(): void {
   const totals = totalBuildings(game);
   store.syncFromSim({
     era: game.era,
+    year: yearOf(game.playedMs),
     money: game.money,
     debt: game.debt,
     legacy: game.legacy,
@@ -560,6 +618,7 @@ function syncUi(): void {
       population: game.population,
       totals: totalBuildings(game),
       interchanges: highwayInterchanges(game.world),
+      connectedRoadTiles: connectedRoadTiles(game.world),
     }),
   );
 }

@@ -2,15 +2,30 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { CONGESTION_SLOWDOWN } from '../src/data/balance';
 import { ROAD_SPECS } from '../src/data/roads';
 import type { TilePoint } from '../src/input/pathGeometry';
+import { computeConnectivity } from '../src/sim/connectivity';
 import { computeRoadDistance, createFields } from '../src/sim/fields';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
-import { ISSUE } from '../src/sim/tiles';
+import { NONE, ISSUE } from '../src/sim/tiles';
 import { computeTraffic, createTrafficField, speedFactor } from '../src/sim/traffic';
-import { index, startingCentre } from '../src/sim/world';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway; a motorway through the working
+ * area would move every figure they measure. With the highway stripped there
+ * is no "abroad" to be cut off from, so every street connects (§6.1).
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+  world.connected.fill(0);
+}
 
 /**
  * Traffic exists to give the one verb a cost. Drawing a single narrow road for
@@ -37,13 +52,17 @@ function row(length: number, dy: number): TilePoint[] {
 
 function run(systems: Systems, seconds: number): void {
   for (let s = 0; s < seconds; s++) {
-    systems.step(game, 1);
+    // Hazards off: these measure traffic physics over minutes of city time,
+    // and a random blaze culling the district mid-measurement is noise, not
+    // signal. Chaos has its own suite in hazards.test.ts.
+    systems.step(game, 1, false);
     systems.stepEconomy(game, 1);
   }
 }
 
 beforeEach(() => {
   game = createGameState(hashSeed('traffic'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 12, y: Math.floor(centre.y) };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 24);
@@ -52,6 +71,9 @@ beforeEach(() => {
 
 describe('where the traffic goes', () => {
   it('is only the motorway’s through-traffic on an empty map', () => {
+    // This one needs the motorway standing: the shared setup strips it, so
+    // start again from a world that still has its national road.
+    game = createGameState(hashSeed('traffic'), 0);
     const fields = createFields(game.world.size);
     const traffic = createTrafficField(game.world.size);
     computeTraffic(game, fields, traffic);
@@ -94,6 +116,7 @@ describe('where the traffic goes', () => {
 
     // The same city again, on a tier built to carry it.
     game = createGameState(hashSeed('traffic'), 0);
+  stripHighway(game.world);
     const centre = startingCentre(game.world);
     origin = { x: Math.floor(centre.x) - 12, y: Math.floor(centre.y) };
     flatten(game, Math.floor(centre.x), Math.floor(centre.y), 24);
@@ -177,7 +200,8 @@ describe('capacity comes from the tier', () => {
     run(systems, 120);
 
     const fields = createFields(game.world.size);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     const traffic = createTrafficField(game.world.size);
     computeTraffic(game, fields, traffic);
 

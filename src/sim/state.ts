@@ -1,7 +1,9 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
 import type { Loan } from './credit';
+import type { Epidemic, Fire } from './hazards';
 import { layNationalHighway } from './highway';
+import { CALM_EFFECTS, type TimelineEffects } from './timeline';
 import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
 import type { UtilityPlant } from './utilities';
@@ -50,6 +52,22 @@ export interface GameState {
   utilities: Map<number, UtilityPlant>;
   /** Painted farmland, recounted by the building pass; farms employ people. */
   farmTiles: number;
+  /**
+   * Buildings currently on fire (§13). Transient on purpose: a blaze is a
+   * moment, not a fact to save, so a city saved mid-fire reloads to calm.
+   */
+  fires: Map<number, Fire>;
+  nextFireId: number;
+  /** The outbreak underway, if any — likewise a moment, never saved. */
+  epidemic: Epidemic | null;
+  /**
+   * The last calendar year history was checked against (§14). Null until the
+   * first step, so a loaded city notes the year instead of re-living every
+   * event it already survived. Derived from played time — never saved.
+   */
+  lastYear: number | null;
+  /** What the current year's events press on the sim; recomputed each step. */
+  timelineEffects: TimelineEffects;
   /** Goals already paid out, by id (§12.3). Order is completion order. */
   missionsDone: string[];
   /** Techs researched, by id (§12.2). */
@@ -102,6 +120,11 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     services: new Map(),
     utilities: new Map(),
     farmTiles: 0,
+    fires: new Map(),
+    nextFireId: 1,
+    epidemic: null,
+    lastYear: null,
+    timelineEffects: { ...CALM_EFFECTS },
     missionsDone: [],
     techsDone: [],
     nextBuildingId: 1,

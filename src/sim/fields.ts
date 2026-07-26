@@ -62,6 +62,9 @@ export function computeRoadDistance(world: World, out: Uint8Array): void {
     // the motorway only counts once a real street meets it — and then it is
     // the street, not the motorway, the building fronts onto.
     if ((world.highway[i] ?? 0) === 1) continue;
+    // And a street the country cannot reach is no street at all: nobody
+    // arrives along it, so nothing fronts onto it (§6.1).
+    if ((world.connected[i] ?? 0) !== 1) continue;
     out[i] = 0;
     queue[tail++] = i;
   }

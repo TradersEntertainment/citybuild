@@ -23,6 +23,8 @@ export interface CityFacts {
   totals: BuildingTotals;
   /** Junctions between the city's streets and the national highway. */
   interchanges: number;
+  /** Road tiles that can actually reach the highway; zero means nobody arrives. */
+  connectedRoadTiles: number;
 }
 
 /** Unemployment above this is worth interrupting the player about. */
@@ -32,6 +34,9 @@ const ADVICE_MIN_POPULATION = 30;
 
 export function guidanceFor(facts: CityFacts): string | null {
   if (facts.roadTiles === 0) return STR.empty.noRoads;
+  // A road to nowhere, before anything else: zoning beside it would only grow
+  // the player's confusion, because nothing can ever arrive along it.
+  if (facts.connectedRoadTiles === 0) return STR.empty.disconnected;
   if (facts.zonedTiles === 0) return STR.empty.noZones;
   if (facts.buildings === 0) return STR.empty.noPeople;
 

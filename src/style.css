@@ -68,9 +68,11 @@ body {
 
 .bar {
   pointer-events: auto;
-  background: color-mix(in srgb, var(--murekkep) 88%, transparent);
-  backdrop-filter: blur(8px);
-  border-color: color-mix(in srgb, var(--parsomen) 14%, transparent);
+  position: relative;
+  z-index: 2;
+  background: color-mix(in srgb, var(--murekkep) 93%, transparent);
+  backdrop-filter: blur(12px);
+  border-color: color-mix(in srgb, var(--parsomen) 18%, transparent);
   display: flex;
   align-items: center;
   gap: 12px;
@@ -208,6 +210,18 @@ body {
   letter-spacing: 0.04em;
   text-transform: lowercase;
   cursor: pointer;
+  transition:
+    border-color 140ms ease-out,
+    background 140ms ease-out,
+    transform 100ms ease-out;
+}
+
+.tool-button:hover {
+  border-color: color-mix(in srgb, var(--parsomen) 44%, transparent);
+}
+
+.tool-button:active {
+  transform: scale(0.95);
 }
 
 .tool-name {
@@ -1068,6 +1082,86 @@ body {
   color: var(--sis);
 }
 
+/*
+ * The police blotter: fires and outbreaks as they happen. Pinned to the left
+ * edge under the money readout, out of the way of both the hint and the dock,
+ * and never in the way of the pen.
+ */
+.event-feed {
+  position: absolute;
+  top: calc(var(--safe-top) + var(--bar-height) + 64px);
+  left: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  max-width: min(72vw, 300px);
+  z-index: 12;
+}
+
+.event-entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border-radius: 11px;
+  font-size: 12.5px;
+  background: color-mix(in srgb, var(--murekkep) 86%, transparent);
+  border: 1px solid color-mix(in srgb, var(--parsomen) 22%, transparent);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 30%);
+  /* Visible by default; the entrance is a decoration on top, so a stalled or
+     skipped animation can never leave an entry stuck invisible. */
+  opacity: 1;
+  transform: none;
+  transition:
+    opacity 260ms ease-out,
+    transform 260ms ease-out;
+  animation: event-in 260ms ease-out;
+}
+
+@keyframes event-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.event-entry[data-leaving='true'] {
+  opacity: 0;
+  transform: translateX(-10px);
+}
+
+.event-entry[data-tone='alarm'] {
+  border-color: color-mix(in srgb, var(--kiremit) 65%, transparent);
+  background: color-mix(in srgb, var(--kiremit) 34%, var(--murekkep));
+}
+
+.event-entry[data-tone='warn'] {
+  border-color: color-mix(in srgb, var(--pirinc) 55%, transparent);
+}
+
+.event-entry[data-tone='calm'] {
+  border-color: color-mix(in srgb, var(--yesil, #7aa56a) 55%, transparent);
+}
+
+.event-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .event-entry {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
+
 /* Landscape: bars hug the sides so the map keeps its vertical room. */
 @media (orientation: landscape) and (max-height: 520px) {
   #top-bar,
@@ -1135,11 +1229,9 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  /* No stacking context of its own. The layer is appended before the panels,
-     so document order already puts it under them — giving it a z-index lifted
-     it above the panel instead, and two sets of text fought over the same
-     pixels. The panel's blur then reads the names as texture, which is what
-     "the menu shows what is behind it" was supposed to mean. */
+  /* Panels sit at z-index 2; labels stay one layer below so neighbourhood
+     names never fight the menu text. */
+  z-index: 1;
   transition: opacity 200ms ease-out;
 }
 

@@ -4,6 +4,7 @@ import { SERVICE_SPECS } from '../src/data/services';
 import { UTILITY_SPECS } from '../src/data/utilities';
 import type { TilePoint } from '../src/input/pathGeometry';
 import { demolishArea } from '../src/sim/demolish';
+import { computeConnectivity } from '../src/sim/connectivity';
 import { computeRoadDistance, createFields } from '../src/sim/fields';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
@@ -13,8 +14,22 @@ import { Systems } from '../src/sim/systems';
 import { NONE } from '../src/sim/tiles';
 import { UndoStack } from '../src/sim/undo';
 import { placePlant } from '../src/sim/utilities';
-import { index, startingCentre } from '../src/sim/world';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { brushArea, paintZone } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway; a motorway through the working
+ * area would move every figure they measure. With the highway stripped there
+ * is no "abroad" to be cut off from, so every street connects (§6.1).
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+  world.connected.fill(0);
+}
 
 /**
  * The eraser is the only apology the game can make for a mis-touch, so what it
@@ -47,6 +62,7 @@ function at(x: number, y: number): number {
 
 beforeEach(() => {
   game = createGameState(hashSeed('demolish'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 8, y: Math.floor(centre.y) };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 20);
@@ -89,7 +105,8 @@ describe('what the eraser takes', () => {
 
   it('removes a station, which had no way out of the world at all', () => {
     buildRoad(game.world, row(10, 0), 'path', 1_000_000);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     const spot = { x: origin.x + 4, y: origin.y + 1 };
     expect(placeService(game, fields, 'fire', spot.x, spot.y).ok).toBe(true);
     expect(game.services.size).toBe(1);
@@ -101,7 +118,8 @@ describe('what the eraser takes', () => {
 
   it('removes a plant', () => {
     buildRoad(game.world, row(10, 0), 'asphalt', 1_000_000);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     game.era = 'town';
     const spot = { x: origin.x + 4, y: origin.y + 1 };
     expect(placePlant(game, fields, 'well', spot.x, spot.y).ok).toBe(true);
@@ -132,7 +150,8 @@ describe('what the eraser takes', () => {
 
   it('hands back half of a facility, as money the caller subtracts', () => {
     buildRoad(game.world, row(10, 0), 'path', 1_000_000);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     const spot = { x: origin.x + 4, y: origin.y + 1 };
     placeService(game, fields, 'fire', spot.x, spot.y);
 
@@ -200,7 +219,8 @@ describe('undoing an erase', () => {
 
   it('rebuilds a station and takes the refund back', () => {
     buildRoad(game.world, row(10, 0), 'path', 1_000_000);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     const spot = { x: origin.x + 4, y: origin.y + 1 };
     placeService(game, fields, 'fire', spot.x, spot.y);
     const before = game.money;
@@ -217,7 +237,8 @@ describe('undoing an erase', () => {
 
   it('is recorded even when the erase changed no tile at all', () => {
     buildRoad(game.world, row(10, 0), 'path', 1_000_000);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     const spot = { x: origin.x + 4, y: origin.y + 1 };
     placeService(game, fields, 'fire', spot.x, spot.y);
 
@@ -241,7 +262,8 @@ describe('undoing an erase', () => {
 describe('erasing a plant stops it supplying', () => {
   it('takes its upkeep off the books', () => {
     buildRoad(game.world, row(10, 0), 'asphalt', 1_000_000);
-    computeRoadDistance(game.world, fields.roadDistance);
+    computeConnectivity(game.world);
+  computeRoadDistance(game.world, fields.roadDistance);
     game.era = 'town';
     const spot = { x: origin.x + 4, y: origin.y + 1 };
     placePlant(game, fields, 'well', spot.x, spot.y);

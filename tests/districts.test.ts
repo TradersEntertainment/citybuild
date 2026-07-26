@@ -10,8 +10,23 @@ import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
 import { createGameState, type GameState } from '../src/sim/state';
 import { Systems } from '../src/sim/systems';
-import { index, startingCentre } from '../src/sim/world';
+import { NONE } from '../src/sim/tiles';
+import { index, startingCentre, type World } from '../src/sim/world';
 import { paintZone } from '../src/sim/zoning';
+
+/**
+ * These fixtures predate the national highway; a motorway through the working
+ * area would move every figure they measure. With the highway stripped there
+ * is no "abroad" to be cut off from, so every street connects (§6.1).
+ */
+function stripHighway(world: World): void {
+  for (let i = 0; i < world.road.length; i++) {
+    if ((world.highway[i] ?? 0) === 1) world.road[i] = NONE;
+  }
+  world.highway.fill(0);
+  world.highwayRoute = [];
+  world.connected.fill(0);
+}
 
 /**
  * A city the player has spent an hour on used to be "the city", with no part of
@@ -56,6 +71,7 @@ function seedCity(): void {
 
 beforeEach(() => {
   game = createGameState(hashSeed('districts'), 0);
+  stripHighway(game.world);
   const centre = startingCentre(game.world);
   origin = { x: Math.floor(centre.x) - 20, y: Math.floor(centre.y) };
   flatten(game, Math.floor(centre.x), Math.floor(centre.y), 30);
@@ -132,6 +148,7 @@ describe('finding the neighbourhoods', () => {
     const first = findDistricts(game).map((d) => d.name);
 
     game = createGameState(hashSeed('elsewhere'), 0);
+  stripHighway(game.world);
     const centre = startingCentre(game.world);
     origin = { x: Math.floor(centre.x) - 20, y: Math.floor(centre.y) };
     flatten(game, Math.floor(centre.x), Math.floor(centre.y), 30);

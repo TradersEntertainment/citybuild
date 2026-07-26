@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { ROAD_SPECS } from '../data/roads';
+import { FLYING_YEAR, SHUTTLE_YEAR } from '../data/timeline';
 import { transitFlow } from '../sim/highway';
 import type { GameState } from '../sim/state';
 import { decodeRoad, NONE } from '../sim/tiles';
+import { yearOf } from '../sim/timeline';
 import type { World } from '../sim/world';
 import { LOD_TRAFFIC_DISTANCE, ROAD_LIFT, SEA_Y, TILE, WORLD_SIZE } from './constants';
 import { sampleHeight } from './terrain';
@@ -71,6 +73,8 @@ export interface TrafficLayer {
     state: GameState,
     cameraDistance: number,
     load: Float32Array | undefined,
+    /** Frame clock; the space-age fleet needs it for bob and shuttle runs. */
+    nowMs?: number,
   ): void;
   dispose(): void;
 }
@@ -91,6 +95,39 @@ export function createTraffic(initialWorld: World): TrafficLayer {
   cars.count = 0;
   trucks.count = 0;
   group.add(cars, trucks);
+
+  // Orbital shuttles: two bright specks crossing the sky on long straight
+  // runs once the century turns spacefaring. Parked invisible until 2065.
+  const shuttleGeometry = new THREE.BoxGeometry(2.2, 0.2, 0.4);
+  const shuttleMaterial = new THREE.MeshStandardMaterial({
+    color: '#E8EDF2',
+    emissive: new THREE.Color('#BFD9FF'),
+    emissiveIntensity: 1.3,
+    roughness: 0.4,
+  });
+  const shuttles: THREE.Mesh[] = [];
+  for (let i = 0; i < 2; i++) {
+    const mesh = new THREE.Mesh(shuttleGeometry, shuttleMaterial);
+    mesh.visible = false;
+    mesh.castShadow = false;
+    shuttles.push(mesh);
+    group.add(mesh);
+  }
+
+  function updateShuttles(year: number, seconds: number): void {
+    const active = year >= SHUTTLE_YEAR;
+    for (let i = 0; i < shuttles.length; i++) {
+      const mesh = shuttles[i]!;
+      mesh.visible = active;
+      if (!active) continue;
+      // One long run across the whole map, staggered per shuttle, wrapping
+      // forever — the same sky lane the flying cars queue under.
+      const span = WORLD_SIZE * TILE * 1.3;
+      const phase = ((seconds * (6 + i * 2.4) + i * 137) % span) - span * 0.15;
+      mesh.position.set(phase - WORLD_HALF * 0.3, 14 + i * 3.5, (i - 0.5) * WORLD_SIZE * TILE * 0.5);
+      mesh.rotation.y = 0.2 + i * 0.5;
+    }
+  }
 
   const fleet: Vehicle[] = [];
   let world: World = initialWorld;
@@ -122,8 +159,13 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     state: GameState,
     cameraDistance: number,
     load: Float32Array | undefined,
+    nowMs: number = performance.now(),
   ): void {
     const jamLoad = load ?? NO_LOAD;
+    const seconds = nowMs / 1000;
+    const year = yearOf(state.playedMs);
+    const flying = year >= FLYING_YEAR;
+    updateShuttles(year, seconds);
     frames++;
     if (state.world !== world) {
       world = state.world;
@@ -173,7 +215,7 @@ export function createTraffic(initialWorld: World): TrafficLayer {
       }
       if (hidden) continue;
       const pose = poseOf(v, g);
-      const matrix = composeMatrix(pose, v, state.world);
+      const matrix = composeMatrix(pose, v, state.world, flying, seconds);
       const color = vehicleColor(v);
       if (v.truck) {
         if (truckCount >= MAX_TRUCKS) continue;
@@ -335,6 +377,8 @@ export function createTraffic(initialWorld: World): TrafficLayer {
     trucks.dispose();
     carGeometry.dispose();
     truckGeometry.dispose();
+    shuttleGeometry.dispose();
+    shuttleMaterial.dispose();
     for (const material of TRIM_MATERIALS) material.dispose();
     group.clear();
   }
@@ -670,12 +714,21 @@ const scratchScale = new THREE.Vector3(1, 1, 1);
 const scratchEuler = new THREE.Euler();
 const WORLD_HALF = (WORLD_SIZE * TILE) / 2;
 
-function composeMatrix(pose: Pose, v: Vehicle, world: World): THREE.Matrix4 {
+function composeMatrix(
+  pose: Pose,
+  v: Vehicle,
+  world: World,
+  flying: boolean,
+  seconds: number,
+): THREE.Matrix4 {
   const wx = pose.x - WORLD_HALF;
   const wz = pose.z - WORLD_HALF;
   const ground = Math.max(sampleHeight(world, pose.x, pose.z), SEA_Y);
-  scratchPosition.set(wx, ground + ROAD_LIFT + CAR_Y, wz);
-  scratchEuler.set(0, pose.heading, 0);
+  // The space age: from 2050 the fleet rides above the road, not on it — a
+  // gentle bob per vehicle so the sky lane reads as traffic, not a glitch.
+  const lift = flying ? 1.5 + 0.3 * Math.sin(seconds * 1.8 + v.seed * 40) : 0;
+  scratchPosition.set(wx, ground + ROAD_LIFT + CAR_Y + lift, wz);
+  scratchEuler.set(0, pose.heading, flying ? Math.sin(seconds * 2.2 + v.seed * 30) * 0.04 : 0);
   scratchQuaternion.setFromEuler(scratchEuler);
   const squash = v.truck ? 1.25 : 0.9 + v.seed * 0.2;
   scratchScale.set(squash, 1, squash);
