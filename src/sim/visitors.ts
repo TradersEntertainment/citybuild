@@ -195,6 +195,7 @@ export function visitorFactor(
   visitors: VisitorField,
   x: number,
   y: number,
+  hospitality = 1,
 ): number {
   const road = nearestRoad(world, fields, x, y);
   if (road < 0) return 1;
@@ -203,7 +204,11 @@ export function visitorFactor(
   // Saturating, so the one shop on the busiest corner cannot earn a hundred
   // times what its neighbour does — and so adding shops is always better than
   // stacking one.
-  return 1 + VISITOR_SPEND * (1 - Math.exp(-passing / VISITOR_SATURATION));
+  //
+  // Hospitality (data/tech.ts) multiplies the bonus rather than the factor: a
+  // shop with nobody passing must gain nothing from it, or the tech becomes a
+  // flat city-wide raise wearing a tourism label.
+  return 1 + VISITOR_SPEND * hospitality * (1 - Math.exp(-passing / VISITOR_SATURATION));
 }
 
 /** Visitors a minute the city is actually taking in, for the panel to read. */

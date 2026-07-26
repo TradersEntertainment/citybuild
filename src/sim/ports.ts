@@ -3,6 +3,7 @@ import { isPortUnlocked, PORT_SPECS, type PortKind } from '../data/ports';
 import type { Fields } from './fields';
 import type { PlacementResult } from './services';
 import type { GameState } from './state';
+import { techFactor } from './tech';
 import { NONE } from './tiles';
 import { inBounds, index, isTileOwned, type World } from './world';
 import { isWater } from './worldgen';
@@ -134,7 +135,10 @@ export function seaIncome(state: GameState): number {
     const spec = PORT_SPECS[port.kind];
     const water = openWaterNear(state.world, port.x, port.y, spec.reach);
     if (water < spec.waterNeeded) continue;
-    const berth = spec.yieldPerWater * water;
+    // Cold storage is what a fishing fleet is short of, so the tech lifts the
+    // berth's own catch and leaves the trade every harbour shares alone.
+    const catchFactor = port.kind === 'fishing' ? techFactor(state, 'coldChain') : 1;
+    const berth = spec.yieldPerWater * water * catchFactor;
     const trade = spec.yieldPerRootCitizen * Math.sqrt(Math.max(0, state.population));
     total += berth + trade;
   }

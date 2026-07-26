@@ -3,7 +3,13 @@ import { ZONE_TINTS } from '../data/buildings';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
 import { PORT_ORDER, PORT_SPECS, isPortUnlocked, type PortKind } from '../data/ports';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
-import { UTILITY_ORDER, UTILITY_SPECS, isUtilityUnlocked, type UtilityKind } from '../data/utilities';
+import {
+  UTILITY_ORDER,
+  UTILITY_SPECS,
+  isUtilityUnlocked,
+  type UtilityKind,
+  type UtilitySpec,
+} from '../data/utilities';
 import { STR } from '../data/strings.tr';
 import type { TechId } from '../data/tech';
 import type { TechOffer } from '../sim/tech';
@@ -34,6 +40,14 @@ export interface DockDeps {
   onUndo: () => void;
   /** Research points in hand, and what they will buy. */
   research: () => number;
+  /**
+   * Share of buildings a school reaches, and the points that earns per minute.
+   *
+   * Shown rather than described. The sheet used to say only that schools help,
+   * which a player who builds one and watches nothing move is entitled to read
+   * as a rumour — these two numbers are what the next school changes.
+   */
+  schooling: () => { coverage: number; perMinute: number };
   techOffers: () => TechOffer[];
   /** Returns whether the tech was actually researched. */
   onResearch: (id: TechId) => boolean;
@@ -185,13 +199,21 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     title.append(points);
     sheet.append(title);
 
+    const school = deps.schooling();
+    sheet.append(
+      sheetNote(
+        school.coverage > 0
+          ? STR.tech.rate(school.coverage, school.perMinute)
+          : STR.tech.rateHint,
+      ),
+    );
+
     const offers = deps.techOffers();
     if (offers.length === 0) {
       sheet.append(sheetNote(STR.tech.none));
       return;
     }
     for (const offer of offers) sheet.append(techRow(offer));
-    sheet.append(sheetNote(STR.tech.rate));
   }
 
   function techRow(offer: TechOffer): HTMLElement {
@@ -259,9 +281,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     const unlocked = isUtilityUnlocked(kind, deps.era());
     const row = sheetRow(
       STR.utility[kind],
-      unlocked
-        ? STR.serviceCost(spec.cost, spec.upkeep)
-        : STR.lockedAt(STR.eraName[spec.unlockedAt]),
+      unlocked ? plantDetail(spec) : STR.lockedAt(STR.eraName[spec.unlockedAt]),
     );
     row.dataset['locked'] = String(!unlocked);
     row.disabled = !unlocked;
@@ -400,6 +420,36 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
       sheet.textContent = '';
     },
   };
+}
+
+/**
+ * What a plant gives and what it costs, on one line.
+ *
+ * Six ways to make power are only a choice if the trade is visible at the moment
+ * of choosing. Without the capacity and the smoke on the row, the sheet is eight
+ * prices and the player picks the cheapest one every time.
+ */
+function plantDetail(spec: UtilitySpec): string {
+  const tags: string[] = [];
+  if (spec.provides === 'power') {
+    tags.push(
+      spec.pollution === 0
+        ? STR.plantTag.clean
+        : spec.pollution <= 15
+          ? STR.plantTag.someSmoke
+          : spec.pollution <= 35
+            ? STR.plantTag.smoke
+            : STR.plantTag.heavySmoke,
+    );
+  }
+  if (spec.waterNeeded > 0) tags.push(STR.plantTag.needsWater);
+  return STR.plantDetail(
+    spec.capacity,
+    STR.plantUnit[spec.provides],
+    spec.cost,
+    spec.upkeep,
+    tags,
+  );
 }
 
 /** Label for whichever facility the tool is holding. */

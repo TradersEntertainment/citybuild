@@ -18,6 +18,7 @@ import type { Building } from './buildings';
 import { dayFraction, nightAmount } from './daytime';
 import { dispatchFrom, runArrived, runFinished, type TruckRun } from './dispatch';
 import { lightingShare } from './investments';
+import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
 import type { GameState } from './state';
 import { index } from './world';
@@ -134,10 +135,13 @@ function startCrimes(
   // Misery breeds it, but bounded: crime lowers mood and low mood raises crime,
   // so the loop has to be a gentle slope rather than a spiral.
   const miseryMult = 1 + (CRIME_MISERY_MULT - 1) * (1 - state.happiness / 100);
+  // A karakol on every street is dearer than learning to catch people, which is
+  // what this tech is for (data/tech.ts, forensics).
+  const forensics = techFactor(state, 'forensics');
 
   for (const building of state.buildings.values()) {
     if (crimeAt(state, building.id) !== null) continue;
-    let chance = CRIME_PER_SEC * dt * nightMult * miseryMult;
+    let chance = CRIME_PER_SEC * dt * nightMult * miseryMult * forensics;
     if (building.zone === 'com') chance *= CRIME_COMMERCIAL_MULT;
     const covered = coveredByPolice(state, building);
     if (covered) chance *= CRIME_COVERED_MULT;

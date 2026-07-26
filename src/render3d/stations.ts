@@ -37,6 +37,14 @@ const LOOKS: Readonly<Record<FacilityKind, StationLook>> = {
   waterworks: { body: '#93A0A6', accent: '#3E86A8', width: 0.94, height: 0.5, mast: 0.4 },
   coalPlant: { body: '#7C7671', accent: '#4A4441', width: 0.96, height: 0.72, mast: 1.5 },
   gasPlant: { body: '#8B8E92', accent: '#5B6166', width: 0.94, height: 0.66, mast: 1.1 },
+  oilPlant: { body: '#6E6862', accent: '#8A5A24', width: 0.98, height: 0.7, mast: 1.35 },
+  // A dam is wide and low with nothing on the roof: the wall *is* the building.
+  hydroPlant: { body: '#A8AEB2', accent: '#2F7FA8', width: 1.05, height: 0.44, mast: 0 },
+  // Panels, so: flat, broad, and dark. Nothing to see above the fence.
+  solarFarm: { body: '#3A4450', accent: '#5FA8D8', width: 1.05, height: 0.16, mast: 0 },
+  // The cooling tower is the silhouette, and it should be the tallest thing for
+  // miles — a reactor is the last building a city ever builds.
+  nuclearPlant: { body: '#D9DBD6', accent: '#5FB48A', width: 1.05, height: 0.8, mast: 2.4 },
   // The waterfront. Low sheds and tall thin masts: a crane is the one thing on
   // a coast you can see from the other side of the bay, which is exactly what a
   // player wants of a building they have to find the shoreline for.

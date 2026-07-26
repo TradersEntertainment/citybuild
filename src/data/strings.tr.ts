@@ -138,6 +138,39 @@ export const STR = {
     waterworks: 'Su arıtma',
     coalPlant: 'Kömür santrali',
     gasPlant: 'Doğalgaz santrali',
+    oilPlant: 'Petrol santrali',
+    hydroPlant: 'Hidroelektrik baraj',
+    solarFarm: 'Güneş tarlası',
+    nuclearPlant: 'Nükleer santral',
+  },
+
+  /**
+   * A plant's line in the sheet: "210 MW · ₺62.000 · 680 ₺/dk · duman".
+   *
+   * Capacity comes first because that is what the player is shopping for, and
+   * the smoke comes last because that is the part they find out about later. Six
+   * ways to make power are only a choice if the trade is on the row.
+   */
+  plantDetail: (
+    capacity: number,
+    unit: string,
+    cost: number,
+    upkeep: number,
+    tags: readonly string[],
+  ): string =>
+    [
+      `${plain.format(capacity)} ${unit}`,
+      `₺${money.format(cost)}`,
+      `${money.format(upkeep)} ₺/dk`,
+      ...tags,
+    ].join(' · '),
+  plantUnit: { water: 'm³', power: 'MW' },
+  plantTag: {
+    clean: 'temiz',
+    someSmoke: 'az duman',
+    smoke: 'duman',
+    heavySmoke: 'çok duman',
+    needsWater: 'su kıyısı ister',
   },
 
   /** "₺3.200 · 42 ₺/dk gider" */
@@ -150,7 +183,7 @@ export const STR = {
     unowned: 'Burası senin arazin değil.',
     occupied: 'Bu kare dolu.',
     noRoad: 'Yola çok uzak. Yol kenarına kur.',
-    noWater: 'Yeterli açık su yok. Kıyıya, denizin geniş olduğu yere kur.',
+    noWater: 'Yeterli açık su yok. Suyun geniş olduğu bir kıyıya kur.',
     // Only asphalt and above carry mains; a dirt track cannot be dug up for pipe.
     noMains: 'Şebeke taşıyan yol yok. Asfalt ya da bulvar kenarına kur.',
     tooDear: 'Bakiye yetmiyor.',
@@ -342,8 +375,19 @@ export const STR = {
     researched: 'Araştırma tamamlandı.',
     tooDear: 'Yeterli araştırma puanı yok.',
     none: 'Henüz araştırılacak bir şey yok. Şehir büyüdükçe açılır.',
-    /** Points come faster with schools, which is worth saying once. */
-    rate: 'Okullar araştırmayı hızlandırır.',
+    /**
+     * What the schools are actually doing, in numbers.
+     *
+     * The old line just said schools help. A player who builds one and sees no
+     * number move has been told a rumour: this says the coverage and the rate, so
+     * the next school visibly changes both.
+     */
+    rate: (coverage: number, perMinute: number): string =>
+      `Okul kapsamı %${Math.round(coverage * 100)} · ${plain.format(Math.round(perMinute * 10) / 10)} AP/dk`,
+    rateHint: 'Okul kur — kapsam büyüdükçe araştırma hızlanır.',
+    /** Said when a new school measurably speeds the city's research up. */
+    schoolBuilt: (perMinute: number): string =>
+      `Okul açıldı. Araştırma ${plain.format(Math.round(perMinute * 10) / 10)} AP/dk'ya çıktı.`,
     name: {
       sanitation: 'Arıtma',
       transit: 'Toplu taşıma',
@@ -351,6 +395,13 @@ export const STR = {
       registry: 'Tapu kadastro',
       administration: 'Belediye teşkilatı',
       agronomy: 'Ziraat',
+      fireproofing: 'Yapı güvenliği',
+      forensics: 'Kriminoloji',
+      medicine: 'Tıp',
+      turbines: 'Türbin',
+      hydrology: 'Hidroloji',
+      coldChain: 'Soğuk zincir',
+      hospitality: 'Konukçuluk',
     },
     detail: {
       sanitation: 'Sanayi daha az kirletir ve daha az gürültü yapar.',
@@ -359,6 +410,13 @@ export const STR = {
       registry: 'Parseller daha ucuza alınır.',
       administration: 'Hizmet ve şebeke giderleri düşer.',
       agronomy: 'Tarım daha çok iş ve ürün verir.',
+      fireproofing: 'Yangın daha seyrek çıkar.',
+      forensics: 'Suç daha seyrek işlenir.',
+      medicine: 'Salgın daha hafif geçer.',
+      turbines: 'Santraller daha çok elektrik verir.',
+      hydrology: 'Su tesisleri daha çok su verir.',
+      coldChain: 'Balıkçılık daha çok kazandırır.',
+      hospitality: 'Yoldan geçen daha çok para bırakır.',
     },
   },
 

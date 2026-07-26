@@ -1,8 +1,14 @@
 import { beforeEach, describe, expect, it } from 'vitest';
+import { CRIME_PER_SEC, EPIDEMIC_MIN_POP, FIRE_IGNITION_PER_SEC } from '../src/data/balance';
+import type { Level } from '../src/data/buildings';
 import { TECHS, techById } from '../src/data/tech';
 import { STR } from '../src/data/strings.tr';
 import type { TilePoint } from '../src/input/pathGeometry';
-import { totalBuildings } from '../src/sim/buildings';
+import { totalBuildings, type Building } from '../src/sim/buildings';
+import { stepCrime } from '../src/sim/crime';
+import { stepHazards } from '../src/sim/hazards';
+import { seaIncome } from '../src/sim/ports';
+import { visitorFactor } from '../src/sim/visitors';
 import { computeLedger } from '../src/sim/economy';
 import { createFields } from '../src/sim/fields';
 import { baseParcelPrice } from '../src/sim/parcels';
@@ -52,6 +58,37 @@ function flatten(state: GameState, cx: number, cy: number, radius: number): void
 
 function row(length: number, dy: number): TilePoint[] {
   return Array.from({ length }, (_, i) => ({ x: origin.x + i, y: origin.y + dy }));
+}
+
+/**
+ * One commercial building on the map, for a hazard roll to land on.
+ *
+ * Deliberately minimal and deliberately not shared with the hazard tests: what
+ * these assertions need is a target, not a city.
+ */
+function seedBuilding(state: GameState, x = 150, y = 150): Building {
+  const id = state.nextBuildingId++;
+  const building: Building = {
+    id,
+    x,
+    y,
+    w: 1,
+    h: 1,
+    zone: 'com',
+    level: 1 as Level,
+    score: 0.8,
+    growthProgress: 0,
+    decayTimer: 0,
+    population: 0,
+    jobs: 4,
+    output: 0,
+    issues: 0,
+    builtAt: 0,
+    variantSeed: id * 7919,
+  };
+  state.buildings.set(id, building);
+  state.world.building[index(state.world, building.x, building.y)] = id;
+  return building;
 }
 
 function grow(seconds: number): void {
@@ -238,6 +275,145 @@ describe('what a tech actually changes', () => {
     systems.invalidateFields();
     systems.step(game, 1);
     expect(Math.max(...systems.traffic.load)).toBeLessThan(jammed);
+  });
+});
+
+/**
+ * Every tech has exactly one consumer somewhere in sim/, and this is the block
+ * that keeps that true.
+ *
+ * The rule in data/tech.ts is that a tech lifts a ceiling on a system the player
+ * has already met. A tech whose factor nothing reads still passes every test
+ * above — it has an id, a name, a price and a factor that is not one — and does
+ * absolutely nothing in the game. So each of the newer ones is checked against
+ * the number it is supposed to move.
+ */
+describe('every tech is actually wired to something', () => {
+  const buy = (id: Parameters<typeof research>[1]): void => {
+    game.research = 100_000;
+    expect(research(game, id)).toBe('ok');
+  };
+
+  /** How many buildings, out of 240, a whole band of rolls catches. */
+  const SWEEP = 240;
+
+  /**
+   * A city of identical buildings, rolled against evenly spread dice.
+   *
+   * A single threshold roll would have to reproduce the whole multiplier stack —
+   * weather, building level, coverage, the hour of the day — to know which side
+   * of the line to sit on, and an earlier version of these two tests got that
+   * wrong in both directions. Sweeping across a band measures the only thing
+   * being claimed: that the tech moves the line.
+   */
+  function sweep(
+    seed: string,
+    band: number,
+    tech: 'fireproofing' | 'forensics' | null,
+    run: (city: GameState, rolls: () => number) => number,
+  ): number {
+    const city = createGameState(hashSeed(seed), 0);
+    city.era = 'town';
+    city.happiness = 100;
+    for (let i = 0; i < SWEEP; i++) {
+      seedBuilding(city, 150 + (i % 60), 150 + Math.floor(i / 60));
+    }
+    if (tech) {
+      city.research = 100_000;
+      expect(research(city, tech)).toBe('ok');
+    }
+    let cursor = 0;
+    return run(city, () => (band * (cursor++ % SWEEP)) / SWEEP);
+  }
+
+  it('fireproofing makes fires rarer', () => {
+    const band = FIRE_IGNITION_PER_SEC * 4;
+    const burn = (city: GameState, rolls: () => number): number => {
+      stepHazards(city, 1, rolls);
+      return city.fires.size;
+    };
+    const plain = sweep('fire-sweep', band, null, burn);
+    const guarded = sweep('fire-sweep', band, 'fireproofing', burn);
+    expect(plain).toBeGreaterThan(0);
+    expect(guarded).toBeLessThan(plain);
+  });
+
+  it('forensics makes crimes rarer', () => {
+    const band = CRIME_PER_SEC * 8;
+    const rob = (city: GameState, rolls: () => number): number => {
+      stepCrime(city, 1, rolls);
+      return city.crimes.size;
+    };
+    const plain = sweep('crime-sweep', band, null, rob);
+    const guarded = sweep('crime-sweep', band, 'forensics', rob);
+    expect(plain).toBeGreaterThan(0);
+    expect(guarded).toBeLessThan(plain);
+  });
+
+  it('medicine softens an outbreak', () => {
+    const outbreak = (withTech: boolean): number => {
+      const city = createGameState(hashSeed('sick'), 0);
+      city.era = 'town';
+      city.population = EPIDEMIC_MIN_POP * 4;
+      if (withTech) {
+        city.research = 100_000;
+        research(city, 'medicine');
+      }
+      stepHazards(city, 1, () => 0);
+      return city.epidemic?.severity ?? 0;
+    };
+    expect(outbreak(true)).toBeLessThan(outbreak(false));
+    expect(outbreak(false)).toBeGreaterThan(0);
+  });
+
+  it('coldChain pays a fishing fleet more, and only a fishing fleet', () => {
+    // Measured through seaIncome, which is the number the ledger reads. A test
+    // that only checked techFactor would pass even if nothing consumed it.
+    const berth = { x: origin.x + 4, y: origin.y + 4 };
+    for (let y = berth.y + 2; y <= berth.y + 10; y++) {
+      for (let x = berth.x - 8; x <= berth.x + 8; x++) {
+        game.world.height[index(game.world, x, y)] = 0.1;
+      }
+    }
+    game.era = 'town';
+    game.ports.set(1, { id: 1, kind: 'fishing', x: berth.x, y: berth.y });
+    const before = seaIncome(game);
+    expect(before).toBeGreaterThan(0);
+    buy('coldChain');
+    expect(seaIncome(game)).toBeGreaterThan(before);
+
+    // A cargo berth lands no fish, so the same tech must leave it alone.
+    const other = createGameState(hashSeed('tech'), 0);
+    other.era = 'town';
+    other.world.height.set(game.world.height);
+    other.ports.set(1, { id: 1, kind: 'cargo', x: berth.x, y: berth.y });
+    const cargoBefore = seaIncome(other);
+    other.research = 100_000;
+    research(other, 'coldChain');
+    expect(seaIncome(other)).toBe(cargoBefore);
+  });
+
+  it('hospitality lifts the visitor bonus and leaves an empty street alone', () => {
+    // Through visitorFactor, which is where the multiplier actually lands, with a
+    // hand-built flow field so the busy road and the empty one are both certain.
+    buildRoad(game.world, row(24, 0), 'path', 1_000_000);
+    systems.invalidateFields();
+    systems.step(game, 1);
+    const busy = index(game.world, origin.x + 4, origin.y);
+    const field = { flow: new Float32Array(game.world.size * game.world.size) };
+    field.flow[busy] = 6;
+
+    const args = [game.world, systems.fields, field, origin.x + 4, origin.y] as const;
+    const plain = visitorFactor(...args);
+    const generous = visitorFactor(...args, 1.4);
+    expect(plain).toBeGreaterThan(1);
+    expect(generous).toBeGreaterThan(plain);
+
+    // The guard that makes this tourism rather than a city-wide raise: a shop on
+    // a street nobody passes gains exactly nothing from it.
+    const quiet = [game.world, systems.fields, field, origin.x + 20, origin.y] as const;
+    expect(visitorFactor(...quiet)).toBe(1);
+    expect(visitorFactor(...quiet, 1.4)).toBe(1);
   });
 });
 

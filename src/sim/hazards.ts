@@ -17,6 +17,7 @@ import {
 import { demolish, type Building } from './buildings';
 import { dispatchFrom, runArrived, type TruckRun } from './dispatch';
 import { drainPopulation } from './population';
+import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
 import type { GameState } from './state';
 import { weatherAt, weatherEffects, type WeatherEffects } from './weather';
@@ -133,7 +134,9 @@ function stepFires(
     for (const building of state.buildings.values()) {
       if (burningAt(state, building.id)) continue;
       const covered = coveredBy(state, building, SERVICE.fire);
-      let chance = FIRE_IGNITION_PER_SEC * dt;
+      // Research answers the same complaint a station does, one city-wide
+      // notch at a time (data/tech.ts, fireproofing).
+      let chance = FIRE_IGNITION_PER_SEC * dt * techFactor(state, 'fireproofing');
       chance *= 1 + (building.level - 1) * FIRE_LEVEL_IGNITION_STEP;
       if (covered) chance *= FIRE_COVERED_IGNITION_MULT;
       chance *= sky.ignitionMult;
@@ -259,7 +262,8 @@ function stepEpidemic(
     state.epidemic = {
       age: 0,
       duration: EPIDEMIC_DURATION_S * (1 - coveredShare * 0.55),
-      severity: clamp(1 - coveredShare * 0.8, 0.12, 1),
+      // Medicine cannot stop an outbreak arriving; it decides how hard it bites.
+      severity: clamp((1 - coveredShare * 0.8) * techFactor(state, 'medicine'), 0.12, 1),
       coveredShare,
       toll: 0,
     };

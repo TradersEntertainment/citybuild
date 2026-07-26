@@ -3,13 +3,18 @@ import { bindAudioUnlock } from './audio/context';
 import { createAmbient } from './audio/ambient';
 import { createMusic } from './audio/music';
 import { createSfx } from './audio/sfx';
-import { AUTOSAVE_INTERVAL_S, HIGHWAY_BILL_REMINDER_S, PARCEL_SIZE } from './data/balance';
+import {
+  AUTOSAVE_INTERVAL_S,
+  HIGHWAY_BILL_REMINDER_S,
+  PARCEL_SIZE,
+  researchPerMinute,
+} from './data/balance';
 import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
 import { bindMouseCamera, bindPointerInput, bindWheelZoom } from './input/pointer';
 import { bindKeyboardCamera, isTyping } from './input/keyboardCamera';
-import { ToolController } from './input/tools';
+import { ToolController, type FacilitySelection } from './input/tools';
 import { registerServiceWorker } from './pwa/registerSW';
 import { periodOf } from './render3d/archetypes';
 import { CameraRig } from './render3d/cameraRig';
@@ -34,7 +39,7 @@ import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { buyInvestment } from './sim/investments';
 import { hasSeaGate, placePort } from './sim/ports';
 import { placeService, utilitiesExpected } from './sim/services';
-import { research, techOffers } from './sim/tech';
+import { educationCoverage, research, techOffers } from './sim/tech';
 import { placePlant, utilityBalance } from './sim/utilities';
 import { canRetire, legacyOpeningBalance, legacyValue } from './sim/legacy';
 import { createGameState } from './sim/state';
@@ -212,6 +217,10 @@ const dock = mountToolDock(ui, {
     renderer.invalidateRoads();
   },
   research: () => game.research,
+  schooling: () => {
+    const coverage = educationCoverage(game);
+    return { coverage, perMinute: researchPerMinute(game.population, coverage * 100) };
+  },
   techOffers: () => techOffers(game),
   onResearch: (id) => {
     const result = research(game, id);
@@ -684,10 +693,31 @@ function buildStation(tileX: number, tileY: number): void {
   renderer.invalidateServices();
   syncUi();
   autosave.flush(game);
-  // The first working harbour changes what the city fundamentally is: it now
-  // has a second way out of the country, and that is worth saying out loud.
-  const gateOpened = facility.type === 'port' && facility.kind === 'cargo' && hasSeaGate(game);
-  toast.show(gateOpened ? STR.seaGateOpen : STR.portBuilt, name);
+  toast.show(placedHeadline(facility), name);
+}
+
+/**
+ * What to say when a facility goes down.
+ *
+ * Three cases earn their own line. The first working harbour changes what the
+ * city fundamentally is — it now has a second way out of the country. A school
+ * reports the research rate it just raised, because "okul koymak bir şeye sebep
+ * olmalı": a building whose entire effect is a number nobody is shown may as
+ * well not have an effect. Everything else gets the plain confirmation — which
+ * until now said *Deniz tesisi kuruldu* for every fire station in the game.
+ */
+function placedHeadline(facility: FacilitySelection): string {
+  if (facility.type === 'port') {
+    return facility.kind === 'cargo' && hasSeaGate(game) ? STR.seaGateOpen : STR.portBuilt;
+  }
+  if (facility.type === 'service' && facility.kind === 'education') {
+    // Coverage was invalidated a moment ago but the mask is still last tick's,
+    // so this is measured from the school just placed rather than recomputed:
+    // one more covered building than the field currently knows about.
+    const coverage = educationCoverage(game);
+    return STR.tech.schoolBuilt(researchPerMinute(game.population, coverage * 100));
+  }
+  return STR.serviceBuilt;
 }
 
 // --- Viewport plumbing -------------------------------------------------------

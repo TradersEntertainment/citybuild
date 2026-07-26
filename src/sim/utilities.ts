@@ -2,7 +2,9 @@ import { POWER_PER_CAPITA, ROAD_ACCESS_MAX_WALK, WATER_PER_CAPITA } from '../dat
 import { ROAD_SPECS } from '../data/roads';
 import { isUtilityUnlocked, UTILITY_SPECS, type UtilityKind, type UtilitySpec } from '../data/utilities';
 import type { Fields } from './fields';
+import { openWaterNear } from './ports';
 import { serviceAt } from './services';
+import { techFactor } from './tech';
 import type { GameState } from './state';
 import { decodeRoad, NONE, SERVICE } from './tiles';
 import { inBounds, index, isTileOwned, type World } from './world';
@@ -38,10 +40,15 @@ export interface UtilityBalance {
 export function utilityBalance(state: GameState): UtilityBalance {
   let waterSupply = 0;
   let powerSupply = 0;
+  // Research lifts what the plants already standing can deliver, which is
+  // cheaper than another station and is the whole point of the two techs
+  // (data/tech.ts, turbines and hydrology).
+  const turbines = techFactor(state, 'turbines');
+  const hydrology = techFactor(state, 'hydrology');
   for (const plant of state.utilities.values()) {
     const spec: UtilitySpec = UTILITY_SPECS[plant.kind];
-    if (spec.provides === 'water') waterSupply += spec.capacity;
-    else powerSupply += spec.capacity;
+    if (spec.provides === 'water') waterSupply += spec.capacity * hydrology;
+    else powerSupply += spec.capacity * turbines;
   }
   return {
     waterDemand: state.population * WATER_PER_CAPITA,
@@ -167,7 +174,7 @@ function carries(world: World, x: number, y: number): boolean {
 
 export interface PlantPlacement {
   ok: boolean;
-  reason?: 'locked' | 'unowned' | 'occupied' | 'noRoad' | 'noMains' | 'tooDear';
+  reason?: 'locked' | 'unowned' | 'occupied' | 'noRoad' | 'noMains' | 'noWater' | 'tooDear';
 }
 
 /**
@@ -199,7 +206,14 @@ export function canPlacePlant(
     return { ok: false, reason: 'noRoad' };
   }
   if (!touchesMains(world, x, y)) return { ok: false, reason: 'noMains' };
-  if (state.money < UTILITY_SPECS[kind].cost) return { ok: false, reason: 'tooDear' };
+  // A dam wants a river and a reactor wants cooling. Same rule as a harbour's,
+  // and the same function: what stops the clean plants from being strictly
+  // better than the dirty ones is that most of the map cannot hold them.
+  const spec = UTILITY_SPECS[kind];
+  if (spec.waterNeeded > 0 && openWaterNear(world, x, y, spec.waterReach) < spec.waterNeeded) {
+    return { ok: false, reason: 'noWater' };
+  }
+  if (state.money < spec.cost) return { ok: false, reason: 'tooDear' };
   return { ok: true };
 }
 

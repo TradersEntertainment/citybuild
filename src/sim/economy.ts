@@ -76,7 +76,7 @@ function trade(
   y: number,
 ): number {
   if (!visitors) return highwayTradeFactor(state, x, y);
-  return visitorFactor(state.world, fields, visitors, x, y);
+  return visitorFactor(state.world, fields, visitors, x, y, techFactor(state, 'hospitality'));
 }
 
 /**
