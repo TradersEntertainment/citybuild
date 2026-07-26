@@ -17,6 +17,7 @@ import {
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
 import { portHappiness } from './ports';
+import { ritualHappiness } from './rituals';
 import type { GameState } from './state';
 
 /**
@@ -56,6 +57,9 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   target += state.timelineEffects.happinessMod;
   // A waterfront worth walking on is worth something to live near (sim/ports.ts).
   target += portHappiness(state);
+  // And a city on a holiday is a happier city, for the few seconds it lasts
+  // (sim/rituals.ts). Derived from the date, so an absence cannot bank four.
+  target += ritualHappiness(state);
   target = clamp(target, 0, 100);
   // Mood moves slowly; a city that swung with every tick would be unreadable.
   state.happiness += (target - state.happiness) * Math.min(1, HAPPINESS_RESPONSE * dt);

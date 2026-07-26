@@ -10,6 +10,7 @@ import type { Mission } from '../data/missions';
 import { settleMissions } from './missions';
 import { settlePetitions, type PetitionChanges, type PetitionKind } from './petitions';
 import { refreshSeaGates } from './ports';
+import { drainRituals, type RitualToday } from './rituals';
 import { stepPopulation } from './population';
 import { createRng } from './rng';
 import { stepTimeline, type TimelineFired } from './timeline';
@@ -26,6 +27,7 @@ const EMPTY_MISSIONS: readonly Mission[] = [];
 const EMPTY_HAZARDS: readonly HazardEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
+const EMPTY_RITUALS: readonly RitualToday[] = [];
 
 /**
  * Runs the simulation's systems at their own cadences (§11). Heavy passes are
@@ -53,6 +55,14 @@ export class Systems {
   private readonly hazardEvents: HazardEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
+  /**
+   * Holidays already read out, keyed by ritual and year. Not saved, like the
+   * petitions: a reload during a fireworks display costs one extra line in the
+   * feed, and the mood bonus is derived from the date rather than granted, so
+   * nothing can be farmed by reloading.
+   */
+  private readonly announcedRituals = new Set<string>();
+  private readonly ritualsFired: RitualToday[] = [];
   private readonly diffusion: DiffusionScratch;
   /** Steps so far; seeds the hazard dice, so a seed plus a count reproduces a blaze. */
   private hazardTick = 0;
@@ -138,6 +148,9 @@ export class Systems {
       // away to find the road out of the city barricaded would be a punishment
       // for not playing. It also has to run after the timeline, which is what
       // says whether there is a war on at all.
+      // The calendar's own dates, which come round every year rather than once.
+      this.ritualsFired.push(...drainRituals(state, this.announcedRituals));
+
       const road = stepHighwayWear(state, dt);
       if (road.length > 0) {
         this.roadEvents.push(...road);
@@ -181,6 +194,12 @@ export class Systems {
   drainRoadEvents(): readonly HighwayWearEvent[] {
     if (this.roadEvents.length === 0) return EMPTY_ROAD;
     return this.roadEvents.splice(0, this.roadEvents.length);
+  }
+
+  /** Holidays that began since the last drain, for the UI to announce. */
+  drainRituals(): readonly RitualToday[] {
+    if (this.ritualsFired.length === 0) return EMPTY_RITUALS;
+    return this.ritualsFired.splice(0, this.ritualsFired.length);
   }
 
   /** History that arrived since the last drain, for the UI to announce. */

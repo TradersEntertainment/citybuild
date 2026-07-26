@@ -12,6 +12,9 @@ import { dayFraction, nightAmount } from '../sim/daytime';
 import { weatherAt } from '../sim/weather';
 import { createSky, updateSky, type SkyRig } from './sky';
 import { createStreetlights, type StreetlightLayer } from './streetlights';
+import { createConstruction, type ConstructionLayer } from './construction';
+import { createWildlife, type WildlifeLayer } from './wildlife';
+import { seasonTint } from './seasonLook';
 import { createShips, type ShipLayer } from './ships';
 import { createStations, type StationLayer } from './stations';
 import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
@@ -64,6 +67,8 @@ export class Renderer {
   private readonly hazards: HazardLayer;
   private readonly stations: StationLayer;
   private readonly ships: ShipLayer;
+  private readonly construction: ConstructionLayer;
+  private readonly wildlife: WildlifeLayer;
   private readonly overlay: OverlayLayer;
   private readonly weather: WeatherFx;
 
@@ -118,6 +123,9 @@ export class Renderer {
     // both change on exactly the same events.
     this.ships = createShips();
     this.ships.rebuild(state);
+    this.construction = createConstruction();
+    this.wildlife = createWildlife();
+    this.wildlife.rebuild(state);
     this.overlay = createOverlay(state.world);
     this.weather = createWeatherFx();
 
@@ -134,6 +142,8 @@ export class Renderer {
       this.hazards.group,
       this.stations.group,
       this.ships.group,
+      this.construction.group,
+      this.wildlife.group,
       this.overlay.group,
       this.weather.group,
     );
@@ -208,7 +218,13 @@ export class Renderer {
       this.stationsDirty = false;
     }
 
+    // The year going round. Two colour assignments; no geometry is touched.
+    const season = seasonTint(frame.state.playedMs);
+    this.terrain.setSeasonTint(season.ground);
+    this.trees.setSeasonTint(season.foliage);
     this.ships.update(deltaMs / 1000, frame.state, this.camera.distance);
+    this.construction.update(frame.state, this.camera.distance, frame.now);
+    this.wildlife.update(deltaMs / 1000, frame.state, this.camera.distance);
     this.overlay.setDraft(frame.draft);
     this.buildings.sync(frame.state, frame.now);
     this.traffic.update(
@@ -293,6 +309,8 @@ export class Renderer {
     this.issues.dispose();
     this.stations.dispose();
     this.ships.dispose();
+    this.construction.dispose();
+    this.wildlife.dispose();
     this.buildings.dispose();
     this.overlay.dispose();
     this.weather.dispose();

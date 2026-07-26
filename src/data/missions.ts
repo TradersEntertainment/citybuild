@@ -31,6 +31,8 @@ export type MissionGoal =
   | { measure: 'farmTiles'; target: number }
   | { measure: 'interchanges'; target: number }
   | { measure: 'transitFlow'; target: number }
+  | { measure: 'ports'; target: number }
+  | { measure: 'seaIncome'; target: number }
   | { measure: 'atLevel'; level: Level; target: number };
 
 export interface Mission {
@@ -62,14 +64,20 @@ export const MISSIONS: readonly Mission[] = [
   { id: 'field', goal: { measure: 'farmTiles', target: 40 }, reward: 1_800, from: 'village' },
   { id: 'contented', goal: { measure: 'happiness', target: 62 }, reward: 3_000, from: 'village' },
   { id: 'junction', goal: { measure: 'interchanges', target: 1 }, reward: 3_500, from: 'village' },
+  // The coast, which a player will otherwise never think to look at: the sea
+  // branch is behind one condition nothing else in the game has, and a goal is
+  // the cheapest way to say "there is something over there".
+  { id: 'firstBerth', goal: { measure: 'ports', target: 1 }, reward: 3_800, from: 'village' },
 
   { id: 'mains', goal: { measure: 'utilities', target: 1 }, reward: 6_000, from: 'town' },
   { id: 'surveyor', goal: { measure: 'parcels', target: 2 }, reward: 9_000, from: 'town' },
   { id: 'thirdStorey', goal: { measure: 'atLevel', level: 3, target: 20 }, reward: 7_000, from: 'town' },
   { id: 'fiveThousand', goal: { measure: 'population', target: 5_000 }, reward: 12_000, from: 'town' },
   { id: 'corridor', goal: { measure: 'transitFlow', target: 200 }, reward: 8_000, from: 'town' },
+  { id: 'harbour', goal: { measure: 'seaIncome', target: 260 }, reward: 14_000, from: 'town' },
 
   { id: 'served', goal: { measure: 'services', target: 6 }, reward: 18_000, from: 'city' },
+  { id: 'waterfront', goal: { measure: 'ports', target: 4 }, reward: 26_000, from: 'city' },
   { id: 'reserve', goal: { measure: 'reserve', target: 120_000 }, reward: 15_000, from: 'city' },
   { id: 'fourthStorey', goal: { measure: 'atLevel', level: 4, target: 25 }, reward: 24_000, from: 'city' },
   { id: 'twentyThousand', goal: { measure: 'population', target: 20_000 }, reward: 35_000, from: 'city' },

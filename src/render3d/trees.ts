@@ -19,6 +19,15 @@ export interface TreeLayer {
   readonly group: THREE.Group;
   /** Re-places trees; call when terrain or road/zone occupancy changes. */
   rebuild(): void;
+  /**
+   * Recolours the foliage for the time of year (sim/seasons.ts).
+   *
+   * A multiply on the shared material rather than a rebuild of the instances:
+   * the crowns are the same geometry in February and August, only a different
+   * colour, and rebuilding forty thousand trees four times a year to say so
+   * would be the most expensive way imaginable to change a hue.
+   */
+  setSeasonTint(tint: THREE.Color): void;
   dispose(): void;
 }
 
@@ -40,6 +49,15 @@ export function createTrees(world: World): TreeLayer {
     color: TRUNK_COLOUR,
     roughness: 1,
   });
+
+  const crownBase = crownMaterials.map((material) => material.color.clone());
+  const setSeasonTint = (tint: THREE.Color): void => {
+    for (let i = 0; i < crownMaterials.length; i++) {
+      const material = crownMaterials[i] as THREE.MeshStandardMaterial;
+      const base = crownBase[i] as THREE.Color;
+      material.color.setRGB(base.r * tint.r, base.g * tint.g, base.b * tint.b);
+    }
+  };
 
   let crowns: THREE.InstancedMesh[] = [];
   let trunks: THREE.InstancedMesh | null = null;
@@ -117,6 +135,7 @@ export function createTrees(world: World): TreeLayer {
   return {
     group,
     rebuild,
+    setSeasonTint,
     dispose: () => {
       clear();
       crownGeometry.dispose();

@@ -27,6 +27,15 @@ const ROCK_HIGH = new THREE.Color('#8C8880');
 
 export interface TerrainMesh {
   readonly group: THREE.Group;
+  /**
+   * Recolours the ground for the time of year (sim/seasons.ts).
+   *
+   * The ground is vertex-coloured and the material multiplies on top, so a
+   * season is one colour assignment rather than a rebuild of every chunk. Values
+   * above 1 are allowed and are what makes a winter *lighter* than a summer
+   * instead of merely bluer.
+   */
+  setSeasonTint(tint: THREE.Color): void;
   /** Scene-space ground height at a fractional tile coordinate. */
   sample(tileX: number, tileY: number): number;
   /** Rebuilds the chunks covering a tile rectangle after an edit. */
@@ -60,6 +69,10 @@ export function createTerrain(world: World): TerrainMesh {
     }
   }
 
+  const setSeasonTint = (tint: THREE.Color): void => {
+    material.color.copy(tint);
+  };
+
   const sample = (tileX: number, tileY: number): number => sampleHeight(world, tileX, tileY);
 
   const rebuildChunk = (cx: number, cy: number): void => {
@@ -72,6 +85,7 @@ export function createTerrain(world: World): TerrainMesh {
   return {
     group,
     sample,
+    setSeasonTint,
     invalidate: (x0, y0, x1, y1) => {
       const cx0 = Math.max(0, Math.floor(x0 / CHUNK_TILES));
       const cy0 = Math.max(0, Math.floor(y0 / CHUNK_TILES));

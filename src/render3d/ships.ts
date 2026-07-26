@@ -3,6 +3,7 @@ import { PORT_SPECS, type PortKind } from '../data/ports';
 import type { GameState } from '../sim/state';
 import { inBounds, index } from '../sim/world';
 import { isWater } from '../sim/worldgen';
+import { pushColouredBox, pushTriangle, toMeshGeometry } from './boxMesh';
 import { LOD_TRAFFIC_DISTANCE, SEA_Y } from './constants';
 
 /**
@@ -278,14 +279,23 @@ function rollMatrix(radians: number): THREE.Matrix4 {
   return roll.makeRotationZ(radians);
 }
 
+/**
+ * Shades for the parts that are not the hull. These multiply the per-instance
+ * paint, so a deckhouse is always a little darker than whatever colour the boat
+ * turns out to be and a sail is always near white.
+ */
+const DECK = new THREE.Color(0.82, 0.82, 0.8);
+const MAST = new THREE.Color(0.4, 0.36, 0.32);
+const CANVAS = new THREE.Color(0.98, 0.98, 0.95);
+
 /** A hull: pointed bow, flat stern, low deckhouse. Colour on the hull only. */
 function buildHullGeometry(): THREE.BufferGeometry {
   const positions: number[] = [];
   const colours: number[] = [];
   // The hull as a wedge, so the bow reads as a bow at any zoom.
   wedge(positions, colours, 0.22, 0.12, 0.55, 1, 1, 1);
-  boxAt(positions, colours, -0.11, 0.12, -0.16, 0.11, 0.26, 0.1, 0.82, 0.82, 0.8);
-  return toGeometry(positions, colours);
+  pushColouredBox(positions, colours, -0.11, 0.12, -0.16, 0.11, 0.26, 0.1, DECK);
+  return toMeshGeometry(positions, colours);
 }
 
 /** The same hull with a sail: the only thing on the water that is not working. */
@@ -294,9 +304,9 @@ function buildSailGeometry(): THREE.BufferGeometry {
   const colours: number[] = [];
   wedge(positions, colours, 0.18, 0.1, 0.46, 1, 1, 1);
   // Mast and sail as one thin upright slab; a triangle would need its own winding.
-  boxAt(positions, colours, -0.015, 0.1, -0.1, 0.015, 0.62, 0.1, 0.4, 0.36, 0.32);
-  boxAt(positions, colours, -0.008, 0.16, -0.06, 0.008, 0.58, 0.24, 0.98, 0.98, 0.95);
-  return toGeometry(positions, colours);
+  pushColouredBox(positions, colours, -0.015, 0.1, -0.1, 0.015, 0.62, 0.1, MAST);
+  pushColouredBox(positions, colours, -0.008, 0.16, -0.06, 0.008, 0.58, 0.24, CANVAS);
+  return toMeshGeometry(positions, colours);
 }
 
 /**
@@ -329,7 +339,7 @@ function wedge(
 
   // Deck, as a fan from the bow.
   for (let i = 1; i + 1 < deck.length; i++) {
-    tri(
+    pushTriangle(
       positions,
       colours,
       [deck[0]![0], height, deck[0]![1]],
@@ -344,11 +354,11 @@ function wedge(
   for (let i = 0; i < deck.length; i++) {
     const a = deck[i] as [number, number];
     const c = deck[(i + 1) % deck.length] as [number, number];
-    tri(positions, colours, [a[0], 0, a[1]], [a[0], height, a[1]], [c[0], height, c[1]], r * 0.8, g * 0.8, b * 0.8);
-    tri(positions, colours, [a[0], 0, a[1]], [c[0], height, c[1]], [c[0], 0, c[1]], r * 0.8, g * 0.8, b * 0.8);
+    pushTriangle(positions, colours, [a[0], 0, a[1]], [a[0], height, a[1]], [c[0], height, c[1]], r * 0.8, g * 0.8, b * 0.8);
+    pushTriangle(positions, colours, [a[0], 0, a[1]], [c[0], height, c[1]], [c[0], 0, c[1]], r * 0.8, g * 0.8, b * 0.8);
   }
   for (let i = 1; i + 1 < deck.length; i++) {
-    tri(
+    pushTriangle(
       positions,
       colours,
       [deck[0]![0], 0, deck[0]![1]],
@@ -361,82 +371,3 @@ function wedge(
   }
 }
 
-function boxAt(
-  positions: number[],
-  colours: number[],
-  x0: number,
-  y0: number,
-  z0: number,
-  x1: number,
-  y1: number,
-  z1: number,
-  r: number,
-  g: number,
-  b: number,
-): void {
-  const corners: [number, number, number][][] = [
-    [
-      [x0, y0, z0],
-      [x1, y0, z0],
-      [x1, y1, z0],
-      [x0, y1, z0],
-    ],
-    [
-      [x1, y0, z1],
-      [x0, y0, z1],
-      [x0, y1, z1],
-      [x1, y1, z1],
-    ],
-    [
-      [x0, y0, z1],
-      [x0, y0, z0],
-      [x0, y1, z0],
-      [x0, y1, z1],
-    ],
-    [
-      [x1, y0, z0],
-      [x1, y0, z1],
-      [x1, y1, z1],
-      [x1, y1, z0],
-    ],
-    [
-      [x0, y1, z0],
-      [x1, y1, z0],
-      [x1, y1, z1],
-      [x0, y1, z1],
-    ],
-    [
-      [x0, y0, z1],
-      [x1, y0, z1],
-      [x1, y0, z0],
-      [x0, y0, z0],
-    ],
-  ];
-  for (const face of corners) {
-    tri(positions, colours, face[0]!, face[1]!, face[2]!, r, g, b);
-    tri(positions, colours, face[0]!, face[2]!, face[3]!, r, g, b);
-  }
-}
-
-function tri(
-  positions: number[],
-  colours: number[],
-  a: [number, number, number] | number[],
-  b: [number, number, number] | number[],
-  c: [number, number, number] | number[],
-  r: number,
-  g: number,
-  bl: number,
-): void {
-  positions.push(a[0]!, a[1]!, a[2]!, b[0]!, b[1]!, b[2]!, c[0]!, c[1]!, c[2]!);
-  for (let v = 0; v < 3; v++) colours.push(r, g, bl);
-}
-
-function toGeometry(positions: number[], colours: number[]): THREE.BufferGeometry {
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
-  return geometry;
-}

@@ -363,6 +363,9 @@ export const STR = {
       },
       transitFlow: (n: number): string =>
         `Otoyoldan dakikada ${plain.format(n)} araç geçsin`,
+      ports: (n: number): string =>
+        n > 1 ? `Kıyıda ${plain.format(n)} deniz tesisi çalıştır` : 'Kıyıya bir deniz tesisi kur',
+      seaIncome: (n: number): string => `Denizden dakikada ₺${money.format(n)} kazan`,
       atLevel: (level: number, n: number): string =>
         `${plain.format(n)} bina ${level}. seviyeye çıksın`,
     },

@@ -11,6 +11,7 @@ import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
 import { highwayTradeFactor, transitIncome } from './highway';
 import { portUpkeep, seaIncome } from './ports';
+import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
 import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
@@ -87,8 +88,14 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
   // reaches the ledger, and what makes painting farmland a decision that pays
   // differently in a wet decade than a dry one.
   const sky = weatherEffects(weatherAt(state).kind);
+  // And the calendar leans on it too: a field yields differently in February
+  // than in August, which is the whole reason seasons touch the sim at all.
   const farmYield =
-    farmTiles(state) * FARM_YIELD * techFactor(state, 'agronomy') * sky.farmMult;
+    farmTiles(state) *
+    FARM_YIELD *
+    techFactor(state, 'agronomy') *
+    sky.farmMult *
+    farmSeasonMultiplier(state.playedMs);
   // History moves every income line at once: a depression year starves the
   // treasury, a boom decade fills it, whatever the tax rate says.
   const history = state.timelineEffects.incomeMult;

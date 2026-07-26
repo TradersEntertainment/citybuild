@@ -728,6 +728,7 @@ function frame(now: number): void {
     announceWeather();
     announcePetitions();
     announceRoadDamage(seconds);
+    announceRituals();
     checkBank();
   }
   if (budget.economyTicks > 0) {
@@ -865,6 +866,36 @@ function announcePetitions(): void {
       text: STR.petition.resolved[kind],
     })),
   ]);
+}
+
+/**
+ * The days that come round every year (sim/rituals.ts).
+ *
+ * Straight to the feed and to the diary, with no toast: a holiday is not an
+ * interruption, it is a thing the city is doing while the player gets on with
+ * whatever they were doing. The mood bonus is applied in the sim, not here — it
+ * is a fact about the city on that date, whether or not anybody read the line.
+ */
+function announceRituals(): void {
+  const today = systems.drainRituals();
+  if (today.length === 0) return;
+
+  eventFeed.pushCustom(
+    today.map(({ ritual }) => ({
+      icon: ritual.icon,
+      tone: 'calm' as const,
+      text: ritual.title,
+    })),
+  );
+  appendHistory(
+    today.map(({ ritual, year }) => ({
+      year,
+      icon: ritual.icon,
+      title: ritual.title,
+      detail: ritual.detail,
+    })),
+  );
+  sfx.play('coin');
 }
 
 /**

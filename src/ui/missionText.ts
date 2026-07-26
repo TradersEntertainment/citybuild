@@ -38,6 +38,10 @@ export function describeGoal(goal: MissionGoal): string {
       return say.interchanges(goal.target);
     case 'transitFlow':
       return say.transitFlow(goal.target);
+    case 'ports':
+      return say.ports(goal.target);
+    case 'seaIncome':
+      return say.seaIncome(goal.target);
     case 'atLevel':
       return say.atLevel(goal.level, goal.target);
   }

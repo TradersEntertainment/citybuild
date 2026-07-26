@@ -8,6 +8,7 @@ import {
   FIRE_TRUCK_DWELL_S,
   FIRE_TRUCK_SPEED,
 } from '../src/data/balance';
+import { SECONDS_PER_YEAR } from '../src/data/timeline';
 import type { Building } from '../src/sim/buildings';
 import { stepHazards, truckArrived, type HazardEvent } from '../src/sim/hazards';
 import { buildRoad } from '../src/sim/roads';
@@ -63,8 +64,16 @@ function addBuilding(
 function freshGame(era: GameState['era']): GameState {
   const game = createGameState(hashSeed('hazards'), 0);
   game.era = era;
+  // An ordinary working day. A fresh city opens on 1 January, which is a
+  // national holiday with a mood bonus attached (sim/rituals.ts) — and because
+  // these fixtures never advance the clock, they would sit inside it forever and
+  // quietly lift every mood assertion in the file.
+  game.playedMs = ORDINARY_DAY_MS;
   return game;
 }
+
+/** Mid-June of the founding year: nobody's holiday, nobody's harvest. */
+const ORDINARY_DAY_MS = 0.46 * SECONDS_PER_YEAR * 1000;
 
 function kinds(events: readonly HazardEvent[]): string[] {
   return events.map((event) => event.kind);

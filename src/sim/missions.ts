@@ -1,6 +1,7 @@
 import { MISSIONS, MISSIONS_SHOWN, type Mission, type MissionGoal } from '../data/missions';
 import { totalBuildings, type BuildingTotals } from './buildings';
 import { highwayInterchanges, transitFlow } from './highway';
+import { seaIncome, workingPorts } from './ports';
 import type { GameState } from './state';
 import { eraReached, NONE } from './tiles';
 import { ownedParcelCount } from './world';
@@ -51,6 +52,12 @@ export function measureGoal(state: GameState, totals: BuildingTotals, goal: Miss
       return highwayInterchanges(state.world);
     case 'transitFlow':
       return transitFlow(state);
+    case 'ports':
+      // Working berths, not built ones: a jetty on a pond is not a waterfront,
+      // and the goal should mean what the income means.
+      return workingPorts(state).length;
+    case 'seaIncome':
+      return seaIncome(state);
     case 'atLevel':
       return countAtLeastLevel(state, goal.level);
   }

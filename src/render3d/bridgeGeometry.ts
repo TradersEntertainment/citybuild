@@ -7,6 +7,7 @@ import {
 import { decodeRoad, NONE } from '../sim/tiles';
 import { index, type World } from '../sim/world';
 import { HEIGHT_SCALE, ROAD_LIFT, ROAD_WIDTH } from './constants';
+import { pushColouredBox, toMeshGeometry } from './boxMesh';
 import { isBridgeTile, sampleDeck, type RoadDeck } from './roadDeck';
 
 /**
@@ -52,7 +53,7 @@ export function buildBridgeGeometry(world: World, deck: RoadDeck): BuiltBridges 
       const half = Math.min(0.5, width / 2 + 0.08);
 
       // The slab, hanging below the road surface the road layer draws.
-      box(
+      pushColouredBox(
         positions,
         colours,
         x + 0.5 - half,
@@ -90,7 +91,7 @@ export function buildBridgeGeometry(world: World, deck: RoadDeck): BuiltBridges 
       // put two piers side by side in the corner.
       if ((x + y) % BRIDGE_PIER_SPACING !== 0) continue;
       const bed = (world.height[index(world, x, y)] ?? 0) * HEIGHT_SCALE;
-      box(
+      pushColouredBox(
         positions,
         colours,
         x + 0.5 - 0.11,
@@ -104,12 +105,7 @@ export function buildBridgeGeometry(world: World, deck: RoadDeck): BuiltBridges 
     }
   }
 
-  const geometry = new THREE.BufferGeometry();
-  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-  geometry.setAttribute('color', new THREE.Float32BufferAttribute(colours, 3));
-  geometry.computeVertexNormals();
-  geometry.computeBoundingSphere();
-  return { geometry, tiles };
+  return { geometry: toMeshGeometry(positions, colours), tiles };
 }
 
 /**
@@ -139,100 +135,7 @@ function parapet(
 ): void {
   const a = at - thickness / 2;
   const b = at + thickness / 2;
-  if (alongX) box(positions, colours, from, top, a, to, top + BRIDGE_PARAPET_HEIGHT, b, PARAPET);
-  else box(positions, colours, a, top, from, b, top + BRIDGE_PARAPET_HEIGHT, to, PARAPET);
+  if (alongX) pushColouredBox(positions, colours, from, top, a, to, top + BRIDGE_PARAPET_HEIGHT, b, PARAPET);
+  else pushColouredBox(positions, colours, a, top, from, b, top + BRIDGE_PARAPET_HEIGHT, to, PARAPET);
 }
 
-/**
- * An axis-aligned box as twelve triangles, wound outward.
- *
- * Written out rather than merged from BoxGeometry because every box here is a
- * different size and building a geometry per box, translating it and merging
- * would allocate several hundred throwaway objects on every road edit.
- */
-function box(
-  positions: number[],
-  colours: number[],
-  x0: number,
-  y0: number,
-  z0: number,
-  x1: number,
-  y1: number,
-  z1: number,
-  colour: THREE.Color,
-): void {
-  // Never inside-out, whatever order the caller passed the corners in.
-  const [ax, bx] = x0 <= x1 ? [x0, x1] : [x1, x0];
-  const [ay, by] = y0 <= y1 ? [y0, y1] : [y1, y0];
-  const [az, bz] = z0 <= z1 ? [z0, z1] : [z1, z0];
-  // A pier on ground that turned out to be above the water line has no length;
-  // skipping it beats emitting a degenerate box whose normals are undefined.
-  if (by - ay < 1e-4) return;
-
-  const before = positions.length / 3;
-  for (const face of FACES) {
-    for (const [cx, cy, cz] of face) {
-      positions.push(cx ? bx : ax, cy ? by : ay, cz ? bz : az);
-    }
-  }
-  for (let v = before; v < positions.length / 3; v++) {
-    colours.push(colour.r, colour.g, colour.b);
-  }
-}
-
-type Corner = readonly [0 | 1, 0 | 1, 0 | 1];
-
-/** Six faces, two triangles each, all wound anticlockwise seen from outside. */
-const FACES: readonly (readonly Corner[])[] = [
-  // −z, +z
-  [
-    [0, 0, 0],
-    [1, 0, 0],
-    [1, 1, 0],
-    [0, 0, 0],
-    [1, 1, 0],
-    [0, 1, 0],
-  ],
-  [
-    [0, 0, 1],
-    [0, 1, 1],
-    [1, 1, 1],
-    [0, 0, 1],
-    [1, 1, 1],
-    [1, 0, 1],
-  ],
-  // −x, +x
-  [
-    [0, 0, 0],
-    [0, 1, 0],
-    [0, 1, 1],
-    [0, 0, 0],
-    [0, 1, 1],
-    [0, 0, 1],
-  ],
-  [
-    [1, 0, 0],
-    [1, 0, 1],
-    [1, 1, 1],
-    [1, 0, 0],
-    [1, 1, 1],
-    [1, 1, 0],
-  ],
-  // −y, +y
-  [
-    [0, 0, 0],
-    [0, 0, 1],
-    [1, 0, 1],
-    [0, 0, 0],
-    [1, 0, 1],
-    [1, 0, 0],
-  ],
-  [
-    [0, 1, 0],
-    [1, 1, 0],
-    [1, 1, 1],
-    [0, 1, 0],
-    [1, 1, 1],
-    [0, 1, 1],
-  ],
-];

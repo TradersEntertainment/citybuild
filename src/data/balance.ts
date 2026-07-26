@@ -496,6 +496,39 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- Construction (Paket 3 §9) -----------------------------------------------
+/**
+ * How far into a building's climb the scaffolding stays up.
+ *
+ * Not all the way. A cage that came down on the frame the building finished
+ * would mean every plot in a growing city wore scaffolding permanently, and a
+ * skyline of scaffolding is not a busy city, it is a broken renderer. Coming off
+ * at three fifths leaves the last stretch as the building itself, which is also
+ * when the player most wants to see what they have got.
+ */
+export const CONSTRUCTION_SCAFFOLD_UNTIL = 0.6;
+
+// --- Seasons (Paket 3 §8) ----------------------------------------------------
+/**
+ * What each season does to a harvest.
+ *
+ * Winter is the number that matters: a third off is enough that a city living on
+ * wheat feels the quarter turn over, and not enough to bankrupt one that planned
+ * for it. The other three sum to a little over three, so a farm across a whole
+ * year earns slightly more than it did before seasons existed — the calendar adds
+ * texture, it does not quietly nerf farming.
+ */
+export const SEASON_FARM_YIELD = {
+  winter: 0.68,
+  spring: 1.05,
+  summer: 1.18,
+  autumn: 1.1,
+} as const;
+/** Where in the year the snow is deepest, as a fraction. Late January. */
+export const SNOW_PEAK = 0.08;
+/** How far either side of the peak any snow lies at all. */
+export const SNOW_SPAN = 0.17;
+
 // --- Ports (denize yatırım) --------------------------------------------------
 /**
  * Most mood the whole waterfront can be worth.
