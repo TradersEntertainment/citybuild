@@ -20,6 +20,7 @@ import { WalkMode } from './render3d/walkMode';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
+import { crimeNear, dispatchPolice } from './sim/crime';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
 import { dayFraction, nightAmount } from './sim/daytime';
 import { borrow, loanOffer } from './sim/credit';
@@ -57,7 +58,7 @@ import { mountRetirePrompt } from './ui/retirePrompt';
 import { guidanceFor } from './ui/guidance';
 import { mountIntro } from './ui/intro';
 import * as haptics from './ui/haptics';
-import { mountEventFeed } from './ui/eventFeed';
+import { mountEventFeed, type CustomEntry } from './ui/eventFeed';
 import { mountToast } from './ui/toast';
 import { mountViewControls } from './ui/viewControls';
 import { mountToolDock } from './ui/toolDock';
@@ -430,6 +431,10 @@ const input = bindPointerInput(canvas, {
       buildStation(tileX, tileY);
       return;
     }
+    // A crime marker beats the land prompt. It is the only thing on the map with
+    // a clock on it, and being asked whether you would like to buy a parcel
+    // while a robbery is in progress on it is the wrong answer to a finger.
+    if (sendPolice(tileX, tileY)) return;
     const { px, py } = parcelOfTile(tileX, tileY);
     parcelPrompt.show(offerFor(game, px, py));
   },
@@ -625,6 +630,29 @@ bindAudioUnlock(canvas);
 registerServiceWorker();
 
 /**
+ * Answers a crime marker, if the tap was on one.
+ *
+ * Returns whether the tap was spent here, so the caller knows not to also open
+ * the land prompt. Every outcome is spoken: a tap on a marker that cannot be
+ * answered because there is no karakol has to say *that*, or the player learns
+ * the marker is decoration.
+ */
+function sendPolice(tileX: number, tileY: number): boolean {
+  if (crimeNear(game, tileX, tileY) === null) return false;
+  const result = dispatchPolice(game, tileX, tileY);
+  if (result === 'sent') {
+    toast.show(STR.crime.dispatched);
+    haptics.confirm();
+    sfx.play('alarm');
+  } else if (result === 'noStation') {
+    toast.show(STR.crime.noStation);
+  }
+  // A marker was there, so the tap belonged to it however it turned out —
+  // falling through to the parcel prompt would put a land offer over a robbery.
+  return true;
+}
+
+/**
  * Places a station, or says why it could not. Refusals are spoken rather than
  * silent: a tap that does nothing and explains nothing reads as a broken game.
  */
@@ -785,6 +813,7 @@ function frame(now: number): void {
     }
     announceGoals();
     announceHazards();
+    announceCrime();
     announceTimeline();
     announceWeather();
     announcePetitions();
@@ -841,6 +870,53 @@ function announceHazards(): void {
   // A building lost to fire changes what the zoning layer has left to show.
   if (events.some((event) => event.kind === 'fireLost')) renderer.onBuildingsChanged();
 }
+
+/**
+ * Crime, announced — and mostly not announced.
+ *
+ * Measured before this was written: a metropolis with four streets in five
+ * covered still produces about seventeen crime events a minute, and the feed
+ * holds four lines for nine seconds. Reporting all of them would leave no room
+ * in the blotter for anything else in the game.
+ *
+ * So the marker on the map is the notification, and the feed carries only what
+ * the player cannot see for themselves:
+ *
+ * - a robbery that got away, always — money left the treasury and the marker
+ *   they may not have been looking at is gone,
+ * - an arrest the player's own tap paid for, as the payoff for the verb,
+ * - and nothing at all for a crime the karakol started and finished by itself.
+ *   Silence is precisely what the station was bought for.
+ *
+ * The first unanswered crime of a session also takes the toast, because it is
+ * the only hazard in the game with an instruction attached — tap the marker —
+ * and a line scrolling past in the blotter is not how a verb gets taught.
+ */
+function announceCrime(): void {
+  const events = systems.drainCrimeEvents();
+  if (events.length === 0) return;
+  const lines: CustomEntry[] = [];
+  for (const event of events) {
+    if (event.kind === 'crimeEscaped') {
+      lines.push({
+        icon: '💸',
+        tone: 'alarm',
+        text: STR.crime.escaped(STR.format.money(event.loot ?? 0)),
+      });
+      sfx.play('blocked');
+    } else if (event.kind === 'crimeSolved' && !event.automatic) {
+      lines.push({ icon: '🚔', tone: 'calm', text: STR.crime.solved });
+    } else if (event.kind === 'crimeStart' && !event.automatic && !taughtCrime) {
+      taughtCrime = true;
+      toast.show(STR.crime.started);
+      sfx.play('alarm');
+    }
+  }
+  if (lines.length > 0) eventFeed.pushCustom(lines);
+}
+
+/** Whether the player has been told what a crime marker is for. */
+let taughtCrime = false;
 
 /**
  * History, announced as it happens: every dated event goes to the feed with

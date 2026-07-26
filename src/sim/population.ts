@@ -16,6 +16,7 @@ import {
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
+import { crimeHappiness } from './crime';
 import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
 import { portHappiness } from './ports';
@@ -54,6 +55,10 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // at a closed hospital, is not a content one whatever the tax rate says.
   target -= Math.min(FIRE_HAPPINESS_CAP, state.fires.size * FIRE_HAPPINESS_HIT);
   if (state.epidemic) target -= state.epidemic.severity * EPIDEMIC_HAPPINESS_HIT;
+  // Crime that nobody has answered, and the memory of the one that got away
+  // (sim/crime.ts). Only the unanswered ones count: a car already on its way is
+  // the city working, not the city failing.
+  target += crimeHappiness(state);
   // And history leans on the mood for years at a time: wars and depressions
   // press down, republics and booms lift.
   target += state.timelineEffects.happinessMod;

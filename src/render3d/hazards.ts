@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FIRE_TRUCK_DWELL_S } from '../data/balance';
+import { runPosition } from '../sim/dispatch';
 import { truckArrived } from '../sim/hazards';
 import { SERVICE } from '../sim/tiles';
 import type { GameState } from '../sim/state';
@@ -27,6 +28,8 @@ export interface HazardLayer {
 const MAX_FIRES = 96;
 /** Sick marks beyond this stop being information and start being wallpaper. */
 const MAX_SICK = 220;
+/** More crime markers than this on screen at once and the city has other problems. */
+const MAX_CRIMES = 64;
 
 export function createHazards(): HazardLayer {
   const group = new THREE.Group();
@@ -102,14 +105,51 @@ export function createHazards(): HazardLayer {
     emissiveIntensity: 2,
     roughness: 0.3,
   });
-  const lightBars = new THREE.InstancedMesh(lightGeometry, lightMaterial, MAX_FIRES);
+  // One bar mesh for both services, sized for whichever fleet is bigger: an
+  // engine and a patrol car want the same flashing box, and the pulse is a
+  // material property they may as well share.
+  const lightBars = new THREE.InstancedMesh(lightGeometry, lightMaterial, MAX_FIRES + MAX_CRIMES);
   lightBars.castShadow = false;
   lightBars.receiveShadow = false;
   lightBars.frustumCulled = false;
   lightBars.count = 0;
   lightBars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
 
-  group.add(flames, smoke, sick, engines, lightBars);
+  // The crime marker: the one thing on this layer the player is meant to press,
+  // so it is the loudest thing on it. It bobs and spins above the building, and
+  // it is drawn at *every* zoom rather than hidden by the detail LOD — a demand
+  // for a tap that disappears when the player pulls back to look for it is worse
+  // than no demand at all.
+  const markGeometry = new THREE.TetrahedronGeometry(0.34, 0);
+  const markMaterial = new THREE.MeshStandardMaterial({
+    color: '#FFD166',
+    emissive: new THREE.Color('#FF8A2B'),
+    emissiveIntensity: 1.4,
+    roughness: 0.4,
+  });
+  const marks = new THREE.InstancedMesh(markGeometry, markMaterial, MAX_CRIMES);
+  marks.castShadow = false;
+  marks.receiveShadow = false;
+  marks.frustumCulled = false;
+  marks.count = 0;
+  marks.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  // The patrol car: navy, and shorter than an engine so the two fleets read
+  // apart from above, which is the only angle most of this game is seen from.
+  const carGeometry = new THREE.BoxGeometry(0.28, 0.18, 0.5);
+  const carMaterial = new THREE.MeshStandardMaterial({
+    color: '#20386B',
+    roughness: 0.35,
+    metalness: 0.25,
+  });
+  const cars = new THREE.InstancedMesh(carGeometry, carMaterial, MAX_CRIMES);
+  cars.castShadow = true;
+  cars.receiveShadow = false;
+  cars.frustumCulled = false;
+  cars.count = 0;
+  cars.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+
+  group.add(flames, smoke, sick, engines, lightBars, marks, cars);
 
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
@@ -117,19 +157,82 @@ export function createHazards(): HazardLayer {
   const scale = new THREE.Vector3();
   const axis = new THREE.Vector3(0, 1, 0);
 
+  /**
+   * Markers and patrol cars. Returns the light-bar count it used, so the fire
+   * pass can carry on from there in the shared buffer.
+   *
+   * An unanswered crime gets the marker; an answered one loses it and gains a
+   * car. That swap *is* the feedback for the tap — the player pressed something
+   * and the thing they pressed visibly turned into a response.
+   */
+  const syncCrime = (state: GameState, seconds: number, barsUsed: number): number => {
+    let markCount = 0;
+    let carCount = 0;
+    let bars = barsUsed;
+    for (const crime of state.crimes.values()) {
+      const x = crime.x + 0.5;
+      const z = crime.y + 0.5;
+      const ground = sampleHeight(state.world, x, z);
+
+      if (!crime.car) {
+        if (markCount >= MAX_CRIMES) continue;
+        // Bobbing and turning: on a still map a static diamond is easy to read
+        // as scenery, and this one is a button.
+        const bob = 0.9 + 0.16 * Math.sin(seconds * 3 + crime.id * 2.1);
+        const urgency = 1 + 0.14 * Math.sin(seconds * 7 + crime.id);
+        position.set(x, ground + 0.95 + bob * 0.35, z);
+        quaternion.setFromAxisAngle(axis, seconds * 1.8 + crime.id);
+        scale.set(urgency, urgency, urgency);
+        matrix.compose(position, quaternion, scale);
+        marks.setMatrixAt(markCount, matrix);
+        markCount++;
+        continue;
+      }
+
+      if (carCount >= MAX_CRIMES) continue;
+      const at = runPosition(crime.car);
+      const cx = at.x + 0.5;
+      const cz = at.y + 0.5;
+      const cGround = sampleHeight(state.world, cx, cz);
+      position.set(cx, cGround + 0.16, cz);
+      quaternion.setFromAxisAngle(axis, at.heading);
+      scale.set(1, 1, 1);
+      matrix.compose(position, quaternion, scale);
+      cars.setMatrixAt(carCount, matrix);
+      position.set(cx, cGround + 0.29, cz);
+      matrix.compose(position, quaternion, scale);
+      lightBars.setMatrixAt(bars, matrix);
+      carCount++;
+      bars++;
+    }
+    marks.count = markCount;
+    cars.count = carCount;
+    marks.instanceMatrix.needsUpdate = true;
+    cars.instanceMatrix.needsUpdate = true;
+    return bars;
+  };
+
   const sync = (state: GameState, cameraDistance: number, now: number): void => {
+    const seconds = now / 1000;
+    // The convoy's flash: one pulse for every vehicle on the road.
+    lightMaterial.emissiveIntensity = 1.1 + 1.4 * (0.5 + 0.5 * Math.sin(seconds * 12));
+    // Shared between the two fleets, so the count has to be one counter. Order
+    // inside the instance buffer is invisible; only the total matters.
+    let barCount = 0;
+
+    // Crime first, and outside the LOD guard: a marker asking for a tap must
+    // survive the player zooming out to find it.
+    barCount = syncCrime(state, seconds, barCount);
+
     if (cameraDistance > LOD_DETAIL_DISTANCE) {
       flames.count = 0;
       smoke.count = 0;
       sick.count = 0;
       engines.count = 0;
-      lightBars.count = 0;
+      lightBars.count = barCount;
+      lightBars.instanceMatrix.needsUpdate = true;
       return;
     }
-
-    const seconds = now / 1000;
-    // The convoy's flash: one pulse for every engine on the road.
-    lightMaterial.emissiveIntensity = 1.1 + 1.4 * (0.5 + 0.5 * Math.sin(seconds * 12));
 
     let fireCount = 0;
     let engineCount = 0;
@@ -177,27 +280,22 @@ export function createHazards(): HazardLayer {
       // odometer, drawn tile space like everything else on this layer.
       const truck = fire.truck;
       if (truck && engineCount < MAX_FIRES) {
-        const last = truck.path.length - 1;
-        const clamped = Math.min(truck.progress, last);
-        const seg = Math.min(Math.floor(clamped), Math.max(0, last - 1));
-        const a = truck.path[seg] as { x: number; y: number };
-        const b = truck.path[Math.min(seg + 1, last)] as { x: number; y: number };
-        const t = clamped - seg;
-        const tx = a.x + (b.x - a.x) * t + 0.5;
-        const tz = a.y + (b.y - a.y) * t + 0.5;
-        const heading = Math.atan2(b.x - a.x, b.y - a.y);
+        const at = runPosition(truck);
+        const tx = at.x + 0.5;
+        const tz = at.y + 0.5;
         const tGround = sampleHeight(state.world, tx, tz);
 
         position.set(tx, tGround + 0.18, tz);
-        quaternion.setFromAxisAngle(axis, heading);
+        quaternion.setFromAxisAngle(axis, at.heading);
         scale.set(1, 1, 1);
         matrix.compose(position, quaternion, scale);
         engines.setMatrixAt(engineCount, matrix);
 
         position.set(tx, tGround + 0.33, tz);
         matrix.compose(position, quaternion, scale);
-        lightBars.setMatrixAt(engineCount, matrix);
+        lightBars.setMatrixAt(barCount, matrix);
         engineCount++;
+        barCount++;
       }
     }
     flames.count = fireCount;
@@ -205,7 +303,7 @@ export function createHazards(): HazardLayer {
     flames.instanceMatrix.needsUpdate = true;
     smoke.instanceMatrix.needsUpdate = true;
     engines.count = engineCount;
-    lightBars.count = engineCount;
+    lightBars.count = barCount;
     engines.instanceMatrix.needsUpdate = true;
     lightBars.instanceMatrix.needsUpdate = true;
 
@@ -244,16 +342,22 @@ export function createHazards(): HazardLayer {
       sick.dispose();
       engines.dispose();
       lightBars.dispose();
+      marks.dispose();
+      cars.dispose();
       flameGeometry.dispose();
       smokeGeometry.dispose();
       sickGeometry.dispose();
       engineGeometry.dispose();
       lightGeometry.dispose();
+      markGeometry.dispose();
+      carGeometry.dispose();
       flameMaterial.dispose();
       smokeMaterial.dispose();
       sickMaterial.dispose();
       engineMaterial.dispose();
       lightMaterial.dispose();
+      markMaterial.dispose();
+      carMaterial.dispose();
       group.clear();
     },
   };

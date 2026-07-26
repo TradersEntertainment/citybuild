@@ -320,6 +320,55 @@ export const EPIDEMIC_DRAIN_PER_SEC = 0.0009;
 /** Mood cost of an outbreak at full severity. */
 export const EPIDEMIC_HAPPINESS_HIT = 26;
 
+// --- Crime (§13b): the hazard the player answers with a finger ----------------
+/**
+ * Per-building chance of a crime starting, per second.
+ *
+ * Deliberately about six times a fire. A fire is a disaster and has to stay
+ * rare; a crime is an errand, and an errand that turns up twice an hour is not
+ * a mechanic, it is a rumour. At this rate a town of a hundred buildings sees
+ * one every minute or so, which is often enough that the player learns the verb
+ * and buys the station that automates it.
+ */
+export const CRIME_PER_SEC = 0.00012;
+/** Tills are worth robbing; a shop is this many times likelier than a home. */
+export const CRIME_COMMERCIAL_MULT = 2.2;
+/**
+ * Crime after dark, as a multiplier at full night.
+ *
+ * This is the third thing the lighting programme buys, and the reason it is the
+ * flagship purchase: lit streets scale this back towards the daytime figure, so
+ * a city that paid for lamps genuinely has quieter nights rather than merely
+ * brighter ones.
+ */
+export const CRIME_NIGHT_MULT = 2.4;
+/** An unhappy city breeds more of it; multiplier at zero happiness. */
+export const CRIME_MISERY_MULT = 1.8;
+/** A covered street is a watched street: crimes start this much less often. */
+export const CRIME_COVERED_MULT = 0.35;
+/** Tiles per second a patrol car covers. Faster than an engine; less to carry. */
+export const CRIME_CAR_SPEED = 11;
+/** Seconds the officers spend at the scene before the arrest is made. */
+export const CRIME_ARREST_S = 2.5;
+/**
+ * Seconds before an unanswered crime gets away with it.
+ *
+ * Long enough to notice the marker, pan to it and tap — the whole point is that
+ * the player can answer it by hand — and short enough that ignoring one has a
+ * cost inside the same minute.
+ */
+export const CRIME_ESCAPE_S = 45;
+/** Loot as a share of the building's monthly worth, per level. */
+export const CRIME_LOOT_BASE = 140;
+export const CRIME_LOOT_PER_LEVEL = 90;
+/** Mood cost of each unresolved crime, capped so the scale stays readable. */
+export const CRIME_HAPPINESS_HIT = 4;
+export const CRIME_HAPPINESS_CAP = 20;
+/** Mood cost of a crime that got away, on top of the money. */
+export const CRIME_ESCAPE_HAPPINESS = 3;
+/** How long that sting lasts, in seconds. */
+export const CRIME_ESCAPE_MEMORY_S = 90;
+
 // --- Roads (§5.2, §20) -------------------------------------------------------
 export const JUNCTION_PENALTY_4WAY = 0.25; // KAVŞAK_CEZASI
 export const JUNCTION_PENALTY_3WAY = 0.1;

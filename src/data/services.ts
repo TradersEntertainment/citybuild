@@ -54,11 +54,24 @@ export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
     upkeep: 76,
     radius: 11,
   },
+  /**
+   * Opened early, beside the brigade, because crime now begins in a village
+   * (sim/crime.ts) and the karakol is the thing that answers it. A hazard the
+   * player can see and cannot act on for two whole eras is not tension, it is a
+   * missing button.
+   *
+   * `requiredFrom` deliberately stays at metro. Being *able* to build one and
+   * being *marked down* for not having one are different questions, and moving
+   * the second would retune the town era — a part of the game that was measured
+   * without it — as a side effect of answering the first. Crime pays for itself
+   * in mood and stolen money, which is a reason the player can see, unlike a
+   * coverage fraction.
+   */
   police: {
     kind: 'police',
     bit: SERVICE.police,
     requiredFrom: 'metro',
-    unlockedAt: 'city',
+    unlockedAt: 'village',
     cost: 5_400,
     upkeep: 64,
     radius: 13,

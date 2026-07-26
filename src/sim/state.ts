@@ -1,6 +1,7 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
 import type { Loan } from './credit';
+import type { Crime } from './crime';
 import type { Epidemic, Fire } from './hazards';
 import { layNationalHighway } from './highway';
 import { sectionCount } from './highwayWear';
@@ -66,6 +67,19 @@ export interface GameState {
    */
   fires: Map<number, Fire>;
   nextFireId: number;
+  /**
+   * Crimes underway (§13b). Transient like fires, and for a stronger reason: a
+   * crime is a thing the player is being asked to tap right now, and saving one
+   * would mean reloading into a demand made of an interaction that has passed.
+   */
+  crimes: Map<number, Crime>;
+  nextCrimeId: number;
+  /**
+   * Seconds left of the city's memory of the last robbery it lost. Keeps the
+   * mood hit alive a little past the marker vanishing — never saved, because it
+   * only exists to make a moment land.
+   */
+  crimeSting: number;
   /** The outbreak underway, if any — likewise a moment, never saved. */
   epidemic: Epidemic | null;
   /**
@@ -143,6 +157,9 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     farmTiles: 0,
     fires: new Map(),
     nextFireId: 1,
+    crimes: new Map(),
+    nextCrimeId: 1,
+    crimeSting: 0,
     epidemic: null,
     lastYear: null,
     timelineEffects: { ...CALM_EFFECTS },

@@ -4,6 +4,7 @@ import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
 import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
+import { stepCrime, type CrimeEvent } from './crime';
 import { stepHazards, type HazardEvent } from './hazards';
 import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
 import type { Mission } from '../data/missions';
@@ -26,6 +27,7 @@ import type { Era } from './tiles';
 /** Shared empty result, so the common no-goals-finished frame allocates nothing. */
 const EMPTY_MISSIONS: readonly Mission[] = [];
 const EMPTY_HAZARDS: readonly HazardEvent[] = [];
+const EMPTY_CRIMES: readonly CrimeEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
@@ -60,6 +62,7 @@ export class Systems {
   private readonly standingPetitions = new Set<PetitionKind>();
   private readonly petitionChanges: PetitionChanges = { raised: [], resolved: [] };
   private readonly hazardEvents: HazardEvent[] = [];
+  private readonly crimeEvents: CrimeEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -152,6 +155,10 @@ export class Systems {
       const dice = createRng(state.seed ^ Math.imul(this.hazardTick + 1, 0x9e3779b1));
       this.hazardTick++;
       this.hazardEvents.push(...stepHazards(state, dt, () => dice.next()));
+      // Crime draws from the same stream, after the fires. Sharing it keeps one
+      // seed answerable for everything that goes wrong in a step; drawing from a
+      // separate one would mean two counters to keep in step across a save.
+      this.crimeEvents.push(...stepCrime(state, dt, () => dice.next()));
 
       // The convoys wear the motorway down, and peace slowly patches it. Live
       // only, and for the same reason as the fires: coming back from a night
@@ -198,6 +205,12 @@ export class Systems {
   drainHazardEvents(): readonly HazardEvent[] {
     if (this.hazardEvents.length === 0) return EMPTY_HAZARDS;
     return this.hazardEvents.splice(0, this.hazardEvents.length);
+  }
+
+  /** Crimes started, solved or lost since the last drain. */
+  drainCrimeEvents(): readonly CrimeEvent[] {
+    if (this.crimeEvents.length === 0) return EMPTY_CRIMES;
+    return this.crimeEvents.splice(0, this.crimeEvents.length);
   }
 
   /** Motorway stretches damaged, shut or reopened since the last drain. */

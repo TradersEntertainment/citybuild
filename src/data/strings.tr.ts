@@ -68,6 +68,18 @@ export const STR = {
     epidemicEndSevere: 'Salgın şehri kırıp geçirdi — hastane yoksa sonu bu.',
   },
 
+  /**
+   * Crime. The only hazard the player answers with a finger, so the first line a
+   * new player reads has to teach the verb: tap the marker.
+   */
+  crime: {
+    started: 'Suç ihbarı! İşaretin üstüne bas, ekip gitsin.',
+    dispatched: 'Ekip yolda.',
+    solved: 'Şüpheli yakalandı.',
+    escaped: (loot: string) => `Soygun oldu — ${loot} götürüldü.`,
+    noStation: 'Karakol yok. Bir karakol kur ki ekip gönderebilelim.',
+  },
+
   tools: {
     road: 'yol',
     zone: 'bölge',
