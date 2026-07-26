@@ -16,6 +16,8 @@ import {
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
+import { dayFraction, nightAmount } from './daytime';
+import { nightHappiness } from './investments';
 import { portHappiness } from './ports';
 import { ritualHappiness } from './rituals';
 import type { GameState } from './state';
@@ -60,6 +62,10 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // And a city on a holiday is a happier city, for the few seconds it lasts
   // (sim/rituals.ts). Derived from the date, so an absence cannot bank four.
   target += ritualHappiness(state);
+  // Lit streets after dark. A pure bonus and only at night: an unlit city is not
+  // marked down for being unlit, because punishing a player for not buying
+  // something they have not been shown teaches resentment, not planning.
+  target += nightHappiness(state, nightAmount(dayFraction(state.playedMs)));
   target = clamp(target, 0, 100);
   // Mood moves slowly; a city that swung with every tick would be unreadable.
   state.happiness += (target - state.happiness) * Math.min(1, HAPPINESS_RESPONSE * dt);

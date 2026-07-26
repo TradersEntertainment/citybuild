@@ -105,6 +105,16 @@ Aşağıdaki §3'te plan olarak duran maddelerin hepsi yapıldı. Kısaca:
   bonusu yerini buna bıraktı (fallback olarak duruyor: alan verilmeyen
   çağrılar için). Renderer'da araçlar gerçekten sapıp park ediyor.
 
+- **Belediye yatırımları** (`data/investments.ts` + `sim/investments.ts`):
+  paranın gideceği yer ve gecenin cevabı. Aydınlatma / ağaçlandırma / şenlik,
+  kademeli, bir kez alınır her yere işler satılamaz. **Gecenin artık mekanik
+  etkisi var:** karanlıkta dükkânlar kapanır ve kimse otoyoldan sapıp ışıksız
+  şehre girmez; lamba bunu geri alır. Kalibrasyon türetilmiş, elle yazılmamış —
+  `MEAN_NIGHT` gün eğrisinden örnekleniyor ve `DAY_TRADE_UPLIFT` onu geri
+  ödüyor, yani **ışıksız şehrin günlük ortalaması tam olarak eskisi**. Bu
+  özellik nerf değil, fırsat. Fiyat dik, gider hafif; asıl ayar **çağ
+  kilitleri** — köyde korunacak ticaret yok, hiçbir fiyat geri ödemezdi.
+  Ölçüm: tam aydınlatma kişi başı ~0.1 ₺/dk getiriyor.
 - **Tek yönlü yollar** (`sim/oneWay.ts`): oyuncunun fikri. `world.oneWay`
   sütunu (kayıtta, RLE), yol sayfasında "tek yön" anahtarı, yön çizim
   yönünden geliyor. Kural tek yerde: ok, kendisine **karşı** gitmeyi

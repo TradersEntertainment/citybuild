@@ -23,6 +23,15 @@ const SUN_INTENSITY = 2.75;
 const AMBIENT_DAY = 1.15;
 /** Never zero: a city lit by nothing is a city the player cannot read. */
 const AMBIENT_NIGHT = 0.34;
+/**
+ * How much a fully funded lighting programme lifts the night's sky bounce.
+ *
+ * The answer to "the night lasts too long and is boring": a dark third of every
+ * year the player can spend their way out of. Doubling it is deliberate — the
+ * purchase has to be visible from the map height the game is played at, not a
+ * subtlety only a screenshot comparison would catch.
+ */
+const LIGHTING_BOUNCE = 1.0;
 
 /**
  * Sky, sun and atmosphere. Everything here is generated — a gradient shader for
@@ -156,6 +165,14 @@ export interface SkyRig {
    * make a night.
    */
   setDayFraction(fraction: number): void;
+  /**
+   * How much the city has paid to light itself, 0..1 (sim/investments.ts).
+   *
+   * Lifts the sky bounce after dark. Without it a funded night is a field of
+   * glowing dots over a black ground: the lamps get brighter and nothing they
+   * are supposed to be lighting does.
+   */
+  setLighting(share: number): void;
   dispose(): void;
 }
 
@@ -218,7 +235,19 @@ export function createSky(scene: THREE.Scene): SkyRig {
   const ground = new THREE.Color();
   const sunTint = new THREE.Color();
 
+  /** Held between frames, because the sky is re-tinted on the day clock. */
+  let lighting = 0;
+  let lastFraction = 0;
+
+  const setLighting = (share: number): void => {
+    const next = Math.max(0, Math.min(1, share));
+    if (next === lighting) return;
+    lighting = next;
+    setDayFraction(lastFraction);
+  };
+
   const setDayFraction = (fraction: number): void => {
+    lastFraction = fraction;
     const height = sunHeight(fraction);
     const night = nightAmount(fraction);
     const daylight = daylightAmount(fraction);
@@ -252,12 +281,16 @@ export function createSky(scene: THREE.Scene): SkyRig {
     if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(horizon);
 
     // Sky bounce is what keeps a night city from being pure black silhouettes.
-    ambient.intensity = AMBIENT_DAY * daylight + AMBIENT_NIGHT * night;
+    // A lit city bounces its own light back off the ground. Multiplying the
+    // night term rather than adding a flat floor keeps the day untouched.
+    ambient.intensity =
+      AMBIENT_DAY * daylight + AMBIENT_NIGHT * night * (1 + lighting * LIGHTING_BOUNCE);
     ambient.color.copy(DAY_BOUNCE).lerp(NIGHT_BOUNCE, night);
   };
 
   const rig: SkyRig = {
     dome,
+    setLighting,
     sun,
     ambient,
     setDayFraction,

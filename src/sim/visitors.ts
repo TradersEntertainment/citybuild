@@ -8,6 +8,8 @@ import {
   VISITOR_SPEND,
 } from '../data/balance';
 import { highwayInterchanges, transitFlow } from './highway';
+import { dayFraction, nightAmount } from './daytime';
+import { tradeNow } from './investments';
 import { canTravel } from './oneWay';
 import { nearestRoad } from './traffic';
 import type { Fields } from './fields';
@@ -67,7 +69,11 @@ export function visitorsWanting(state: GameState, shopJobs: number): number {
   // What the city has to offer, as a fraction that saturates: the first parade of
   // shops is most of the draw, and the hundredth adds very little.
   const draw = 1 - Math.exp(-shopJobs / VISITOR_PER_SHOP_JOB);
-  return passing * draw;
+  // And whether it is worth stopping at this hour. Nobody pulls off a motorway
+  // into an unlit town; lamps buy that back (sim/investments.ts), which is most
+  // of what makes the lighting programme pay for itself.
+  const hour = tradeNow(state, nightAmount(dayFraction(state.playedMs)));
+  return passing * draw * hour;
 }
 
 /**

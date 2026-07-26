@@ -1,4 +1,5 @@
 import { RITUAL_WINDOW, RITUALS, type Ritual } from '../data/rituals';
+import { festivalBoost } from './investments';
 import { yearFraction } from './seasons';
 import type { GameState } from './state';
 import { yearOf } from './timeline';
@@ -60,7 +61,10 @@ export function ritualsNow(state: GameState): RitualToday[] {
 export function ritualHappiness(state: GameState): number {
   let total = 0;
   for (const today of ritualsNow(state)) total += today.ritual.happiness * today.strength;
-  return total;
+  // What the city budgeted for its holidays (data/investments.ts). A festival
+  // fund cannot invent a holiday — it can only make the ones the calendar
+  // already brings worth more.
+  return total * festivalBoost(state);
 }
 
 /**

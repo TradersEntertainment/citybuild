@@ -496,6 +496,24 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- Civic investments (belediye yatırımları) --------------------------------
+/**
+ * How much of a shop's trade the dark takes away, before lamps.
+ *
+ * Nearly half at the deepest part of the night, which sounds severe and is not:
+ * the loss is paid back over the daytime hours (see DAY_TRADE_UPLIFT), so an
+ * unlit city earns exactly what it earned before the night meant anything. The
+ * number is really the *size of the prize* for lighting the city, and it wants to
+ * be big enough that the player can watch the ledger change when they buy it.
+ */
+export const NIGHT_TRADE_LOSS = 0.45;
+/** Mood each lighting tier is worth at the deepest part of the night. */
+export const NIGHT_HAPPINESS_PER_LEVEL = 1.6;
+/** Share of a tile's pollution each greening tier absorbs. */
+export const GREENING_PER_LEVEL = 0.09;
+/** How much each festival tier multiplies a holiday's worth. */
+export const FESTIVAL_PER_LEVEL = 0.45;
+
 // --- The national highway's shape --------------------------------------------
 /**
  * Fewest tiles between two jogs in the motorway's line.

@@ -21,6 +21,8 @@ import { sampleRoadHeight } from './roadDeck';
 
 /** Lamps are placed every Nth road tile, so a boulevard is not a runway. */
 const SPACING = 3;
+/** How much brighter a fully funded lighting programme burns. */
+const LIGHTING_GAIN = 1.4;
 /** Tiers worth lighting. Nobody puts a lamp post on a dirt track. */
 const LIT_TIERS: ReadonlySet<RoadKind> = new Set<RoadKind>([
   'stone',
@@ -67,7 +69,13 @@ export interface StreetlightLayer {
    * Per-frame: fades the heads up at dusk and picks the era's colour.
    * `night` is 0..1 from the day cycle.
    */
-  update(night: number, playedMs: number, cameraDistance: number): void;
+  /**
+   * `lighting` is 0..1 from the city's own lighting programme
+   * (sim/investments.ts): what the player paid for, not what the era supplies.
+   * It brightens the heads and puts lamps on the tiles the base spacing skips,
+   * so buying a tier is something the player *watches happen*.
+   */
+  update(night: number, playedMs: number, cameraDistance: number, lighting: number): void;
   dispose(): void;
 }
 
@@ -117,7 +125,7 @@ export function createStreetlights(world: World): StreetlightLayer {
     pools = null;
   };
 
-  const rebuild = (): void => {
+  const rebuild = (lighting = 0): void => {
     clear();
 
     // Collect first, then size the meshes: an InstancedMesh cannot grow, and
@@ -130,7 +138,10 @@ export function createStreetlights(world: World): StreetlightLayer {
         // A stable, spread-out subset rather than every tile: the same hash the
         // rest of the project uses, so an edit elsewhere does not reshuffle the
         // lamps already standing.
-        if ((x * 7 + y * 13) % SPACING !== 0) continue;
+        // The base lattice, thinned by whatever the city has paid for: at full
+        // lighting every second tile carries a lamp instead of every third.
+        const spacing = Math.max(2, Math.round(SPACING - lighting));
+        if ((x * 7 + y * 13) % spacing !== 0) continue;
 
         // Set the lamp at the kerb, on whichever side has no road, so it does
         // not stand in the middle of its own carriageway.
@@ -180,7 +191,22 @@ export function createStreetlights(world: World): StreetlightLayer {
     group.add(posts, heads, pools);
   };
 
-  const update = (night: number, playedMs: number, cameraDistance: number): void => {
+  /** The lattice the lamps were last built on, so a purchase rebuilds them. */
+  let builtFor = -1;
+
+  const update = (
+    night: number,
+    playedMs: number,
+    cameraDistance: number,
+    lighting: number,
+  ): void => {
+    // A bought tier changes where the posts stand, which is geometry — so it is
+    // rebuilt, once, on the frame the level changes rather than every frame.
+    const step = Math.max(2, Math.round(SPACING - lighting));
+    if (step !== builtFor) {
+      builtFor = step;
+      rebuild(lighting);
+    }
     if (!heads || !pools) return;
     // Posts are a few pixels across from the map view and the glow still reads
     // without them, so distance drops the geometry and keeps the light. Night
@@ -189,12 +215,16 @@ export function createStreetlights(world: World): StreetlightLayer {
     if (posts) posts.visible = !far;
 
     const lamp = lampFor(yearOf(playedMs));
+    // The era says what colour a lamp is; the programme says how much of it there
+    // is. A 1905 city that has paid for lighting gets brighter gas lamps, not
+    // sodium ones — the money buys provision, not a time machine.
+    const paid = 1 + lighting * LIGHTING_GAIN;
     headMaterial.emissive.set(lamp.colour);
-    headMaterial.emissiveIntensity = night * lamp.intensity * 2.4;
+    headMaterial.emissiveIntensity = night * lamp.intensity * 2.4 * paid;
     poolMaterial.color.set(lamp.colour);
     // The pool is the expensive-looking part and the first thing to look wrong
     // if it lingers into daylight, so it fades faster than the head does.
-    poolMaterial.opacity = night * night * 0.3 * lamp.intensity;
+    poolMaterial.opacity = Math.min(0.75, night * night * 0.3 * lamp.intensity * paid);
     heads.visible = night > 0.01;
     pools.visible = night > 0.05 && !far;
   };

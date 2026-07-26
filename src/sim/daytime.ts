@@ -119,6 +119,24 @@ export function daylightAmount(fraction: number): number {
  * the economy breathe on a two-minute cycle would make every reading the player
  * takes depend on when they happened to look.
  */
+/**
+ * Average darkness over a whole day, 0..1.
+ *
+ * Sampled from `nightAmount` itself rather than written down, because it is the
+ * one number the night economy has to be calibrated against and a hand-tuned
+ * copy of it would drift the moment `DAYLIGHT_SHARE` or the lamp threshold
+ * moved. Anything that wants a dark city's daily average to come out at a stated
+ * figure divides by this — see sim/investments.ts.
+ */
+export const MEAN_NIGHT = meanNight();
+
+function meanNight(): number {
+  const samples = 720;
+  let total = 0;
+  for (let i = 0; i < samples; i++) total += nightAmount((i + 0.5) / samples);
+  return total / samples;
+}
+
 export function rushHour(fraction: number): number {
   const morning = bell(fraction, 0.3, 0.075);
   const evening = bell(fraction, 0.72, 0.085);

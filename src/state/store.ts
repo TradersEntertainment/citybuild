@@ -2,6 +2,7 @@ import { createStore } from 'zustand/vanilla';
 import { STARTING_MONEY, STARTING_TAX_RATE, HAPPINESS_START } from '../data/balance';
 import { START_YEAR } from '../data/timeline';
 import type { MissionGoal } from '../data/missions';
+import type { ProgrammeId } from '../data/investments';
 import type { Era } from '../sim/tiles';
 
 /**
@@ -27,6 +28,8 @@ export interface UiState {
   demand: { res: number; com: number; ind: number };
   net: number;
   ledger: LedgerView;
+  /** Level bought in each civic programme, for the panel's buy buttons. */
+  investments: Record<ProgrammeId, ProgrammeView>;
   totals: CityTotals;
   grid: GridView;
   fps: number;
@@ -72,6 +75,13 @@ export interface LedgerView {
   seaIncome: number;
   /** Tax on what visitors off the motorway spent (§visitors). */
   visitorIncome: number;
+  /** What the civic programmes cost to run. */
+  programmeUpkeep: number;
+}
+
+/** One civic programme, as the panel needs it. */
+export interface ProgrammeView {
+  level: number;
 }
 
 /** Supply against demand for each grid, so a shortfall is visible before it bites. */
@@ -108,6 +118,8 @@ export interface SimSnapshot {
   /** Net income per minute; drives the sign and colour of the HUD figure. */
   net: number;
   ledger: LedgerView;
+  /** Level bought in each civic programme, for the panel's buy buttons. */
+  investments: Record<ProgrammeId, ProgrammeView>;
   totals: CityTotals;
   grid: GridView;
 }
@@ -148,7 +160,9 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     transitIncome: 0,
     seaIncome: 0,
     visitorIncome: 0,
+    programmeUpkeep: 0,
   },
+  investments: { lighting: { level: 0 }, greening: { level: 0 }, festivals: { level: 0 } },
   totals: {
     housing: 0,
     residents: 0,

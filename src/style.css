@@ -1229,6 +1229,26 @@ body {
   border-color: color-mix(in srgb, var(--parsomen) 14%, transparent);
 }
 
+/* One civic programme in the panel: a row, a line of what it does, and a wide
+   button that says the price. Boxed so three of them do not read as nine rows. */
+.panel-programme {
+  padding: 8px 0;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 10%, transparent);
+}
+
+.panel-programme:first-of-type {
+  border-top: 0;
+}
+
+.panel-programme .panel-action {
+  margin-top: 6px;
+}
+
+.panel-programme .panel-action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* A latch, not a button: the hand tool has to look held down while it is on,
    because the only other way to know is to try to draw and fail. */
 .view-button[data-active='true'] {

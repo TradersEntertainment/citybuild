@@ -9,6 +9,7 @@ import {
   TREE_ABSORPTION,
 } from '../data/balance';
 import { PORT_SPECS } from '../data/ports';
+import { greeningAbsorption } from './investments';
 import { ROAD_SPECS } from '../data/roads';
 import type { GameState } from './state';
 import { techFactor } from './tech';
@@ -128,6 +129,7 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
   }
 
   // A shipyard is heavy industry with a hull in front of it, and smells like it.
+  const greening = greeningAbsorption(state);
   for (const port of state.ports.values()) {
     const emission = (PORT_SPECS[port.kind].pollution ?? 0) * sanitation;
     if (emission <= 0) continue;
@@ -161,6 +163,13 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
         absorption[i] = PARK_ABSORPTION;
       } else if (decodeTerrain(world.terrain[i] ?? 0) === 'forest') {
         absorption[i] = TREE_ABSORPTION;
+      }
+      // The greening programme (data/investments.ts): trees the city planted
+      // rather than trees it happened to have. Added on top and capped, so it
+      // helps most where industry is worst — which is the one place the player
+      // cannot simply paint a park.
+      if (greening > 0) {
+        absorption[i] = Math.min(0.85, (absorption[i] ?? 0) + greening);
       }
     }
   }

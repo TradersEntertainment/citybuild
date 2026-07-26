@@ -30,6 +30,7 @@ import { yearOf } from './sim/timeline';
 import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offline';
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
+import { buyInvestment } from './sim/investments';
 import { hasSeaGate, placePort } from './sim/ports';
 import { placeService, utilitiesExpected } from './sim/services';
 import { research, techOffers } from './sim/tech';
@@ -139,6 +140,39 @@ const retirePrompt = mountRetirePrompt(ui, {
 const updateCostLabel = mountCostLabel(ui);
 mountTopBar(ui);
 mountCityPanel(ui, {
+  /**
+   * Buys the next tier of a civic programme.
+   *
+   * The lighting programme gets a line of its own the first time it lands,
+   * because it is the one purchase whose effect the player is about to watch
+   * happen across the whole city and it deserves to be pointed at.
+   */
+  onInvest: (id) => {
+    const before = game.investments[id];
+    const result = buyInvestment(game, id);
+    if (result !== 'ok') {
+      sfx.play('blocked');
+      if (result === 'tooDear') toast.show(STR.invest.name[id], STR.invest.tooDear);
+      return;
+    }
+    haptics.confirm();
+    sfx.play('coin');
+    // Greening changes what the diffusion absorbs, and lighting changes where the
+    // lamps stand; both are read from state, so only the fields need redoing.
+    systems.invalidateFields();
+    syncUi();
+    autosave.flush(game);
+    const firstLights = id === 'lighting' && before === 0;
+    toast.show(firstLights ? STR.invest.lightsOn : STR.invest.bought, STR.invest.name[id]);
+    appendHistory([
+      {
+        year: yearOf(game.playedMs),
+        icon: '🏛️',
+        title: `${STR.invest.name[id]} — ${STR.invest.level(game.investments[id], 4)}`,
+        detail: STR.invest.detail[id],
+      },
+    ]);
+  },
   onRetire: () => {
     // What the next city opens with, including the legacy already banked from
     // cities before this one — the card has to quote the balance the player
@@ -1024,6 +1058,12 @@ function syncUi(): void {
       transitIncome: game.ledger.transitIncome,
       seaIncome: game.ledger.seaIncome,
       visitorIncome: game.ledger.visitorIncome,
+      programmeUpkeep: game.ledger.programmeUpkeep,
+    },
+    investments: {
+      lighting: { level: game.investments.lighting },
+      greening: { level: game.investments.greening },
+      festivals: { level: game.investments.festivals },
     },
     totals: {
       housing: totals.housing,

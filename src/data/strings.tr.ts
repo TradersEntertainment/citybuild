@@ -198,6 +198,39 @@ export const STR = {
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
   },
 
+  /**
+   * Civic investments: what a rich city buys, and the answer to a long night.
+   */
+  invest: {
+    title: 'Belediye yatırımları',
+    note:
+      'Bir kez alınır, her yere işler, satılamaz. Aydınlatma geceyi ölü zamandan ' +
+      'çıkarır: karanlıkta dükkânlar kapanır, kimse otoyoldan sapıp ışıksız ' +
+      'şehre girmez.',
+    name: {
+      lighting: 'Sokak aydınlatması',
+      greening: 'Ağaçlandırma',
+      festivals: 'Şenlik bütçesi',
+    },
+    detail: {
+      lighting: 'Gece dükkânlar açık kalır, yoldan geçen durur, sokak güven verir.',
+      greening: 'Şehrin her karesinde kirlilik emilir — sanayinin en kötü olduğu yerde en çok.',
+      festivals: 'Takvimdeki bayramlar daha çok değer.',
+    },
+    /** "2/4" — how far through a programme the city is. */
+    level: (level: number, total: number): string => `${level}/${total}`,
+    /** "Elektrik hattı · ₺65.000 · 380 ₺/dk" */
+    buy: (name: string, cost: number, upkeep: number): string =>
+      `${name} · ₺${money.format(cost)} · ${money.format(upkeep)} ₺/dk`,
+    complete: 'Program tamamlandı.',
+    bought: 'Yatırım yapıldı.',
+    tooDear: 'Bakiye yetmiyor.',
+    /** The panel row for what the programmes cost to run. */
+    upkeep: 'Yatırım gideri',
+    /** Said once, when the first lighting tier lands. */
+    lightsOn: 'Şehir aydınlandı — gece artık ölü zaman değil.',
+  },
+
   /** Retiring a city (§6): the second run is where an idle game lives. */
   legacy: {
     title: 'Şehri devret',

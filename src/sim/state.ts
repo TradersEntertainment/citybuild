@@ -7,6 +7,7 @@ import { sectionCount } from './highwayWear';
 import { CALM_EFFECTS, type TimelineEffects } from './timeline';
 import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
+import type { ProgrammeId } from '../data/investments';
 import type { Port } from './ports';
 import type { UtilityPlant } from './utilities';
 import type { Ledger } from './economy';
@@ -85,6 +86,11 @@ export interface GameState {
   missionsDone: string[];
   /** Techs researched, by id (§12.2). */
   techsDone: string[];
+  /**
+   * Level bought in each civic programme (data/investments.ts). What a rich city
+   * spends its money on, and the only purchase whose effect is the whole map.
+   */
+  investments: Record<ProgrammeId, number>;
   /** Ids start at 1; 0 means "no building" in the tile column. */
   nextBuildingId: number;
   nextServiceId: number;
@@ -143,6 +149,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     highwayWear: new Array<number>(sectionCount(world)).fill(0),
     missionsDone: [],
     techsDone: [],
+    investments: { lighting: 0, greening: 0, festivals: 0 },
     nextBuildingId: 1,
     nextServiceId: 1,
     nextUtilityId: 1,
@@ -159,6 +166,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
       transitIncome: 0,
       seaIncome: 0,
       portUpkeep: 0,
+      programmeUpkeep: 0,
       visitorIncome: 0,
     },
     lastSeen: now,

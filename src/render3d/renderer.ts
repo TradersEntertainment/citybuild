@@ -9,6 +9,7 @@ import { createOverlay, type OverlayLayer } from './overlay';
 import { createPedestrians, type PedestrianLayer } from './pedestrians';
 import { createRoads, type RoadMesh } from './roads';
 import { dayFraction, nightAmount } from '../sim/daytime';
+import { lightingShare } from '../sim/investments';
 import { weatherAt } from '../sim/weather';
 import { createSky, updateSky, type SkyRig } from './sky';
 import { createStreetlights, type StreetlightLayer } from './streetlights';
@@ -250,8 +251,17 @@ export class Renderer {
     // setNightFactor has existed since the facades were written and was never
     // once called — the windows had an emissive map and no reason to glow.
     const night = nightAmount(dayFrac);
-    this.buildings.setNightFactor(night);
-    this.streetlights.update(night, frame.state.playedMs, this.camera.distance);
+    // What the city has paid to light itself (sim/investments.ts). The same
+    // number the ledger uses, so what the player sees after dark and what they
+    // earn after dark cannot disagree.
+    const lit = lightingShare(frame.state);
+    // Lit windows come on harder in a city that funded its own lighting: the
+    // shops are open, so they are lit.
+    this.buildings.setNightFactor(Math.min(1, night * (1 + lit * 0.5)));
+    this.streetlights.update(night, frame.state.playedMs, this.camera.distance, lit);
+    // And the sky bounce lifts with it, which is what stops a funded night city
+    // being a field of glowing dots over a black ground.
+    this.sky.setLighting(lit);
 
     // The sky anchors on whoever is looking: the rig's orbit target normally,
     // the walker's own feet while the camera is on loan.

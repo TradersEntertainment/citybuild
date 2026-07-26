@@ -11,6 +11,8 @@ import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
 import { highwayTradeFactor, transitIncome } from './highway';
 import { visitorFactor, type VisitorField } from './visitors';
+import { dayFraction, nightAmount } from './daytime';
+import { investmentUpkeep, tradeNow } from './investments';
 import { portUpkeep, seaIncome } from './ports';
 import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
@@ -54,6 +56,8 @@ export interface Ledger {
   visitorIncome: number;
   /** Berths cost the same every minute whether or not a ship came in. */
   portUpkeep: number;
+  /** What the civic programmes cost to run (data/investments.ts). */
+  programmeUpkeep: number;
 }
 
 /**
@@ -87,6 +91,11 @@ export function computeLedger(
 ): Ledger {
   let taxIncome = 0;
   let visitorTrade = 0;
+  // What time it is, and how much of the dark the city has bought its way out of
+  // (sim/investments.ts). An unlit city's daily average comes out at exactly what
+  // it earned before the night meant anything — the loss is paid back over the
+  // day — so this is an opportunity rather than a nerf.
+  const hour = tradeNow(state, nightAmount(dayFraction(state.playedMs)));
 
   for (const building of state.buildings.values()) {
     const landValue = fields.landValue[index(state.world, building.x, building.y)] ?? 0;
@@ -101,7 +110,7 @@ export function computeLedger(
       // so the player had nothing to aim at. Now it is the flow that actually
       // reaches the street the shop stands on (sim/visitors.ts).
       const corridor = trade(state, fields, visitors, building.x, building.y);
-      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor;
+      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor * hour;
       // What the visitors themselves spend, kept apart from the city's own
       // custom so the panel can say where the money came from.
       visitorTrade += building.output * (1 - 1 / corridor) * COMMERCIAL_TAX;
@@ -110,7 +119,10 @@ export function computeLedger(
       // A workshop beside a busy junction sells at the gate too, but less: its
       // customers are lorries, not families in a car.
       const corridor = 1 + (trade(state, fields, visitors, building.x, building.y) - 1) * 0.5;
-      building.output = building.jobs * INDUSTRIAL_OUTPUT * corridor;
+      // A workshop keeps a night shift more readily than a shop keeps a
+      // shopkeeper, so the dark costs it half as much.
+      building.output = building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5);
+      building.output *= corridor;
       visitorTrade += building.output * (1 - 1 / corridor) * INDUSTRIAL_TAX;
       taxIncome += building.output * INDUSTRIAL_TAX;
     }
@@ -147,6 +159,9 @@ export function computeLedger(
   const sea = seaIncome(state) * history;
   const visiting = visitorTrade * history;
   const berths = portUpkeep(state) * admin;
+  // The programmes bill like everything else standing, and the administration
+  // tech discounts them the same way.
+  const programmes = investmentUpkeep(state) * admin;
   return {
     taxIncome,
     roadUpkeep: roads,
@@ -154,12 +169,22 @@ export function computeLedger(
     utilityUpkeep: plants,
     debtService: debt,
     net:
-      taxIncome + farmIncome + transit + sea - roads - stations - plants - berths - debt,
+      taxIncome +
+      farmIncome +
+      transit +
+      sea -
+      roads -
+      stations -
+      plants -
+      berths -
+      programmes -
+      debt,
     farmYield,
     farmIncome,
     transitIncome: transit,
     seaIncome: sea,
     portUpkeep: berths,
+    programmeUpkeep: programmes,
     visitorIncome: visiting,
   };
 }

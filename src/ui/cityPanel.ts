@@ -1,6 +1,14 @@
 import { LABOUR_PARTICIPATION } from '../data/balance';
+import {
+  isTierUnlocked,
+  PROGRAMME_ORDER,
+  tierAt,
+  tiersOf,
+  type ProgrammeId,
+} from '../data/investments';
 import { STR } from '../data/strings.tr';
-import { uiStore, type MissionView } from '../state/store';
+import type { Era } from '../sim/tiles';
+import { uiStore, type MissionView, type ProgrammeView } from '../state/store';
 import { describeGoal } from './missionText';
 
 /**
@@ -42,6 +50,8 @@ function remember(open: boolean): void {
 export interface CityPanelDeps {
   /** Opens the retire card; the panel never destroys anything itself. */
   onRetire(): void;
+  /** Buys the next tier of a civic programme; returns whether it went through. */
+  onInvest(id: ProgrammeId): void;
 }
 
 export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPanelHandle {
@@ -87,6 +97,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
+  const programmes = row(STR.invest.upkeep);
   const debt = row(STR.panel.debt);
   const net = row(STR.panel.net, true);
   books.body.append(
@@ -98,6 +109,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     roads.el,
     stations.el,
     plants.el,
+    programmes.el,
     debt.el,
     net.el,
   );
@@ -137,6 +149,27 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   inner.append(goals.el, people.el, books.el, grid.el, trade.el);
   // Retiring lives at the bottom of the panel, below every number it is a
   // decision about, and does not exist at all until the city is old enough for
+  /**
+   * Where a rich city's money goes (data/investments.ts).
+   *
+   * Above the retire section and below the books, which is where a player who has
+   * just read a large balance is looking. Each programme is one row and one
+   * button: a price, what it does, and buy. Nothing is placed and nothing can be
+   * put in the wrong spot, so there is no map interaction to explain.
+   */
+  const invest = section(STR.invest.title);
+  const investNote = document.createElement('p');
+  investNote.className = 'mission-empty';
+  investNote.textContent = STR.invest.note;
+  invest.body.append(investNote);
+  const programmeRows = new Map<ProgrammeId, ProgrammeRow>();
+  for (const id of PROGRAMME_ORDER) {
+    const built = programmeRow(id, () => deps.onInvest(id));
+    programmeRows.set(id, built);
+    invest.body.append(built.el);
+  }
+  inner.append(invest.el);
+
   // it to be one. A destructive action a new player can reach by accident is
   // not a feature.
   const legacy = section(STR.legacy.title);
@@ -190,6 +223,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     const s = uiStore.getState();
     const t = s.totals;
     paintGoals(s);
+    for (const [id, built] of programmeRows) built.paint(s.investments[id], s.money, s.era);
     const jobs = t.commercialJobs + t.industrialJobs + t.farmJobs;
     const workforce = s.population * LABOUR_PARTICIPATION;
     const idle = workforce > 0 ? Math.max(0, (workforce - jobs) / workforce) : 0;
@@ -218,6 +252,9 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     // is not shown a line it cannot fill.
     visiting.el.hidden = s.ledger.visitorIncome <= 0;
     visiting.set(`+${money(s.ledger.visitorIncome)}`);
+    // Hidden until a programme is running, like every other conditional row.
+    programmes.el.hidden = s.ledger.programmeUpkeep <= 0;
+    programmes.set(`−${money(s.ledger.programmeUpkeep)}`);
     sea.el.hidden = s.ledger.seaIncome <= 0;
     sea.set(`+${money(s.ledger.seaIncome)}`);
     farmIncome.el.hidden = s.ledger.farmIncome <= 0;
@@ -343,6 +380,63 @@ function section(title: string): Section {
 interface Row {
   el: HTMLElement;
   set(value: string): void;
+}
+
+interface ProgrammeRow {
+  el: HTMLElement;
+  paint(view: ProgrammeView, money: number, era: Era): void;
+}
+
+/**
+ * One programme: what it is, what the next tier costs, and a button.
+ *
+ * The button says the price rather than "buy", because the price is the decision
+ * — and it is disabled with the reason showing rather than hidden, so a player
+ * who cannot afford a tier can see what they are saving for.
+ */
+function programmeRow(id: ProgrammeId, onBuy: () => void): ProgrammeRow {
+  const el = document.createElement('div');
+  el.className = 'panel-programme';
+
+  const head = document.createElement('div');
+  head.className = 'panel-row';
+  const name = document.createElement('span');
+  name.textContent = STR.invest.name[id];
+  const level = document.createElement('span');
+  level.className = 'panel-value mono';
+  head.append(name, level);
+
+  const detail = document.createElement('p');
+  detail.className = 'mission-empty';
+  detail.textContent = STR.invest.detail[id];
+
+  const buy = document.createElement('button');
+  buy.type = 'button';
+  buy.className = 'panel-action';
+  buy.addEventListener('click', onBuy);
+
+  el.append(head, detail, buy);
+
+  return {
+    el,
+    paint: (view, money, era) => {
+      const tiers = tiersOf(id);
+      level.textContent = STR.invest.level(view.level, tiers.length);
+      const next = tierAt(id, view.level);
+      if (!next) {
+        buy.hidden = true;
+        detail.textContent = STR.invest.complete;
+        return;
+      }
+      buy.hidden = false;
+      detail.textContent = STR.invest.detail[id];
+      const unlocked = isTierUnlocked(id, view.level, era);
+      buy.disabled = !unlocked || money < next.cost;
+      buy.textContent = unlocked
+        ? STR.invest.buy(next.name, next.cost, next.upkeep)
+        : STR.lockedAt(STR.eraName[next.unlockedAt]);
+    },
+  };
 }
 
 function row(label: string, strong = false): Row {

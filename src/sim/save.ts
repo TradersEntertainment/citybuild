@@ -6,6 +6,8 @@ import { totalDebt } from './credit';
 import { ensureSections, refreshHighwayDamage } from './highwayWear';
 import { pruneOneWay } from './oneWay';
 import { refreshSeaGates } from './ports';
+import { PROGRAMME_ORDER, tiersOf } from '../data/investments';
+import { investmentLevels } from './investments';
 import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
@@ -49,6 +51,8 @@ export interface SaveData {
   missionsDone: string[];
   /** Ids of techs researched. */
   techsDone: string[];
+  /** Level bought in each civic programme, by id. */
+  investments: Record<string, number>;
   /** Legacy points this city was founded with. */
   legacy: number;
   /**
@@ -143,6 +147,7 @@ export function serialize(state: GameState): SaveData {
     farmTiles: state.farmTiles,
     missionsDone: [...state.missionsDone],
     techsDone: [...state.techsDone],
+    investments: { ...investmentLevels(state) },
     legacy: state.legacy,
     highwayWear: state.highwayWear.map((wear) => Math.round(wear * 100)),
     nextBuildingId: state.nextBuildingId,
@@ -209,6 +214,17 @@ export function deserialize(data: unknown): GameState | null {
   state.techsDone = (Array.isArray(data.techsDone) ? data.techsDone : []).filter(
     (id): id is string => typeof id === 'string' && techById(id) !== undefined,
   );
+  // Programmes arrived after the techs, and a file without them is a city that
+  // has bought none — the same additive pattern as the loans and the berths.
+  // Levels are clamped against the table this build actually has, so a save
+  // carrying a tier that no longer exists cannot leave a city with an effect
+  // nothing can explain.
+  const bought = isRecord(data.investments) ? data.investments : {};
+  for (const id of PROGRAMME_ORDER) {
+    const raw = bought[id];
+    const level = typeof raw === 'number' && Number.isFinite(raw) ? Math.floor(raw) : 0;
+    state.investments[id] = Math.max(0, Math.min(tiersOf(id).length, level));
+  }
   state.nextBuildingId = data.nextBuildingId;
   state.lastSeen = data.lastSeen;
   // Road wear arrived after the first saves existed, like the loans and the
@@ -375,6 +391,11 @@ export function decodeRuns(runs: readonly number[], into: Uint8Array): boolean {
     at += length;
   }
   return at === into.length;
+}
+
+/** A plain object, for the additive fields whose shape is a map rather than a list. */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function isSaveData(data: unknown): data is SaveData {
