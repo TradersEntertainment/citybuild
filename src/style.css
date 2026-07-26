@@ -1201,3 +1201,21 @@ body {
   line-height: 1.45;
   color: var(--sis);
 }
+
+/* A research row says what it does under its name: the effect is the reason to
+   buy it, so it should not be behind a tap the player makes to find out. */
+.sheet-row {
+  flex-wrap: wrap;
+}
+
+.sheet-row-note {
+  flex-basis: 100%;
+  padding-bottom: 8px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--sis);
+}
+
+.sheet-row[data-selected='true'] .sheet-row-meta {
+  color: var(--yosun);
+}

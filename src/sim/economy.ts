@@ -9,6 +9,7 @@ import { ROAD_SPECS } from '../data/roads';
 import { debtService, repayLoans } from './credit';
 import type { Fields } from './fields';
 import { serviceUpkeep } from './services';
+import { techFactor } from './tech';
 import { utilityUpkeep } from './utilities';
 import type { GameState } from './state';
 import { decodeRoad, decodeZone, NONE } from './tiles';
@@ -58,9 +59,13 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
     }
   }
 
+  // Administration is a discount on standing costs, not on what the city has
+  // already built: it is a civil service, so it bills less every minute rather
+  // than refunding anything.
+  const admin = techFactor(state, 'administration');
   const roads = roadUpkeep(state);
-  const stations = serviceUpkeep(state);
-  const plants = utilityUpkeep(state);
+  const stations = serviceUpkeep(state) * admin;
+  const plants = utilityUpkeep(state) * admin;
   const debt = debtService(state);
   return {
     taxIncome,
@@ -69,7 +74,7 @@ export function computeLedger(state: GameState, fields: Fields): Ledger {
     utilityUpkeep: plants,
     debtService: debt,
     net: taxIncome - roads - stations - plants - debt,
-    farmYield: farmTiles(state) * FARM_YIELD,
+    farmYield: farmTiles(state) * FARM_YIELD * techFactor(state, 'agronomy'),
   };
 }
 

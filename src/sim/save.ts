@@ -1,6 +1,7 @@
 import { SAVE_VERSION } from '../data/balance';
 import type { BuiltZone, Level } from '../data/buildings';
 import { missionById } from '../data/missions';
+import { techById } from '../data/tech';
 import { totalDebt } from './credit';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
@@ -42,6 +43,8 @@ export interface SaveData {
   farmTiles: number;
   /** Ids of goals already paid out; a file without them is simply an early city. */
   missionsDone: string[];
+  /** Ids of techs researched. */
+  techsDone: string[];
   nextBuildingId: number;
   lastSeen: number;
   /** Run-length encoded grid columns: [value, runLength, value, runLength, …]. */
@@ -116,6 +119,7 @@ export function serialize(state: GameState): SaveData {
     demand: { ...state.demand },
     farmTiles: state.farmTiles,
     missionsDone: [...state.missionsDone],
+    techsDone: [...state.techsDone],
     nextBuildingId: state.nextBuildingId,
     lastSeen: state.lastSeen,
     road: encodeRuns(state.world.road),
@@ -174,6 +178,9 @@ export function deserialize(data: unknown): GameState | null {
   // so a save carrying a goal this build no longer has cannot block the chain.
   state.missionsDone = (Array.isArray(data.missionsDone) ? data.missionsDone : [])
     .filter((id): id is string => typeof id === 'string' && missionById(id) !== undefined);
+  state.techsDone = (Array.isArray(data.techsDone) ? data.techsDone : []).filter(
+    (id): id is string => typeof id === 'string' && techById(id) !== undefined,
+  );
   state.nextBuildingId = data.nextBuildingId;
   state.lastSeen = data.lastSeen;
 

@@ -15,6 +15,7 @@ import {
 import { capacityOf, isBuiltZone, type BuiltZone, type Level } from '../data/buildings';
 import { UNREACHABLE, type Fields } from './fields';
 import { serviceCoverageAt } from './services';
+import { techFactor } from './tech';
 import { congestionNear, type TrafficField } from './traffic';
 import type { GameState } from './state';
 import { decodeZone, ISSUE, NONE, type ZoneKind } from './tiles';
@@ -250,7 +251,7 @@ function updateBuilding(
   const headroom = (score - BUILDING_SPAWN_THRESHOLD) / (1 - BUILDING_SPAWN_THRESHOLD);
   if (headroom <= 0) return;
   const seconds = BUILDING_GROWTH_S[building.level - 1] ?? 200;
-  building.growthProgress += (dt * headroom) / seconds;
+  building.growthProgress += (dt * headroom * techFactor(state, 'codes')) / seconds;
 
   if (building.growthProgress >= 1) {
     building.growthProgress = 0;
@@ -320,7 +321,7 @@ export function totalBuildings(state: GameState): BuildingTotals {
     residents: 0,
     commercialJobs: 0,
     industrialJobs: 0,
-    farmJobs: state.farmTiles * FARM_JOBS_PER_TILE,
+    farmJobs: state.farmTiles * FARM_JOBS_PER_TILE * techFactor(state, 'agronomy'),
   };
 
   for (const building of state.buildings.values()) {

@@ -4,6 +4,8 @@ import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
 import { UTILITY_ORDER, UTILITY_SPECS, isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 import { STR } from '../data/strings.tr';
+import type { TechId } from '../data/tech';
+import type { TechOffer } from '../sim/tech';
 import type { FacilitySelection, ToolController, ToolId } from '../input/tools';
 import { ZONE_ORDER, type Era, type RoadKind, type ZoneKind } from '../sim/tiles';
 import * as haptics from './haptics';
@@ -16,10 +18,24 @@ import * as haptics from './haptics';
  * Locked road tiers are shown, not hidden — the brief wants the player to see
  * what is coming and what unlocks it (§1).
  */
+/**
+ * Sheets are not quite tools. Research has options to choose between but
+ * nothing to point at on the map, so it raises a sheet without ever becoming
+ * the active tool — leaving the player holding an instrument that does nothing
+ * when they touch the city is the shape of the bug that made the map
+ * unpannable.
+ */
+type SheetId = ToolId | 'tech';
+
 export interface DockDeps {
   tools: ToolController;
   era: () => Era;
   onUndo: () => void;
+  /** Research points in hand, and what they will buy. */
+  research: () => number;
+  techOffers: () => TechOffer[];
+  /** Returns whether the tech was actually researched. */
+  onResearch: (id: TechId) => boolean;
 }
 
 export interface DockHandle {
@@ -49,10 +65,20 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   const zoneButton = toolButton();
   const serviceButton = toolButton();
   const eraseButton = toolButton(STR.tools.erase);
+  const techButton = toolButton(STR.tools.tech);
   const undoButton = toolButton(STR.tools.undo);
-  dock.append(panButton, roadButton, zoneButton, serviceButton, eraseButton, spacer(), undoButton);
+  dock.append(
+    panButton,
+    roadButton,
+    zoneButton,
+    serviceButton,
+    eraseButton,
+    techButton,
+    spacer(),
+    undoButton,
+  );
 
-  let openSheetFor: ToolId | null = null;
+  let openSheetFor: SheetId | null = null;
 
   const closeSheet = (): void => {
     sheet.dataset['open'] = 'false';
@@ -74,13 +100,15 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     if (openSheetFor === 'zone') fillZoneSheet();
     if (openSheetFor === 'service') fillServiceSheet();
     if (openSheetFor === 'erase') fillEraseSheet();
+    if (openSheetFor === 'tech') fillTechSheet();
   };
 
-  const openSheet = (tool: ToolId): void => {
+  const openSheet = (tool: SheetId): void => {
     openSheetFor = tool;
     if (tool === 'road') fillRoadSheet();
     else if (tool === 'service') fillServiceSheet();
     else if (tool === 'erase') fillEraseSheet();
+    else if (tool === 'tech') fillTechSheet();
     else fillZoneSheet();
     sheet.dataset['open'] = 'true';
     sheet.setAttribute('aria-hidden', 'false');
@@ -109,6 +137,52 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.append(sheetTitle(STR.tools.eraseSheetTitle));
     sheet.append(sheetNote(STR.tools.eraseNote));
     sheet.append(sheetTitle(STR.tools.brushTitle), brushRow());
+  }
+
+  /**
+   * Research. It opens its own sheet and never becomes the active tool: there
+   * is nothing to point at on the map, and leaving the player holding a tool
+   * that does nothing when they tap the city is how the pan bug started.
+   */
+  function fillTechSheet(): void {
+    sheet.textContent = '';
+    const title = sheetTitle(STR.tech.title);
+    const points = document.createElement('span');
+    points.className = 'panel-heading-count mono';
+    points.textContent = STR.tech.points(deps.research());
+    title.append(points);
+    sheet.append(title);
+
+    const offers = deps.techOffers();
+    if (offers.length === 0) {
+      sheet.append(sheetNote(STR.tech.none));
+      return;
+    }
+    for (const offer of offers) sheet.append(techRow(offer));
+    sheet.append(sheetNote(STR.tech.rate));
+  }
+
+  function techRow(offer: TechOffer): HTMLElement {
+    const row = sheetRow(
+      STR.tech.name[offer.tech.id],
+      offer.done ? STR.tech.done : STR.tech.cost(offer.tech.cost),
+    );
+    row.dataset['locked'] = String(offer.done || !offer.affordable);
+    row.dataset['selected'] = String(offer.done);
+    row.disabled = offer.done;
+    // The effect is the whole reason to buy it, so it is on the row rather than
+    // behind a tap the player has to make before they can decide.
+    const detail = document.createElement('span');
+    detail.className = 'sheet-row-note';
+    detail.textContent = STR.tech.detail[offer.tech.id];
+    row.append(detail);
+    row.addEventListener('click', () => {
+      if (!deps.onResearch(offer.tech.id)) return;
+      haptics.tap();
+      fillTechSheet();
+      refresh();
+    });
+    return row;
   }
 
   function fillServiceSheet(): void {
@@ -242,6 +316,14 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   zoneButton.addEventListener('click', () => selectTool('zone', true));
   serviceButton.addEventListener('click', () => selectTool('service', true));
   eraseButton.addEventListener('click', () => selectTool('erase', true));
+  techButton.addEventListener('click', () => {
+    haptics.tap();
+    if (openSheetFor === 'tech') {
+      closeSheet();
+      return;
+    }
+    openSheet('tech');
+  });
   undoButton.addEventListener('click', () => {
     haptics.tap();
     deps.onUndo();

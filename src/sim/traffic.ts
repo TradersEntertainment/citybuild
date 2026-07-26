@@ -10,6 +10,7 @@ import {
 import { ROAD_SPECS } from '../data/roads';
 import type { Fields } from './fields';
 import type { GameState } from './state';
+import { techFactor } from './tech';
 import { decodeRoad, NONE } from './tiles';
 import { index, type World } from './world';
 
@@ -71,13 +72,16 @@ export function computeTraffic(state: GameState, fields: Fields, traffic: Traffi
 
   spreadAlongRoads(world, flow, scratch);
 
-  // Load is what the player can act on: a tier with more lanes carries more.
+  // Load is what the player can act on: a tier with more lanes carries more,
+  // and transit research is the other way to widen a street the player has
+  // already drawn and does not want to redraw.
+  const transit = techFactor(state, 'transit');
   for (let y = 0; y < world.size; y++) {
     for (let x = 0; x < world.size; x++) {
       const i = index(world, x, y);
       const kind = decodeRoad(world.road[i] ?? NONE);
       if (!kind) continue;
-      const capacity = ROAD_SPECS[kind].capacity * junctionFactor(world, x, y);
+      const capacity = ROAD_SPECS[kind].capacity * junctionFactor(world, x, y) * transit;
       load[i] = capacity > 0 ? (flow[i] ?? 0) / capacity : 0;
     }
   }

@@ -10,6 +10,7 @@ import {
 } from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
 import type { GameState } from './state';
+import { techFactor } from './tech';
 import { plantPollution } from './utilities';
 import { decodeRoad, decodeTerrain, decodeZone, NONE } from './tiles';
 import { index, type World } from './world';
@@ -87,6 +88,11 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
   noiseSource.fill(0);
   absorption.fill(0);
 
+  // Sanitation is applied at the chimney rather than to the solver: the tech is
+  // a scrubber, not faster wind, and cutting emission leaves the falloff — which
+  // was measured and tuned — exactly as it was.
+  const sanitation = techFactor(state, 'sanitation');
+
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -101,8 +107,9 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
   for (const building of state.buildings.values()) {
     const i = index(world, building.x, building.y);
     if (building.zone === 'ind') {
-      pollutionSource[i] = (pollutionSource[i] ?? 0) + building.jobs * POLLUTION_PER_INDUSTRIAL_JOB;
-      noiseSource[i] = (noiseSource[i] ?? 0) + building.jobs * NOISE_PER_INDUSTRIAL_JOB;
+      pollutionSource[i] =
+        (pollutionSource[i] ?? 0) + building.jobs * POLLUTION_PER_INDUSTRIAL_JOB * sanitation;
+      noiseSource[i] = (noiseSource[i] ?? 0) + building.jobs * NOISE_PER_INDUSTRIAL_JOB * sanitation;
       note(building.x, building.y);
     } else if (building.zone === 'com') {
       noiseSource[i] = (noiseSource[i] ?? 0) + building.jobs * NOISE_PER_COMMERCIAL_JOB;

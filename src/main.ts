@@ -19,6 +19,7 @@ import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offli
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { placeService, utilitiesExpected } from './sim/services';
+import { research, techOffers } from './sim/tech';
 import { placePlant, utilityBalance } from './sim/utilities';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
@@ -123,6 +124,24 @@ const dock = mountToolDock(ui, {
     haptics.tap();
     sfx.play('erase');
     renderer.invalidateRoads();
+  },
+  research: () => game.research,
+  techOffers: () => techOffers(game),
+  onResearch: (id) => {
+    const result = research(game, id);
+    if (result !== 'ok') {
+      if (result === 'tooDear') toast.show(STR.tech.title, STR.tech.tooDear);
+      return false;
+    }
+    haptics.confirm();
+    sfx.play('goal');
+    // Several systems read their factor at the moment they need it, and the
+    // fields that already answered are now answering the old question.
+    systems.invalidateFields();
+    syncUi();
+    autosave.flush(game);
+    toast.show(STR.tech.researched, STR.tech.name[id]);
+    return true;
   },
 });
 

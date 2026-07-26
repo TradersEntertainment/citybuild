@@ -6,6 +6,7 @@ import { computeLandValue, computeRoadDistance, createFields, type Fields } from
 import type { Mission } from '../data/missions';
 import { settleMissions } from './missions';
 import { stepPopulation } from './population';
+import { stepResearch } from './tech';
 import { computeServiceCoverage } from './services';
 import { computeTraffic, createTrafficField, type TrafficField } from './traffic';
 import { computeUtilityCoverage } from './utilities';
@@ -88,6 +89,7 @@ export class Systems {
 
     const totals = totalBuildings(state);
     stepPopulation(state, totals, dt);
+    stepResearch(state, dt);
     const era = stepProgression(state);
 
     // Goals settle on the simulation's clock rather than the frame loop's, so

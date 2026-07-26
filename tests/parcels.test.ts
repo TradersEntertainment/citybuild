@@ -72,14 +72,14 @@ describe('what is on offer', () => {
 
 describe('what land costs', () => {
   it('charges the base price for the first expansion', () => {
-    expect(baseParcelPrice(game.world)).toBeCloseTo(PARCEL_PRICE_BASE, 6);
+    expect(baseParcelPrice(game)).toBeCloseTo(PARCEL_PRICE_BASE, 6);
   });
 
   it('charges more for each parcel already owned', () => {
     game.money = 10_000_000;
-    const first = baseParcelPrice(game.world);
+    const first = baseParcelPrice(game);
     buyParcel(game, centre + 1, centre);
-    const second = baseParcelPrice(game.world);
+    const second = baseParcelPrice(game);
     expect(second).toBeCloseTo(first * PARCEL_PRICE_GROWTH, 4);
   });
 
@@ -92,10 +92,10 @@ describe('what land costs', () => {
     // Open sea is cheap because it is nearly useless, not free — it still
     // extends the map. Charging full price for it would be a trap the player
     // cannot see before paying.
-    expect(parcelPrice(game.world, centre - 1, centre)).toBeLessThan(
-      parcelPrice(game.world, centre + 1, centre),
+    expect(parcelPrice(game, centre - 1, centre)).toBeLessThan(
+      parcelPrice(game, centre + 1, centre),
     );
-    expect(parcelPrice(game.world, centre - 1, centre)).toBeGreaterThan(0);
+    expect(parcelPrice(game, centre - 1, centre)).toBeGreaterThan(0);
   });
 
   it('sorts offers cheapest first', () => {
@@ -107,7 +107,7 @@ describe('what land costs', () => {
 describe('buying', () => {
   it('takes the money and hands over the land', () => {
     setParcelHeight(game, centre + 1, centre, SEA_LEVEL + 0.2);
-    const price = parcelPrice(game.world, centre + 1, centre);
+    const price = parcelPrice(game, centre + 1, centre);
     game.money = price + 500;
 
     expect(buyParcel(game, centre + 1, centre)).toBe(true);
@@ -117,7 +117,7 @@ describe('buying', () => {
   });
 
   it('refuses and changes nothing when the money is short', () => {
-    const price = parcelPrice(game.world, centre + 1, centre);
+    const price = parcelPrice(game, centre + 1, centre);
     game.money = price - 1;
 
     expect(buyParcel(game, centre + 1, centre)).toBe(false);

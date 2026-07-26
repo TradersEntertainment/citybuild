@@ -53,6 +53,7 @@ export const STR = {
     erase: 'sil',
     undo: 'geri al',
     service: 'hizmet',
+    tech: 'ar-ge',
     roadSheetTitle: 'Yol tipi',
     zoneSheetTitle: 'Bölge',
     serviceSheetTitle: 'Hizmet binası',
@@ -144,6 +145,36 @@ export const STR = {
     bought: 'Yeni parsel alındı.',
     /** Second line of the purchase toast. */
     boughtDetail: (tiles: number): string => `${plain.format(tiles)} kare eklendi`,
+  },
+
+  /** Research (§12.2): what the city has learned to do better. */
+  tech: {
+    title: 'Araştırma',
+    /** Points in hand, on the sheet's heading. */
+    points: (value: number): string => `${plain.format(Math.floor(value))} AP`,
+    cost: (value: number): string => `${plain.format(value)} AP`,
+    done: 'tamam',
+    researched: 'Araştırma tamamlandı.',
+    tooDear: 'Yeterli araştırma puanı yok.',
+    none: 'Henüz araştırılacak bir şey yok. Şehir büyüdükçe açılır.',
+    /** Points come faster with schools, which is worth saying once. */
+    rate: 'Okullar araştırmayı hızlandırır.',
+    name: {
+      sanitation: 'Arıtma',
+      transit: 'Toplu taşıma',
+      codes: 'İmar yönetmeliği',
+      registry: 'Tapu kadastro',
+      administration: 'Belediye teşkilatı',
+      agronomy: 'Ziraat',
+    },
+    detail: {
+      sanitation: 'Sanayi daha az kirletir ve daha az gürültü yapar.',
+      transit: 'Aynı yol daha çok trafik taşır.',
+      codes: 'Binalar daha hızlı yükselir.',
+      registry: 'Parseller daha ucuza alınır.',
+      administration: 'Hizmet ve şebeke giderleri düşer.',
+      agronomy: 'Tarım daha çok iş ve ürün verir.',
+    },
   },
 
   /** Credit (§7): the bank, and what it will lend. */

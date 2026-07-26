@@ -47,6 +47,8 @@ export interface GameState {
   farmTiles: number;
   /** Goals already paid out, by id (§12.3). Order is completion order. */
   missionsDone: string[];
+  /** Techs researched, by id (§12.2). */
+  techsDone: string[];
   /** Ids start at 1; 0 means "no building" in the tile column. */
   nextBuildingId: number;
   nextServiceId: number;
@@ -87,6 +89,7 @@ export function createGameState(seed: number, now: number): GameState {
     utilities: new Map(),
     farmTiles: 0,
     missionsDone: [],
+    techsDone: [],
     nextBuildingId: 1,
     nextServiceId: 1,
     nextUtilityId: 1,

@@ -1,5 +1,6 @@
 import { PARCEL_PRICE_BASE, PARCEL_PRICE_GROWTH, SEA_LEVEL } from '../data/balance';
 import type { GameState } from './state';
+import { techFactor } from './tech';
 import {
   claimParcel,
   index,
@@ -38,10 +39,16 @@ const MIN_LAND_FRACTION = 0.25;
 /**
  * Price of the next parcel, before land quality. Each one bought makes the next
  * dearer, so expansion is a decision with a cost rather than a formality.
+ *
+ * Takes the whole state rather than the world because the land registry tech
+ * discounts it. Threading the discount as an optional argument would make it
+ * something a call site can forget; taking the state makes it something the
+ * function always knows.
  */
-export function baseParcelPrice(world: World): number {
-  const owned = Math.max(1, ownedParcelCount(world));
-  return PARCEL_PRICE_BASE * Math.pow(PARCEL_PRICE_GROWTH, owned - 1);
+export function baseParcelPrice(state: GameState): number {
+  const owned = Math.max(1, ownedParcelCount(state.world));
+  const growth = PARCEL_PRICE_BASE * Math.pow(PARCEL_PRICE_GROWTH, owned - 1);
+  return growth * techFactor(state, 'registry');
 }
 
 /**
@@ -63,9 +70,9 @@ export function buildableFraction(world: World, px: number, py: number): number 
   return total > 0 ? land / total : 0;
 }
 
-export function parcelPrice(world: World, px: number, py: number): number {
-  const fraction = Math.max(MIN_LAND_FRACTION, buildableFraction(world, px, py));
-  return Math.round(baseParcelPrice(world) * fraction);
+export function parcelPrice(state: GameState, px: number, py: number): number {
+  const fraction = Math.max(MIN_LAND_FRACTION, buildableFraction(state.world, px, py));
+  return Math.round(baseParcelPrice(state) * fraction);
 }
 
 /** A parcel is on offer when it is unowned and touches something owned. */
@@ -90,7 +97,7 @@ export function parcelOffers(state: GameState): ParcelOffer[] {
   for (let py = 0; py < side; py++) {
     for (let px = 0; px < side; px++) {
       if (!isBuyable(world, px, py)) continue;
-      const price = parcelPrice(world, px, py);
+      const price = parcelPrice(state, px, py);
       offers.push({
         px,
         py,
@@ -107,7 +114,7 @@ export function parcelOffers(state: GameState): ParcelOffer[] {
 /** The offer for one parcel, or null if it is not on the market. */
 export function offerFor(state: GameState, px: number, py: number): ParcelOffer | null {
   if (!isBuyable(state.world, px, py)) return null;
-  const price = parcelPrice(state.world, px, py);
+  const price = parcelPrice(state, px, py);
   return {
     px,
     py,
