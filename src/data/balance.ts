@@ -378,6 +378,27 @@ export const OFFLINE_STEP_MIN_S = 30;
 /** Below this, an absence is a glance at another tab and gets no card. */
 export const OFFLINE_MIN_REPORT_MS = 120_000;
 
+// --- Petitions (Paket 3 §7) --------------------------------------------------
+/**
+ * Share of buildings that must be complaining about one thing before the city
+ * puts it to the mayor.
+ *
+ * A fifth is the point at which a problem stops being a few unlucky plots and
+ * starts being a district. Lower and the feed becomes weather; higher and a
+ * player fixes it before anyone thinks to ask.
+ */
+export const PETITION_RAISE_SHARE = 0.22;
+/**
+ * Share it must fall below before the petition counts as settled.
+ *
+ * Well under the raising bar on purpose: one line for both would have a city
+ * hovering at the boundary filing and withdrawing the same petition every few
+ * seconds.
+ */
+export const PETITION_CLEAR_SHARE = 0.12;
+/** Mood the city returns for a petition actually answered. */
+export const PETITION_RESOLVED_HAPPINESS = 3;
+
 // --- Weather (Paket 2 §6) ----------------------------------------------------
 /**
  * How long one spell of weather lasts, in seconds.

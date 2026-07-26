@@ -707,19 +707,82 @@ interface Pose {
 }
 
 /** World position between path tiles, with a right-hand lane offset. */
+/**
+ * Where a vehicle is, along a curve rather than along the tile grid.
+ *
+ * A route is a list of tiles, and a road that runs at an angle is a staircase
+ * of them. Interpolating straight between two tile centres therefore drove
+ * every vehicle right, then down, then right, then down — with the heading
+ * snapping a quarter turn at each step, so a lorry visibly weaved its way along
+ * a road the surface layer draws as one straight ribbon.
+ *
+ * Catmull-Rom through the surrounding four tile centres cuts those corners. The
+ * curve still passes through every tile the router chose — the vehicle is on the
+ * road it was given — but it arrives at each one already pointing at the next.
+ * The alternative, a finer grid, would shrink the weave without removing it and
+ * would cost memory in every layer that indexes by tile.
+ */
 function poseOf(v: Vehicle, g: Graph): Pose {
   const size = g.size;
-  const at = Math.max(1, Math.min(v.at, v.path.length - 1));
-  const prevIndex = v.path[at - 1] as number;
-  const nextIndex = v.path[at] as number;
-  const px = prevIndex % size;
-  const pz = Math.floor(prevIndex / size);
-  const nx = nextIndex % size;
-  const nz = Math.floor(nextIndex / size);
-  const heading = Math.atan2(nx - px, nz - pz);
-  const x = (px + (nx - px) * v.t) * TILE + Math.cos(heading) * LANE_OFFSET * TILE;
-  const z = (pz + (nz - pz) * v.t) * TILE - Math.sin(heading) * LANE_OFFSET * TILE;
-  return { x, z, heading };
+  const last = v.path.length - 1;
+  const at = Math.max(1, Math.min(v.at, last));
+
+  // The four control points, clamped at the ends of the route so a vehicle on
+  // its first or last tile has something to be smooth against.
+  const p0 = tileAt(v.path, at - 2, size, last);
+  const p1 = tileAt(v.path, at - 1, size, last);
+  const p2 = tileAt(v.path, at, size, last);
+  const p3 = tileAt(v.path, at + 1, size, last);
+
+  const t = v.t;
+  const x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
+  const z = catmullRom(p0.z, p1.z, p2.z, p3.z, t);
+  // Heading from the curve's own tangent, not from the segment: taking it from
+  // the segment is what made the quarter-turn snap in the first place.
+  const dx = catmullRomSlope(p0.x, p1.x, p2.x, p3.x, t);
+  const dz = catmullRomSlope(p0.z, p1.z, p2.z, p3.z, t);
+  const heading = Math.atan2(dx, dz);
+
+  return {
+    x: x * TILE + Math.cos(heading) * LANE_OFFSET * TILE,
+    z: z * TILE - Math.sin(heading) * LANE_OFFSET * TILE,
+    heading,
+  };
+}
+
+/** A path entry as tile coordinates, clamped to the route's own ends. */
+function tileAt(
+  path: ArrayLike<number>,
+  at: number,
+  size: number,
+  last: number,
+): { x: number; z: number } {
+  const clamped = at < 0 ? 0 : at > last ? last : at;
+  const index = path[clamped] as number;
+  return { x: index % size, z: Math.floor(index / size) };
+}
+
+export function catmullRom(p0: number, p1: number, p2: number, p3: number, t: number): number {
+  const t2 = t * t;
+  const t3 = t2 * t;
+  return (
+    0.5 *
+    (2 * p1 + (-p0 + p2) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t2 + (-p0 + 3 * p1 - 3 * p2 + p3) * t3)
+  );
+}
+
+/** The same curve's derivative, which is the direction the vehicle faces. */
+export function catmullRomSlope(
+  p0: number,
+  p1: number,
+  p2: number,
+  p3: number,
+  t: number,
+): number {
+  const t2 = t * t;
+  return (
+    0.5 * (-p0 + p2 + 2 * (2 * p0 - 5 * p1 + 4 * p2 - p3) * t + 3 * (-p0 + 3 * p1 - 3 * p2 + p3) * t2)
+  );
 }
 
 function placeAtStart(v: Vehicle, g: Graph, path: Int32Array): void {

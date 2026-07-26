@@ -190,6 +190,27 @@ export const STR = {
     done: 'Şehir devredildi.',
   },
 
+  /** Petitions (Paket 3 §7): the city naming what is wrong with it. */
+  petition: {
+    raised: {
+      water: 'Mahalleli su istiyor — şebeke yetmiyor.',
+      power: 'Elektrik kesintisi şikâyeti geldi.',
+      services: 'Hizmet binası yok diye dilekçe verildi.',
+      traffic: 'Trafik dilekçesi: sokaklar tıkanıyor.',
+      pollution: 'Hava kirliliği şikâyeti geldi.',
+      noise: 'Gürültü şikâyeti geldi.',
+    },
+    resolved: {
+      water: 'Su sorunu çözüldü, dilekçe geri çekildi.',
+      power: 'Elektrik düzeldi, dilekçe geri çekildi.',
+      services: 'Hizmet binası kuruldu, dilekçe geri çekildi.',
+      traffic: 'Trafik rahatladı, dilekçe geri çekildi.',
+      pollution: 'Hava temizlendi, dilekçe geri çekildi.',
+      noise: 'Gürültü azaldı, dilekçe geri çekildi.',
+    },
+    icon: '📋',
+  },
+
   /** Weather (Paket 2 §6). Announced when a spell begins, then left alone. */
   weather: {
     rain: 'Yağmur başladı. Yangın zor yayılır, tarla verir.',
