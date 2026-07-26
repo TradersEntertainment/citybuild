@@ -200,7 +200,30 @@ tests/         vitest — sim tarafındaki her özellik için test ZORUNLU
     dirsektir ve zikzağın ölçüsü *viraj sayısıdır*, dirsek oranı değil. İlk
     ölçümümde bunu karıştırdım: "%49 tek karelik koşu" yapısal, anlamlı sayı
     "100 karede kaç viraj" (39–71'den 12'ye indi, `HIGHWAY_MIN_RUN`).
-21. **Aynı kutuyu üçüncü kez yazma:** `render3d/boxMesh.ts` var
+21. **`drainPopulation` manşet sayıyı güncellemez.** Evleri boşaltır, ama
+    `state.population`'ı yeniden hesaplamaz — `refreshPopulation(state)`
+    (`sim/hazards.ts`) çağırmak *çağıranın* işi. Kohortlarda bir adımlık
+    kalıcı kayma olarak yaşandı; her uzlaştırma bu farkı "yeni gelenler"
+    diye okudu.
+22. **`refreshPopulation` binaları otorite yapar.** Fixture'da sadece
+    `state.population = N` yazmak bir adım sonra geri alınır; insanları
+    binalara dağıtmak gerekiyor (`tests/cohorts.test.ts` içindeki
+    `resettle`).
+23. **Çevrimdışı yol 30 adımda ilerliyor** (`OFFLINE_STEPS`), yani bir saat
+    120 saniyelik adımlar demek. Bu yüzden `dt`'ye bağlı her şey iki yolu
+    ayırır. Kurallar:
+    - Akış oranları üstel olsun (`1 - exp(-dt/T)`), `dt/T` değil.
+    - Bir **stok**tan (boş konut, birikmiş çöp) pay kesen şey kaba adımda
+      daha sert kırpılır — oranı yumuşak bir rampayla ölçekle, stoku
+      doğrudan okuma.
+    - Birikimler (`awaitingBurial`, `rubbish`) `hazardsLive` ile kapılı
+      olmalı: `offline.ts`'in kendi kuralı, "uzakta geçen zaman kazandırır,
+      yıkmaz". Ölçüldü: defin birikimi yüzünden bir saat %14 küçük döndü.
+24. **Yeni bir hizmet türü eklemek yedi dosyaya dokunur:**
+    `data/services.ts` (spec + ORDER), `sim/tiles.ts` (SERVICE biti),
+    `data/strings.tr.ts` (isim), `render3d/stations.ts` (LOOKS) — ve
+    tsc bunların hepsini yakalar, o yüzden derleyiciye güven.
+25. **Aynı kutuyu üçüncü kez yazma:** `render3d/boxMesh.ts` var
     (`pushBox` / `pushColouredBox` / `pushTriangle` / `toMeshGeometry`).
     Ters sarılmış yüz dışarıdan görünmez içeriden siyahtır — arketip
     çatılarında bir kez yaşandı.
@@ -218,6 +241,28 @@ yavaşlıktır (yanılgıya düşme).
 
 "Yaşayan Şehir" paketlerinin **hepsi yapıldı** (§1'deki listeye bak). Bu bölüm
 artık bundan sonrası için.
+
+### Faz 8 — "yaşayan şehir" derinliği (Cities: Skylines listesi)
+Oyuncunun otuz maddelik listesinden yapılanlar:
+
+- **Nüfus kohortları** (`sim/cohorts.ts`) — çocuk/genç/yetişkin/yaşlı
+  bantları. İş gücü artık *ölçülüyor*, varsayılmıyor; okul bir nesil sonra
+  ödüyor; ölüm dalgaları akışın kendisinden çıkıyor. Kişi başı ajan
+  simülasyonu **bilinçli olarak yapılmadı** — yüz bin kayıt tarayıcıda
+  dönmez; dört sayı neredeyse aynı şeyi veriyor.
+- **Mezarlık** ve **çöp toplama** (`sim/rubbish.ts`) hizmetleri. Çöp,
+  salgının hiç sahip olmadığı *sebep*: artık oyuncu olmadan önce
+  müdahale edebiliyor.
+- **Yeraltı kaynakları canlandı** (`sim/resources.ts`) — kömür/demir/taş/kil
+  ilk fazdan beri her haritada üretiliyordu ve *hiçbir şey okumuyordu*.
+  Sanayi damarın üstünde daha çok kazanıyor, damar tükeniyor, tükenmişlik
+  kaydediliyor (yoksa sekmeyi kapatmak madeni doldururdu).
+- **Park arazi değeri veriyor** — zincirin ilk halkası eksikti.
+- **Altı elektrik üretim yolu**, iki tanesi su kıyısı istiyor.
+- **On üç araştırma**, her birinin `sim/` içinde tam bir tüketicisi var.
+- **Zaman kontrolü** (duraklat/0.5×/2×/4×) ve **suç + polis sevki**.
+
+Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
 
 ### Sırada duran, başlanmamış
 1. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip
@@ -242,6 +287,28 @@ artık bundan sonrası için.
 Sim varsa önce test → `tsc` temiz → `vitest run` 625+ yeşil → `build` →
 Türkçe commit. Büyük adımlarda `main`'e push (Vercel deploy) ve canlıda his
 kontrolü — **bunu sandbox yapamaz**, aşağıya bak.
+
+### Listeden bilinçli olarak yapılmayanlar (tekrar açmadan önce oku)
+Oyuncunun Cities: Skylines listesindeki her madde bu oyunun ölçeğine sığmıyor.
+Sığmayanlar ve nedenleri:
+
+- **Kişi başı NPC simülasyonu** (madde 2, 29). Yüz bin ajanın rotası, günlük
+  rutini ve yaşı tek thread'de tarayıcıda dönmez. `sim/cohorts.ts` dört bant
+  ile yaşlanmayı, eğitimi ve ölüm dalgalarını *aynı hisle* veriyor.
+  Yeniden açacaksan önce onun ne verdiğini oku.
+- **Şerit değiştirme, trafik ışığı, kavşak tasarımı** (madde 1). Renderer'da
+  gerçek A* var (`render3d/traffic.ts`) ama sim'e geri beslemiyor ve
+  bilinçli: sim trafiği bir *alan*, araç değil. Işık eklemek araçları sim'e
+  taşımak demek.
+- **Mod desteği** (madde 30). Ayrı bir ürün.
+- **Yağmur suyu / kanalizasyon ağı, su fiziği** (madde 5, 6, 32). Ayrı bir
+  şebeke katmanı; su/elektrik zaten yol üstünden akıyor, üçüncü bir ağ
+  oyuncuya üç kat kurulum işi demek. Değeri ölçülmeden açılmasın.
+
+Henüz **yapılmamış ama sığar** olanlar: toplu taşıma (otobüs hattını parmakla
+çizmek bu oyunun diline tam oturur), sanayi tedarik zinciri, yoğunluk
+kademeleri + ofis bölgesi, birim bazlı bütçe kalemleri, seçim/kamuoyu,
+emlak piyasası, hizmet kapsamasının mesafeyle azalması.
 
 ### Sandbox'ın göremediği şeyler (dürüst ol)
 Bu ortamda GPU yok: Chromium swiftshader ile ~0.5 fps çiziyor ve
