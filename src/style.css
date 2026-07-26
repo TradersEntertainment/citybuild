@@ -1249,6 +1249,17 @@ body {
   cursor: default;
 }
 
+/* The speed button carries a label rather than a glyph — "0.5×" is four
+   characters where the rest of the column has one, and at the shared 19px it
+   would run over the edge of a 44px button. Tabular figures so the label does
+   not jump sideways between speeds. */
+.view-button[data-role='speed'] {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
 /* A latch, not a button: the hand tool has to look held down while it is on,
    because the only other way to know is to try to draw and fail. */
 .view-button[data-active='true'] {

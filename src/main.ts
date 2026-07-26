@@ -8,7 +8,7 @@ import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
 import { STR } from './data/strings.tr';
 import { bindMouseCamera, bindPointerInput, bindWheelZoom } from './input/pointer';
-import { bindKeyboardCamera } from './input/keyboardCamera';
+import { bindKeyboardCamera, isTyping } from './input/keyboardCamera';
 import { ToolController } from './input/tools';
 import { registerServiceWorker } from './pwa/registerSW';
 import { periodOf } from './render3d/archetypes';
@@ -525,6 +525,17 @@ function refreshWalkKeys(): void {
 }
 
 window.addEventListener('keydown', (event) => {
+  // Space stops and starts the clock, from anywhere. It is the one key every
+  // game with a pause has used, and it is deliberately outside the walk guard:
+  // a player who wants the city to hold still wants that on foot too.
+  if (event.code === 'Space' && !event.repeat && !isTyping(event.target)) {
+    event.preventDefault();
+    clock.setSpeed(clock.currentSpeed === 0 ? 1 : 0);
+    haptics.tap();
+    if (clock.currentSpeed === 0) toast.show(STR.view.paused);
+    viewControls.refresh();
+    return;
+  }
   if (!walk.active) return;
   if (event.code === 'Escape') {
     exitWalk();
@@ -565,11 +576,27 @@ function exitWalk(): void {
 
 const historyPanel = mountHistoryPanel(ui);
 
-mountViewControls(ui, {
+/**
+ * Steps the clock to its next speed and says what happened.
+ *
+ * Announced rather than silent: at 2× the label on the button is the only clue,
+ * and a player who paused by accident and cannot see why the city stopped will
+ * assume the game broke rather than that they pressed something.
+ */
+function cycleSpeed(): void {
+  clock.setSpeed(clock.nextSpeed());
+  haptics.tap();
+  const speed = clock.currentSpeed;
+  toast.show(speed === 0 ? STR.view.paused : `${STR.view.speed}: ${speed}×`);
+}
+
+const viewControls = mountViewControls(ui, {
   // Anchored on the middle of the screen, which is what the player is looking
   // at when they reach for a button rather than a finger.
   onZoom: (factor) => camera.zoomAt(camera.viewportWidth / 2, camera.viewportHeight / 2, factor),
   onRotate: (radians) => camera.orbitByAngle(radians),
+  speed: () => clock.currentSpeed,
+  onCycleSpeed: () => cycleSpeed(),
   panLocked: () => panLocked,
   onTogglePanLock: () => {
     panLocked = !panLocked;

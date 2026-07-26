@@ -483,6 +483,9 @@ export const STR = {
     walk: 'Şehirde yürü',
     history: 'Şehrin tarihçesi',
     pan: 'Haritayı kaydır (tek parmak)',
+    speed: 'Zaman hızı',
+    /** Said when the city is stopped, so a player cannot wonder why nothing moves. */
+    paused: 'Zaman durdu.',
     panOn: 'Kaydırma açık — tek parmakla haritayı sürükle.',
     panOff: 'Kaydırma kapalı — tek parmak yine çiziyor.',
     /** Shown once, the first time a desktop city opens. */

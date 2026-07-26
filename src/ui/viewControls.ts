@@ -19,6 +19,9 @@ export interface ViewControlDeps {
   /** Whether one finger currently drags the map instead of drawing on it. */
   panLocked(): boolean;
   onTogglePanLock(): void;
+  /** How fast the city is living, and the switch that walks through the speeds. */
+  speed(): number;
+  onCycleSpeed(): void;
   /** Current sound setting, and the switch for it. */
   soundOn(): boolean;
   onToggleSound(): void;
@@ -92,7 +95,28 @@ export function mountViewControls(
   };
   paintPan();
 
+  /**
+   * Speed as one cycling button rather than a row of four.
+   *
+   * The column already carries seven controls; four more would make it a
+   * settings screen. A button that shows the current speed and advances on tap
+   * is the phone answer, and the label is the state — nothing is hidden.
+   */
+  const speed = make('', STR.view.speed, () => {
+    deps.onCycleSpeed();
+    paintSpeed();
+  });
+  speed.dataset['role'] = 'speed';
+  const paintSpeed = (): void => {
+    const value = deps.speed();
+    speed.textContent = value === 0 ? '⏸' : `${value}×`;
+    speed.dataset['active'] = String(value !== 1);
+    speed.setAttribute('aria-label', `${STR.view.speed}: ${value === 0 ? '⏸' : `${value}×`}`);
+  };
+  paintSpeed();
+
   column.append(
+    speed,
     pan,
     make('+', STR.view.zoomIn, () => deps.onZoom(ZOOM_STEP)),
     make('−', STR.view.zoomOut, () => deps.onZoom(1 / ZOOM_STEP)),
@@ -107,6 +131,7 @@ export function mountViewControls(
     refresh: () => {
       paintPan();
       paintSound();
+      paintSpeed();
     },
     dispose: () => column.remove(),
   };

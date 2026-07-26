@@ -185,7 +185,13 @@ export function bindKeyboardCamera(isBlocked: () => boolean): KeyboardCameraBind
   };
 }
 
-function isTyping(target: EventTarget | null): boolean {
+/**
+ * Whether a key press belongs to a text field rather than to the game.
+ *
+ * Shared, because every global shortcut needs the same answer and a second copy
+ * of it would be one edit away from disagreeing with this one.
+ */
+export function isTyping(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false;
   if (target.isContentEditable) return true;
   const tag = target.tagName;
