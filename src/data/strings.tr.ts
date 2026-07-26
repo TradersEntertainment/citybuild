@@ -101,6 +101,16 @@ export const STR = {
     backlogRow: 'Defin bekleyen',
   },
 
+  /** The ground the city is standing on (sim/resources.ts). */
+  resource: {
+    none: 'Yok',
+    coal: 'Kömür',
+    iron: 'Demir',
+    stone: 'Taş',
+    clay: 'Kil',
+  },
+  seamExhausted: (kind: string): string => `${kind} damarı tükendi.`,
+
   tools: {
     road: 'yol',
     zone: 'bölge',

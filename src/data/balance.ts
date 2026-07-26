@@ -27,6 +27,30 @@ export const RIVER_COUNT = 7;
 export const RIVER_MAX_LENGTH = 400;
 export const RESOURCE_CLUSTERS = 26;
 export const RESOURCE_CLUSTER_RADIUS = 6;
+/**
+ * What a workshop standing on a seam is worth, as an output multiplier.
+ *
+ * Coal, iron, stone and clay have been generated into every map since the first
+ * phase and read by nothing but the tile inspector — a whole layer of terrain the
+ * player could see and never use. This is what makes the map's own geology a
+ * reason to put the industry *there* rather than anywhere flat.
+ */
+export const RESOURCE_OUTPUT = {
+  none: 1,
+  coal: 1.55,
+  iron: 1.7,
+  stone: 1.35,
+  clay: 1.3,
+} as const;
+/**
+ * Tiles of seam a workshop works through per minute at full output.
+ *
+ * A seam is a stock, not a tax break: work it and it runs out, and the district
+ * built on it has to find something else to be. Slow enough that a player who
+ * plants industry on coal gets a good long run out of it, fast enough that a
+ * hundred-year city sees its first exhausted field.
+ */
+export const RESOURCE_DEPLETION_PER_MIN = 0.02;
 
 // --- Road drawing (§5.1) -----------------------------------------------------
 /** Deviations shorter than this snap onto the main axis. */
@@ -167,6 +191,18 @@ export const NOISE_PER_INDUSTRIAL_JOB = 2;
 export const NOISE_PER_COMMERCIAL_JOB = 1;
 /** Share of a tile's load removed each pass by a park. */
 export const PARK_ABSORPTION = 0.3;
+/**
+ * What an address on the park is worth, on the 0..100 land-value scale.
+ *
+ * Parks cost ninety a tile — the dearest thing the zone brush paints — and until
+ * now the whole return was cleaner air. Nobody plants a park for the diffusion
+ * pass. This is the link that was missing from the chain the game already has
+ * everywhere else: park, then land value, then a taller building on it, then more
+ * tax off the same ground.
+ */
+export const PARK_LAND_VALUE = 20;
+/** How far that bonus carries, in tiles. Two streets, not a district. */
+export const PARK_VALUE_REACH = 5;
 /** Standing woodland does the same, less well than a planted park. */
 export const TREE_ABSORPTION = 0.16;
 /**

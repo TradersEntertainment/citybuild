@@ -17,6 +17,7 @@ import { portUpkeep, seaIncome } from './ports';
 import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
 import { skillFactor } from './cohorts';
+import { resourceFactor } from './resources';
 import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
 import { utilityUpkeep } from './utilities';
@@ -126,7 +127,11 @@ export function computeLedger(
       const corridor = 1 + (trade(state, fields, visitors, building.x, building.y) - 1) * 0.5;
       // A workshop keeps a night shift more readily than a shop keeps a
       // shopkeeper, so the dark costs it half as much.
-      building.output = building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill;
+      // And what is under it (sim/resources.ts): a workshop on a coal seam is
+      // worth putting there, until the seam runs out.
+      const seam = resourceFactor(state.world, building.x, building.y);
+      building.output =
+        building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill * seam;
       building.output *= corridor;
       visitorTrade += building.output * (1 - 1 / corridor) * INDUSTRIAL_TAX;
       taxIncome += building.output * INDUSTRIAL_TAX;

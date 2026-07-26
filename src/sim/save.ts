@@ -68,6 +68,14 @@ export interface SaveData {
   /** Which way each tile runs, RLE'd beside the roads it belongs to. */
   oneWay: number[];
   zone: number[];
+  /**
+   * How far each seam has been worked, RLE'd like the rest (sim/resources.ts).
+   *
+   * Saved because it must be: the resource column itself is regenerated from the
+   * seed, so without this a player could refill a worked-out coal field by
+   * closing the tab.
+   */
+  depleted: number[];
   parcelsOwned: number[];
   /** Buildings, flattened; see BUILDING_FIELDS for the column order. */
   buildings: number[];
@@ -155,6 +163,7 @@ export function serialize(state: GameState): SaveData {
     road: encodeRuns(state.world.road),
     oneWay: encodeRuns(state.world.oneWay),
     zone: encodeRuns(state.world.zone),
+    depleted: encodeRuns(state.world.depleted),
     parcelsOwned: encodeRuns(state.world.parcelsOwned),
     buildings,
     services,
@@ -248,6 +257,10 @@ export function deserialize(data: unknown): GameState | null {
   ) {
     return null;
   }
+  // Seams arrived after the map did, so a file without the column is a city whose
+  // ground has never been mined — not a corrupt one.
+  if (Array.isArray(data.depleted)) decodeRuns(data.depleted, state.world.depleted);
+
   // Arrows arrived after the roads did, so a file without them is a city whose
   // streets all run both ways — not a corrupt one. A malformed run is still
   // refused: half a set of arrows is a city whose traffic laws disagree with

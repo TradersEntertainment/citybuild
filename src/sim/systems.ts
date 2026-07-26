@@ -3,9 +3,16 @@ import { evaluateBuildings, totalBuildings } from './buildings';
 import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
-import { computeLandValue, computeRoadDistance, createFields, type Fields } from './fields';
+import {
+  computeLandValue,
+  computeParkValue,
+  computeRoadDistance,
+  createFields,
+  type Fields,
+} from './fields';
 import { stepCohorts, type CohortEvent } from './cohorts';
 import { stepCrime, type CrimeEvent } from './crime';
+import { stepResources, type ResourceEvent } from './resources';
 import { stepHazards, type HazardEvent } from './hazards';
 import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
 import type { Mission } from '../data/missions';
@@ -30,6 +37,7 @@ const EMPTY_MISSIONS: readonly Mission[] = [];
 const EMPTY_HAZARDS: readonly HazardEvent[] = [];
 const EMPTY_CRIMES: readonly CrimeEvent[] = [];
 const EMPTY_COHORTS: readonly CohortEvent[] = [];
+const EMPTY_RESOURCES: readonly ResourceEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
@@ -66,6 +74,7 @@ export class Systems {
   private readonly hazardEvents: HazardEvent[] = [];
   private readonly crimeEvents: CrimeEvent[] = [];
   private readonly cohortEvents: CohortEvent[] = [];
+  private readonly resourceEvents: ResourceEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -110,6 +119,9 @@ export class Systems {
       refreshSeaGates(state);
       computeConnectivity(state.world);
       computeRoadDistance(state.world, this.fields.roadDistance);
+      // Parks move only when the brush moves, so this rides the same invalidation
+      // as the roads rather than the traffic clock.
+      computeParkValue(state.world, this.fields.parkValue);
       computeTraffic(state, this.fields, this.traffic);
       this.refreshVisitors(state);
       computeLandValue(state.world, this.fields, this.traffic);
@@ -171,6 +183,11 @@ export class Systems {
       // The calendar's own dates, which come round every year rather than once.
       this.ritualsFired.push(...drainRituals(state, this.announcedRituals));
 
+      // The seams under the city's workshops, worked down (sim/resources.ts).
+      // Live only, and for the same reason as the fires: coming back from a night
+      // away to find the coalfield gone is a punishment for not playing.
+      this.resourceEvents.push(...stepResources(state, dt));
+
       const road = stepHighwayWear(state, dt);
       if (road.length > 0) {
         this.roadEvents.push(...road);
@@ -217,6 +234,12 @@ export class Systems {
   drainCohortEvents(): readonly CohortEvent[] {
     if (this.cohortEvents.length === 0) return EMPTY_COHORTS;
     return this.cohortEvents.splice(0, this.cohortEvents.length);
+  }
+
+  /** Seams worked out since the last drain (sim/resources.ts). */
+  drainResourceEvents(): readonly ResourceEvent[] {
+    if (this.resourceEvents.length === 0) return EMPTY_RESOURCES;
+    return this.resourceEvents.splice(0, this.resourceEvents.length);
   }
 
   /** Crimes started, solved or lost since the last drain. */

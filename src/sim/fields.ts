@@ -1,6 +1,12 @@
-import { CONGESTION_LAND_VALUE, ROAD_ACCESS_MAX_WALK, SEA_LEVEL } from '../data/balance';
+import {
+  CONGESTION_LAND_VALUE,
+  PARK_LAND_VALUE,
+  PARK_VALUE_REACH,
+  ROAD_ACCESS_MAX_WALK,
+  SEA_LEVEL,
+} from '../data/balance';
 import { ROAD_SPECS } from '../data/roads';
-import { decodeRoad, decodeTerrain, NONE } from './tiles';
+import { decodeRoad, decodeTerrain, decodeZone, NONE } from './tiles';
 import { index, type World } from './world';
 
 /**
@@ -23,6 +29,17 @@ export interface Fields {
   terrainValue: Float32Array;
   /** False until terrainValue has been filled for the ground as it now stands. */
   terrainValid: boolean;
+  /**
+   * What being near a park is worth, 0..PARK_LAND_VALUE.
+   *
+   * A field rather than a lookup at valuation time. Asking every tile what parks
+   * are within five of it is a hundred and twenty-one reads across sixty-five
+   * thousand tiles every time land value is redone — eight million, five times a
+   * minute. Parks are sparse, so stamping outward from each of them instead costs
+   * a hundred and twenty-one reads per park and nothing at all for a city with
+   * none.
+   */
+  parkValue: Float32Array;
 }
 
 export const UNREACHABLE = 255;
@@ -34,12 +51,48 @@ export function createFields(size: number): Fields {
     landValue: new Float32Array(cells),
     terrainValue: new Float32Array(cells),
     terrainValid: false,
+    parkValue: new Float32Array(cells),
   };
 }
 
 /** Call when the ground itself changed; the cached terrain term is then redone. */
 export function invalidateTerrainValue(fields: Fields): void {
   fields.terrainValid = false;
+}
+
+/**
+ * What every tile is worth for being near a park.
+ *
+ * Parks are the dearest thing the zone brush paints and, until this existed, the
+ * whole return was that the diffusion pass took some smoke out of the air.
+ * Nobody plants a park for the diffusion pass. This closes the loop the game
+ * already has everywhere else — a nice address is worth more, a valuable plot
+ * grows a taller building, a taller building pays more tax on the same ground.
+ *
+ * Linear falloff, and the best park wins rather than the parks adding up: three
+ * squares in a row should be a nice neighbourhood, not a gold mine.
+ */
+export function computeParkValue(world: World, out: Float32Array): void {
+  out.fill(0);
+  const size = world.size;
+  const reach = PARK_VALUE_REACH;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (decodeZone(world.zone[index(world, x, y)] ?? NONE) !== 'park') continue;
+      for (let dy = -reach; dy <= reach; dy++) {
+        for (let dx = -reach; dx <= reach; dx++) {
+          const distance = Math.hypot(dx, dy);
+          if (distance > reach) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= size || ny >= size) continue;
+          const worth = PARK_LAND_VALUE * (1 - distance / (reach + 1));
+          const ni = index(world, nx, ny);
+          if (worth > (out[ni] ?? 0)) out[ni] = worth;
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -143,7 +196,7 @@ export function computeLandValue(
   traffic?: { load: Float32Array },
 ): void {
   if (!fields.terrainValid) computeTerrainValue(world, fields);
-  const { roadDistance, landValue, terrainValue } = fields;
+  const { roadDistance, landValue, terrainValue, parkValue } = fields;
 
   for (let y = 0; y < world.size; y++) {
     for (let x = 0; x < world.size; x++) {
@@ -155,6 +208,9 @@ export function computeLandValue(
       }
 
       let value = base;
+      // An address on the park. Outside the road check on purpose: a plot facing
+      // a green is worth more whether or not it also fronts a good street.
+      value += parkValue[i] ?? 0;
       const distance = roadDistance[i] ?? UNREACHABLE;
       if (distance <= ROAD_ACCESS_MAX_WALK) {
         // Being on the road is worth more than being four tiles behind it.

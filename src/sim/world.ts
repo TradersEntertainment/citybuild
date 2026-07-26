@@ -23,6 +23,18 @@ export interface World {
   terrain: Uint8Array;
   fertility: Float32Array;
   resource: Uint8Array;
+  /**
+   * How much of the seam under a tile has been mined, 0..255 (sim/resources.ts).
+   *
+   * Kept beside the kind rather than clearing it: a worked-out coal field should
+   * still read as a coal field on the map and in the inspector. What changed is
+   * that there is nothing left in it.
+   *
+   * Uint8 rather than a float because it is saved, and the save codec run-length
+   * encodes columns — most of this one is 0 or 255 and compresses to almost
+   * nothing.
+   */
+  depleted: Uint8Array;
   road: Uint8Array;
   zone: Uint8Array;
   /** 0 means "no building"; ids start at 1. */
@@ -84,6 +96,7 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     terrain: new Uint8Array(cells).fill(encodeTerrain('plain')),
     fertility: new Float32Array(cells),
     resource: new Uint8Array(cells),
+    depleted: new Uint8Array(cells),
     road: new Uint8Array(cells),
     zone: new Uint8Array(cells),
     building: new Uint32Array(cells),

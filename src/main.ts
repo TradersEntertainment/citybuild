@@ -846,6 +846,7 @@ function frame(now: number): void {
     announceHazards();
     announceCrime();
     announceCohorts();
+    announceSeams();
     announceTimeline();
     announceWeather();
     announcePetitions();
@@ -949,6 +950,29 @@ function announceCrime(): void {
 
 /** Whether the player has been told what a crime marker is for. */
 let taughtCrime = false;
+
+/**
+ * A seam worked out (sim/resources.ts).
+ *
+ * Feed only, never a toast. A district loses its bonus one tile at a time and a
+ * banner per tile would be a siren; what the player needs is a line in the
+ * blotter saying the coal is finished, so the district's falling output has a
+ * cause they can point at.
+ */
+function announceSeams(): void {
+  const events = systems.drainResourceEvents();
+  if (events.length === 0) return;
+  // One line per kind, not per tile: a big field runs out a tile at a time and
+  // twenty identical lines would push everything else out of the blotter.
+  const kinds = new Set(events.map((event) => event.resource));
+  eventFeed.pushCustom(
+    [...kinds].map((kind) => ({
+      icon: '⛏️',
+      tone: 'warn' as const,
+      text: STR.seamExhausted(STR.resource[kind]),
+    })),
+  );
+}
 
 /**
  * The city falling behind on its burials, and catching up again (sim/cohorts.ts).
