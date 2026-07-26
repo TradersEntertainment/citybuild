@@ -8,7 +8,7 @@ import { decodeRoad, NONE } from '../sim/tiles';
 import { yearOf } from '../sim/timeline';
 import type { World } from '../sim/world';
 import { LOD_TRAFFIC_DISTANCE, ROAD_LIFT, SEA_Y, TILE, WORLD_SIZE } from './constants';
-import { sampleHeight } from './terrain';
+import { sampleRoadHeight } from './roadDeck';
 
 /**
  * What drives on the roads.
@@ -856,7 +856,9 @@ function composeMatrix(
   // never reach my city".)
   const wx = pose.x;
   const wz = pose.z;
-  const ground = Math.max(sampleHeight(world, pose.x, pose.z), SEA_Y);
+  // The road's own height, not the soil's: over water that is the bridge deck,
+  // and a lorry that read the seabed would drive under its own bridge.
+  const ground = Math.max(sampleRoadHeight(world, pose.x, pose.z), SEA_Y);
   // The space age: from 2050 the fleet rides above the road, not on it — a
   // gentle bob per vehicle so the sky lane reads as traffic, not a glitch.
   const lift = flying ? 1.5 + 0.3 * Math.sin(seconds * 1.8 + v.seed * 40) : 0;

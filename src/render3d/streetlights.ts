@@ -3,7 +3,7 @@ import { yearOf } from '../sim/timeline';
 import { decodeRoad, NONE, type RoadKind } from '../sim/tiles';
 import { index, type World } from '../sim/world';
 import { LOD_DETAIL_DISTANCE, ROAD_LIFT } from './constants';
-import { sampleHeight } from './terrain';
+import { sampleRoadHeight } from './roadDeck';
 
 /**
  * Street lighting (Paket 1 §3).
@@ -160,7 +160,7 @@ export function createStreetlights(world: World): StreetlightLayer {
       const site = sites[i] as (typeof sites)[number];
       const px = site.x + 0.5 + site.offX * 0.42;
       const py = site.y + 0.5 + site.offY * 0.42;
-      const ground = sampleHeight(world, px, py) + ROAD_LIFT;
+      const ground = sampleRoadHeight(world, px, py) + ROAD_LIFT;
 
       position.set(px, ground, py);
       matrix.compose(position, quaternion, one);

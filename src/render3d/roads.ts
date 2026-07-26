@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { World } from '../sim/world';
+import { buildBridgeGeometry } from './bridgeGeometry';
 import { buildRoadGeometry } from './roadGeometry';
 
 /**
@@ -38,19 +39,40 @@ export function createRoads(world: World): RoadMesh {
     polygonOffsetUnits: -2,
   });
 
+  // The structure under a water crossing: slab, parapets, piers. Its own
+  // material because it is the one part of a road that is not a flat surface —
+  // it needs shadows both ways and no polygon offset.
+  const bridgeMaterial = new THREE.MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.78,
+    metalness: 0.04,
+  });
+
   const surface = new THREE.Mesh(new THREE.BufferGeometry(), surfaceMaterial);
   surface.receiveShadow = true;
   surface.castShadow = false;
   const markings = new THREE.Mesh(new THREE.BufferGeometry(), markingMaterial);
   markings.receiveShadow = false;
-  group.add(surface, markings);
+  const bridges = new THREE.Mesh(new THREE.BufferGeometry(), bridgeMaterial);
+  bridges.castShadow = true;
+  bridges.receiveShadow = true;
+  bridges.visible = false;
+  group.add(surface, markings, bridges);
 
   const rebuild = (): void => {
     surface.geometry.dispose();
     markings.geometry.dispose();
+    bridges.geometry.dispose();
     const built = buildRoadGeometry(world);
     surface.geometry = built.surface;
     markings.geometry = built.markings;
+    // The deck the road surface was actually built on, so the piers reach the
+    // underside of the tarmac rather than to a height computed twice.
+    const built3d = buildBridgeGeometry(world, built.deck);
+    bridges.geometry = built3d.geometry;
+    // Most maps have a crossing somewhere; the ones that do not skip the mesh
+    // entirely rather than drawing an empty buffer every frame.
+    bridges.visible = built3d.tiles > 0;
   };
 
   rebuild();
@@ -61,8 +83,10 @@ export function createRoads(world: World): RoadMesh {
     dispose: () => {
       surface.geometry.dispose();
       markings.geometry.dispose();
+      bridges.geometry.dispose();
       surfaceMaterial.dispose();
       markingMaterial.dispose();
+      bridgeMaterial.dispose();
       group.clear();
     },
   };

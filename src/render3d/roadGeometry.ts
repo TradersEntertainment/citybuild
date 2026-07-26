@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { decodeRoad, NONE, type RoadKind } from '../sim/tiles';
 import { index, type World } from '../sim/world';
 import { ROAD_LIFT, ROAD_WIDTH } from './constants';
-import { sampleHeight } from './terrain';
+import { buildRoadDeck, cacheRoadDeck, sampleDeck, type RoadDeck } from './roadDeck';
 
 /**
  * Turning the road column into triangles.
@@ -15,6 +15,12 @@ import { sampleHeight } from './terrain';
 export interface BuiltRoads {
   surface: THREE.BufferGeometry;
   markings: THREE.BufferGeometry;
+  /**
+   * The height each tile's road sits at — the ground almost everywhere, a
+   * bridge deck over water. Handed back so the bridge layer hangs its slabs and
+   * piers off exactly the surface the player can see (see roadDeck.ts).
+   */
+  deck: RoadDeck;
 }
 
 const SURFACE: Record<RoadKind, string> = {
@@ -98,6 +104,14 @@ export function buildRoadGeometry(world: World): BuiltRoads {
   const markPositions: number[] = [];
   const colour = new THREE.Color();
   const shapes = classifyRoads(world);
+  // Where the road is, vertically. Roads used to read the height field
+  // directly, which drew every water crossing along the seabed; the deck is the
+  // same field everywhere else and a bridge over water.
+  const deck = buildRoadDeck(world);
+  // Published for every other layer that rides on tarmac rather than on soil:
+  // the vehicles, the walkers, the lampposts. This is the one moment the answer
+  // can have changed, because roads have just been re-read.
+  cacheRoadDeck(world, deck);
 
   for (let y = 0; y < world.size; y++) {
     for (let x = 0; x < world.size; x++) {
@@ -137,20 +151,20 @@ export function buildRoadGeometry(world: World): BuiltRoads {
       const painted = MARKED.has(kind) && damage < MARKINGS_GONE;
 
       if (shape === SHAPE.square) {
-        pushCarriageway(positions, world, x, y, kind);
+        pushCarriageway(positions, world, deck, x, y, kind);
         tint(1);
         // Where a square meets a square across a corner and nothing connects
         // them orthogonally, the corner still has to be bridged; a ribbon
         // reaches its own corners already.
-        tint(pushDiagonalBridges(positions, world, shapes, x, y));
-        if (painted) pushMarking(markPositions, world, x, y, kind);
+        tint(pushDiagonalBridges(positions, world, deck, shapes, x, y));
+        if (painted) pushMarking(markPositions, world, deck, x, y, kind);
         continue;
       }
 
-      pushDiagonalRibbon(positions, world, x, y, kind, shape === SHAPE.rising);
+      pushDiagonalRibbon(positions, world, deck, x, y, kind, shape === SHAPE.rising);
       tint(1);
       if (painted) {
-        pushDiagonalMarking(markPositions, world, x, y, kind, shape === SHAPE.rising);
+        pushDiagonalMarking(markPositions, world, deck, x, y, kind, shape === SHAPE.rising);
       }
     }
   }
@@ -158,6 +172,7 @@ export function buildRoadGeometry(world: World): BuiltRoads {
   return {
     surface: toGeometry(positions, colours),
     markings: toGeometry(markPositions, null),
+    deck,
   };
 }
 
@@ -172,6 +187,7 @@ export function buildRoadGeometry(world: World): BuiltRoads {
 function pushDiagonalRibbon(
   out: number[],
   world: World,
+  deck: RoadDeck,
   x: number,
   y: number,
   kind: RoadKind,
@@ -199,6 +215,7 @@ function pushDiagonalRibbon(
   pushRibbonQuad(
     out,
     world,
+    deck,
     [ax - px, ay - py],
     [ax + px, ay + py],
     [bx + px, by + py],
@@ -211,6 +228,7 @@ function pushDiagonalRibbon(
 function pushDiagonalMarking(
   out: number[],
   world: World,
+  deck: RoadDeck,
   x: number,
   y: number,
   kind: RoadKind,
@@ -234,6 +252,7 @@ function pushDiagonalMarking(
   pushRibbonQuad(
     out,
     world,
+    deck,
     [ax - px, ay - py],
     [ax + px, ay + py],
     [bx + px, by + py],
@@ -254,6 +273,7 @@ function pushDiagonalMarking(
 function pushCarriageway(
   out: number[],
   world: World,
+  deck: RoadDeck,
   x: number,
   y: number,
   kind: RoadKind,
@@ -271,7 +291,7 @@ function pushCarriageway(
   const x1 = x + 1 - (vertical ? inset : 0);
   const y0 = y + (horizontal ? inset : 0);
   const y1 = y + 1 - (horizontal ? inset : 0);
-  pushQuad(out, world, x0, y0, x1, y1, ROAD_LIFT);
+  pushQuad(out, world, deck, x0, y0, x1, y1, ROAD_LIFT);
 }
 
 /**
@@ -285,6 +305,7 @@ function pushCarriageway(
 function pushDiagonalBridges(
   positions: number[],
   world: World,
+  deck: RoadDeck,
   shapes: Uint8Array,
   x: number,
   y: number,
@@ -309,6 +330,7 @@ function pushDiagonalBridges(
     pushQuad(
       positions,
       world,
+      deck,
       cornerX - half,
       cornerY - half,
       cornerX + half,
@@ -325,7 +347,14 @@ function pushDiagonalBridges(
  * junction — or a bend, where a straight stripe would cut the corner — nothing
  * is drawn, which is also what real markings do.
  */
-function pushMarking(out: number[], world: World, x: number, y: number, kind: RoadKind): void {
+function pushMarking(
+  out: number[],
+  world: World,
+  deck: RoadDeck,
+  x: number,
+  y: number,
+  kind: RoadKind,
+): void {
   const west = isRoad(world, x - 1, y);
   const east = isRoad(world, x + 1, y);
   const north = isRoad(world, x, y - 1);
@@ -344,29 +373,30 @@ function pushMarking(out: number[], world: World, x: number, y: number, kind: Ro
     const y1 = y + 0.5 + half;
     const x0 = x + 0.16;
     const x1 = x + 0.84;
-    pushQuad(out, world, x0, y0, x1, y1, lift);
+    pushQuad(out, world, deck, x0, y0, x1, y1, lift);
   } else {
     const x0 = x + 0.5 - half;
     const x1 = x + 0.5 + half;
     const y0 = y + 0.16;
     const y1 = y + 0.84;
-    pushQuad(out, world, x0, y0, x1, y1, lift);
+    pushQuad(out, world, deck, x0, y0, x1, y1, lift);
   }
 }
 
 function pushQuad(
   out: number[],
   world: World,
+  deck: RoadDeck,
   x0: number,
   y0: number,
   x1: number,
   y1: number,
   lift: number,
 ): void {
-  const a = sampleHeight(world, x0, y0) + lift;
-  const b = sampleHeight(world, x1, y0) + lift;
-  const c = sampleHeight(world, x0, y1) + lift;
-  const d = sampleHeight(world, x1, y1) + lift;
+  const a = sampleDeck(world, deck, x0, y0) + lift;
+  const b = sampleDeck(world, deck, x1, y0) + lift;
+  const c = sampleDeck(world, deck, x0, y1) + lift;
+  const d = sampleDeck(world, deck, x1, y1) + lift;
   out.push(x0, a, y0, x0, c, y1, x1, b, y0, x1, b, y0, x0, c, y1, x1, d, y1);
 }
 
@@ -380,6 +410,7 @@ type Corner = readonly [number, number];
 function pushRibbonQuad(
   out: number[],
   world: World,
+  deck: RoadDeck,
   a: Corner,
   b: Corner,
   c: Corner,
@@ -388,7 +419,7 @@ function pushRibbonQuad(
 ): void {
   const at = (p: Corner): [number, number, number] => [
     p[0],
-    sampleHeight(world, p[0], p[1]) + lift,
+    sampleDeck(world, deck, p[0], p[1]) + lift,
     p[1],
   ];
   const [ax, ay, az] = at(a);

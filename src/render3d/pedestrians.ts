@@ -4,7 +4,7 @@ import { isNationalHighway } from '../sim/highway';
 import { NONE } from '../sim/tiles';
 import { index, type World } from '../sim/world';
 import { ROAD_LIFT } from './constants';
-import { sampleHeight } from './terrain';
+import { sampleRoadHeight } from './roadDeck';
 
 /**
  * People on the pavement (Paket 1 §1).
@@ -155,7 +155,7 @@ export function createPedestrians(world: World): PedestrianLayer {
 
       // A gentle bob, phased per walker, so a crowd is not a sliding decal.
       const bob = Math.sin((walker.steps + walker.t) * Math.PI * 2 + walker.seed) * 0.006;
-      position.set(cx, sampleHeight(world, cx, cy) + ROAD_LIFT + bob, cy);
+      position.set(cx, sampleRoadHeight(world, cx, cy) + ROAD_LIFT + bob, cy);
       quaternion.setFromAxisAngle(axis, Math.atan2(dx, dy));
       matrix.compose(position, quaternion, scale);
       mesh.setMatrixAt(visible++, matrix);

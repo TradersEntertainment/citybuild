@@ -496,6 +496,32 @@ export const HIGHWAY_REPAIR_BASE = 700;
  */
 export const HIGHWAY_REPAIR_PER_ROOT_CITIZEN = 38;
 
+// --- Bridges -----------------------------------------------------------------
+/**
+ * How far a bridge deck rides above the water, in world height units.
+ *
+ * Enough that a boat could plausibly pass and that the deck reads as carried
+ * rather than floating. Bigger and every crossing becomes a viaduct; smaller
+ * and the sea laps over the tarmac.
+ */
+export const BRIDGE_CLEARANCE = 0.55;
+/**
+ * How much the deck may fall per tile as it comes back down to the ground.
+ *
+ * This is the gradient of the approach ramp, and it is the only thing deciding
+ * how far inland a bridge is felt: clearance divided by this is the ramp's
+ * length in tiles. A quarter-unit drop puts the shoreline transition over two
+ * or three tiles, which reads as a road climbing onto a bridge rather than as
+ * a step somebody forgot to smooth.
+ */
+export const BRIDGE_RAMP_DROP = 0.24;
+/** Thickness of the deck slab, so a bridge has an underside. */
+export const BRIDGE_DECK_THICKNESS = 0.14;
+/** Height of the parapet either side. Low: it must not hide the traffic. */
+export const BRIDGE_PARAPET_HEIGHT = 0.16;
+/** Tiles between piers. Every tile would be a wall, not a bridge. */
+export const BRIDGE_PIER_SPACING = 3;
+
 // --- Keyboard camera ---------------------------------------------------------
 /**
  * Screen pixels a second the keys pan the map.
