@@ -1,4 +1,8 @@
-import { PETITION_CLEAR_SHARE, PETITION_RAISE_SHARE } from '../data/balance';
+import {
+  PETITION_CLEAR_SHARE,
+  PETITION_RAISE_SHARE,
+  PETITION_RESOLVED_HAPPINESS,
+} from '../data/balance';
 import type { GameState } from './state';
 import { ISSUE } from './tiles';
 
@@ -97,3 +101,41 @@ export function isStillStanding(state: GameState, kind: PetitionKind): boolean {
 
 /** Every kind there is, for a UI that wants to name them all. */
 export const PETITION_KINDS: readonly PetitionKind[] = COMPLAINTS.map((c) => c.kind);
+
+export interface PetitionChanges {
+  raised: PetitionKind[];
+  resolved: PetitionKind[];
+}
+
+/**
+ * Works out what changed since the caller last looked, and pays for what the
+ * player fixed.
+ *
+ * The mood bonus lands here rather than in the caller because it is a rule about
+ * the city, not about the notification: a petition answered is worth something
+ * whether or not anybody was watching the feed when it cleared.
+ *
+ * `standing` is the caller's own set and is mutated in place — the only state
+ * this system has, and it is deliberately not saved. A reload starts with no
+ * petitions outstanding and re-raises whatever is still wrong within a tick,
+ * which is cheaper than a save-schema change and produces the same city.
+ */
+export function settlePetitions(state: GameState, standing: Set<PetitionKind>): PetitionChanges {
+  const changes: PetitionChanges = { raised: [], resolved: [] };
+
+  for (const petition of activePetitions(state)) {
+    if (standing.has(petition.kind)) continue;
+    standing.add(petition.kind);
+    changes.raised.push(petition.kind);
+  }
+
+  for (const kind of [...standing]) {
+    if (isStillStanding(state, kind)) continue;
+    standing.delete(kind);
+    changes.resolved.push(kind);
+    // Capped like every other mood input: a city cannot be more than content.
+    state.happiness = Math.min(100, state.happiness + PETITION_RESOLVED_HAPPINESS);
+  }
+
+  return changes;
+}

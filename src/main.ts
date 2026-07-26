@@ -620,6 +620,7 @@ function frame(now: number): void {
     announceHazards();
     announceTimeline();
     announceWeather();
+    announcePetitions();
     checkBank();
   }
   if (budget.economyTicks > 0) {
@@ -733,6 +734,30 @@ function announceMissions(finished: readonly Mission[]): void {
   sfx.play('goal');
   syncUi();
   autosave.flush(game);
+}
+
+/**
+ * Reads out what the city has filed and what it has withdrawn.
+ *
+ * The feed rather than a toast: a petition is the city's opinion, not an
+ * interruption, and the same blotter already carries the fires and the history.
+ */
+function announcePetitions(): void {
+  const changes = systems.drainPetitions();
+  if (changes.raised.length === 0 && changes.resolved.length === 0) return;
+
+  eventFeed.pushCustom([
+    ...changes.raised.map((kind) => ({
+      icon: STR.petition.icon,
+      tone: 'warn' as const,
+      text: STR.petition.raised[kind],
+    })),
+    ...changes.resolved.map((kind) => ({
+      icon: STR.petition.icon,
+      tone: 'calm' as const,
+      text: STR.petition.resolved[kind],
+    })),
+  ]);
 }
 
 /**

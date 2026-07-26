@@ -7,6 +7,7 @@ import { computeLandValue, computeRoadDistance, createFields, type Fields } from
 import { stepHazards, type HazardEvent } from './hazards';
 import type { Mission } from '../data/missions';
 import { settleMissions } from './missions';
+import { settlePetitions, type PetitionChanges, type PetitionKind } from './petitions';
 import { stepPopulation } from './population';
 import { createRng } from './rng';
 import { stepTimeline, type TimelineFired } from './timeline';
@@ -39,6 +40,13 @@ export class Systems {
   private trafficTimer = TRAFFIC_REFRESH_S;
   private fieldsDirty = true;
   private readonly completedMissions: Mission[] = [];
+  /**
+   * Petitions the city is currently making. Not saved: a reload re-raises
+   * whatever is still wrong within a tick, which is the same city for less
+   * machinery than a save-schema change.
+   */
+  private readonly standingPetitions = new Set<PetitionKind>();
+  private readonly petitionChanges: PetitionChanges = { raised: [], resolved: [] };
   private readonly hazardEvents: HazardEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   private readonly diffusion: DiffusionScratch;
@@ -129,6 +137,11 @@ export class Systems {
     // city really did the work while nobody was watching. The caller drains the
     // list; nothing here waits on it.
     this.completedMissions.push(...settleMissions(state));
+    // Petitions read the issue flags the building pass has just written, so
+    // they run after it and see this tick's city rather than last tick's.
+    const petitions = settlePetitions(state, this.standingPetitions);
+    this.petitionChanges.raised.push(...petitions.raised);
+    this.petitionChanges.resolved.push(...petitions.resolved);
     return era;
   }
 
@@ -148,6 +161,15 @@ export class Systems {
   drainTimelineEvents(): readonly TimelineFired[] {
     if (this.timelineFired.length === 0) return EMPTY_TIMELINE;
     return this.timelineFired.splice(0, this.timelineFired.length);
+  }
+
+  /** Petitions raised and settled since the last drain, for the UI to announce. */
+  drainPetitions(): PetitionChanges {
+    const drained = {
+      raised: this.petitionChanges.raised.splice(0, this.petitionChanges.raised.length),
+      resolved: this.petitionChanges.resolved.splice(0, this.petitionChanges.resolved.length),
+    };
+    return drained;
   }
 
   /** Called at the economy cadence (1 Hz), separately from the sim step. */
