@@ -9,12 +9,14 @@ import { createOverlay, type OverlayLayer } from './overlay';
 import { createPedestrians, type PedestrianLayer } from './pedestrians';
 import { createRoads, type RoadMesh } from './roads';
 import { dayFraction, nightAmount } from '../sim/daytime';
+import { weatherAt } from '../sim/weather';
 import { createSky, updateSky, type SkyRig } from './sky';
 import { createStreetlights, type StreetlightLayer } from './streetlights';
 import { createStations, type StationLayer } from './stations';
 import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
 import { createTraffic, type TrafficLayer } from './traffic';
 import { createTrees, type TreeLayer } from './trees';
+import { createWeatherFx, type WeatherFx } from './weatherFx';
 
 /**
  * Owns the WebGL context and the scene graph, and nothing else. Everything the
@@ -61,6 +63,7 @@ export class Renderer {
   private readonly hazards: HazardLayer;
   private readonly stations: StationLayer;
   private readonly overlay: OverlayLayer;
+  private readonly weather: WeatherFx;
 
   /**
    * Set by the walk mode (§15): while someone else drives the camera, the rig
@@ -110,6 +113,7 @@ export class Renderer {
     this.stations = createStations();
     this.stations.rebuild(state);
     this.overlay = createOverlay(state.world);
+    this.weather = createWeatherFx();
 
     this.scene.add(
       this.terrain.group,
@@ -124,6 +128,7 @@ export class Renderer {
       this.hazards.group,
       this.stations.group,
       this.overlay.group,
+      this.weather.group,
     );
 
     // The rig raycasts against the height field to turn a touch into a tile, so
@@ -229,6 +234,17 @@ export class Renderer {
     const anchorY = this.externalCameraControl ? this.camera.camera.position.z : this.camera.y;
     const targetY = sampleHeight(frame.state.world, anchorX, anchorY);
     updateSky(this.sky, this.camera.camera, anchorX, targetY, anchorY);
+    // After the sky, which rewrites the fog colour every frame: this only
+    // tightens the distances, and doing it first would have them overwritten.
+    const sky = weatherAt(frame.state);
+    this.weather.update(
+      sky.kind,
+      sky.progress,
+      deltaMs / 1000,
+      this.camera.camera.position.x,
+      this.camera.camera.position.z,
+      this.scene,
+    );
     (this.water.userData['tick'] as ((seconds: number) => void) | undefined)?.(
       performance.now() / 1000,
     );
@@ -269,6 +285,7 @@ export class Renderer {
     this.stations.dispose();
     this.buildings.dispose();
     this.overlay.dispose();
+    this.weather.dispose();
     this.renderer.dispose();
   }
 }

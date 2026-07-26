@@ -18,6 +18,7 @@ import { WalkMode } from './render3d/walkMode';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
+import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
 import { dayFraction, nightAmount } from './sim/daytime';
 import { borrow, loanOffer } from './sim/credit';
 import { connectedRoadTiles } from './sim/connectivity';
@@ -550,6 +551,16 @@ document.addEventListener('visibilitychange', () => {
 let lastFrame = performance.now();
 let readoutAccumulator = 0;
 /**
+ * The spell the player has already been told about.
+ *
+ * Announced on change rather than polled into a badge: weather is an event that
+ * happens to the city, and a permanent readout of "it is clear" is a line of
+ * furniture. Starts at the spell the session opened in, so a returning player is
+ * not greeted by news of weather that has been going on for an hour.
+ */
+let announcedSpell = weatherAt(game).spell;
+let lastAnnouncedKind = weatherAt(game).kind;
+/**
  * Balance below which the bank speaks up. Not zero: by the time the city is
  * actually at nothing the player has already spent a while unable to act, and
  * the point of the offer is to reach them before that.
@@ -608,6 +619,7 @@ function frame(now: number): void {
     announceGoals();
     announceHazards();
     announceTimeline();
+    announceWeather();
     checkBank();
   }
   if (budget.economyTicks > 0) {
@@ -721,6 +733,31 @@ function announceMissions(finished: readonly Mission[]): void {
   sfx.play('goal');
   syncUi();
   autosave.flush(game);
+}
+
+/**
+ * Says so when the sky changes, once per spell.
+ *
+ * Clear weather is announced too, but only as the end of something: "hava açtı"
+ * after a storm is information, whereas the same words out of nowhere are noise.
+ */
+function announceWeather(): void {
+  const now = weatherAt(game);
+  if (now.spell === announcedSpell) return;
+  const previous = announcedSpell;
+  announcedSpell = now.spell;
+
+  const wasEventful = previous >= 0 && isWeatherWorthAnnouncing(lastAnnouncedKind);
+  lastAnnouncedKind = now.kind;
+  if (!isWeatherWorthAnnouncing(now.kind) && !wasEventful) return;
+
+  eventFeed.pushCustom([
+    {
+      icon: STR.weather.icon[now.kind],
+      tone: now.kind === 'heat' || now.kind === 'storm' ? 'warn' : 'calm',
+      text: STR.weather[now.kind],
+    },
+  ]);
 }
 
 /** What the coach reads to decide which control to point at. */

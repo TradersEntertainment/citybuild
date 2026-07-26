@@ -190,6 +190,22 @@ export const STR = {
     done: 'Şehir devredildi.',
   },
 
+  /** Weather (Paket 2 §6). Announced when a spell begins, then left alone. */
+  weather: {
+    rain: 'Yağmur başladı. Yangın zor yayılır, tarla verir.',
+    storm: 'Fırtına var. İtfaiye geç yetişiyor.',
+    heat: 'Sıcak dalgası. Her şey kolay tutuşur.',
+    fog: 'Sis çöktü.',
+    clear: 'Hava açtı.',
+    icon: {
+      rain: '🌧️',
+      storm: '⛈️',
+      heat: '🌡️',
+      fog: '🌫️',
+      clear: '☀️',
+    },
+  },
+
   /** Research (§12.2): what the city has learned to do better. */
   tech: {
     title: 'Araştırma',

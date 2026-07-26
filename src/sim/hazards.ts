@@ -18,6 +18,7 @@ import { demolish, type Building } from './buildings';
 import { drainPopulation } from './population';
 import { decodeRoad, eraReached, NONE, SERVICE } from './tiles';
 import type { GameState } from './state';
+import { weatherAt, weatherEffects, type WeatherEffects } from './weather';
 import { index, type World } from './world';
 
 /**
@@ -114,7 +115,11 @@ export function stepHazards(
   rand: () => number,
 ): HazardEvent[] {
   const events: HazardEvent[] = [];
-  stepFires(state, dt, rand, events);
+  // The sky has an opinion about fire: rain smothers it, heat feeds it, and a
+  // storm keeps the engines in the shed. Read once per step rather than per
+  // building — it cannot change inside a tick.
+  const sky = weatherEffects(weatherAt(state).kind);
+  stepFires(state, dt, rand, events, sky);
   stepEpidemic(state, dt, rand, events);
   return events;
 }
@@ -126,6 +131,7 @@ function stepFires(
   dt: number,
   rand: () => number,
   events: HazardEvent[],
+  sky: WeatherEffects,
 ): void {
   const wasRaging = state.fires.size >= RAGING_FIRES;
 
@@ -139,6 +145,7 @@ function stepFires(
       let chance = FIRE_IGNITION_PER_SEC * dt;
       chance *= 1 + (building.level - 1) * FIRE_LEVEL_IGNITION_STEP;
       if (covered) chance *= FIRE_COVERED_IGNITION_MULT;
+      chance *= sky.ignitionMult;
       if (rand() < chance) ignite(state, building, covered, events);
     }
   }
@@ -162,7 +169,10 @@ function stepFires(
           state.fires.delete(fire.id);
           events.push({ kind: 'fireOut', x: fire.x, y: fire.y });
         }
-      } else if (fire.age >= FIRE_RESPONSE_S) {
+        // A storm slows the run: dividing by the multiplier turns "the brigade
+        // is 30% slower" into "the all-clear comes 30% later", which is the
+        // same sentence from the player's side.
+      } else if (fire.age >= FIRE_RESPONSE_S / sky.responseMult) {
         state.fires.delete(fire.id);
         events.push({ kind: 'fireOut', x: fire.x, y: fire.y });
       }
@@ -171,7 +181,7 @@ function stepFires(
 
     if (fire.age - fire.lastSpread >= FIRE_SPREAD_S) {
       fire.lastSpread = fire.age;
-      if (rand() < FIRE_SPREAD_CHANCE) spread(state, fire, rand, events);
+      if (rand() < FIRE_SPREAD_CHANCE * sky.spreadMult) spread(state, fire, rand, events);
     }
 
     if (fire.age >= FIRE_BURNOUT_S) {

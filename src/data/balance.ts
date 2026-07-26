@@ -378,6 +378,22 @@ export const OFFLINE_STEP_MIN_S = 30;
 /** Below this, an absence is a glance at another tab and gets no card. */
 export const OFFLINE_MIN_REPORT_MS = 120_000;
 
+// --- Weather (Paket 2 §6) ----------------------------------------------------
+/**
+ * How long one spell of weather lasts, in seconds.
+ *
+ * Three years at forty seconds to the year — long enough that a player notices
+ * they are having a wet decade and short enough that the sky is not a setting.
+ */
+export const WEATHER_SPAN_S = 120;
+/**
+ * Weight of clear weather against every other spell put together.
+ *
+ * Heavy on purpose. Weather that is always happening is not weather, and the
+ * value of a rainy spell is entirely that the last few were not.
+ */
+export const WEATHER_CLEAR_WEIGHT = 16;
+
 // --- Day cycle (Paket 1 §2) --------------------------------------------------
 /**
  * Seconds in one day/night cycle.
