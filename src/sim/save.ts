@@ -5,6 +5,7 @@ import { techById } from '../data/tech';
 import { totalDebt } from './credit';
 import { ensureSections, refreshHighwayDamage } from './highwayWear';
 import { pruneOneWay } from './oneWay';
+import { readBudgets } from './budgets';
 import { refreshSeaGates } from './ports';
 import { stopsAlong } from './transit';
 import { PROGRAMME_ORDER, tiersOf } from '../data/investments';
@@ -52,6 +53,13 @@ export interface SaveData {
   missionsDone: string[];
   /** Ids of techs researched. */
   techsDone: string[];
+  /**
+   * What each department is funded at (sim/budgets.ts).
+   *
+   * Saved because it is a decision, and one a city can be quietly ruined by
+   * forgetting it made.
+   */
+  budgets: Record<string, number>;
   /** Level bought in each civic programme, by id. */
   investments: Record<string, number>;
   /** Legacy points this city was founded with. */
@@ -171,6 +179,7 @@ export function serialize(state: GameState): SaveData {
     farmTiles: state.farmTiles,
     missionsDone: [...state.missionsDone],
     techsDone: [...state.techsDone],
+    budgets: { ...state.budgets },
     investments: { ...investmentLevels(state) },
     legacy: state.legacy,
     highwayWear: state.highwayWear.map((wear) => Math.round(wear * 100)),
@@ -241,6 +250,12 @@ export function deserialize(data: unknown): GameState | null {
   state.techsDone = (Array.isArray(data.techsDone) ? data.techsDone : []).filter(
     (id): id is string => typeof id === 'string' && techById(id) !== undefined,
   );
+  // Budgets arrived after the stations, and a file without them is a city funding
+  // everything normally — not a corrupt one. Read defensively and clamped, so a
+  // save from a build with a wider range cannot hand a city an effect no slider
+  // in this one can explain.
+  state.budgets = readBudgets(data.budgets);
+
   // Programmes arrived after the techs, and a file without them is a city that
   // has bought none — the same additive pattern as the loans and the berths.
   // Levels are clamped against the table this build actually has, so a save

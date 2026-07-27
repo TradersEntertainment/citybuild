@@ -1,6 +1,7 @@
 import { researchPerMinute } from '../data/balance';
 import { techById, TECHS, type Tech, type TechId } from '../data/tech';
 import { SERVICE_SPECS } from '../data/services';
+import { budgetOf } from './budgets';
 import type { GameState } from './state';
 import { eraReached } from './tiles';
 import { index } from './world';
@@ -40,7 +41,11 @@ export function educationCoverage(state: GameState): number {
     const mask = state.world.serviceMask[index(state.world, building.x, building.y)] ?? 0;
     if ((mask & bit) !== 0) covered++;
   }
-  return covered / state.buildings.size;
+  // Funding is already in the radius that wrote the mask (sim/services.ts), so
+  // what it adds here is what happens *inside* a covered classroom: a thinly
+  // funded school reaches the same streets and teaches them less.
+  const share = (covered / state.buildings.size) * budgetOf(state, 'education');
+  return share > 1 ? 1 : share;
 }
 
 export interface TechOffer {

@@ -541,6 +541,24 @@ export const CONGESTION_SLOWDOWN = 1.5;
 export const TRIPS_PER_RESIDENT = 0.5;
 export const TRIPS_PER_JOB = 0.35;
 
+// --- Department budgets (§3, §33) --------------------------------------------
+/**
+ * How far a department's funding can be moved, and in how many notches.
+ *
+ * The range is symmetrical and the effect is linear in both directions, which is
+ * the whole design: a budget buys exactly what it costs. Anything else makes the
+ * slider a puzzle with a right answer rather than a question about priorities —
+ * cheaper-than-it-buys and every player maxes it, dearer and nobody ever raises
+ * it above the minimum.
+ *
+ * Five notches rather than a continuous slider because this is a phone: a
+ * control fine enough to land on 1.03 is one nobody can land on, and 1.0 against
+ * 1.03 is not a decision worth offering.
+ */
+export const BUDGET_MIN = 0.5;
+export const BUDGET_MAX = 1.5;
+export const BUDGET_LEVELS = 5;
+
 // --- Goods (§16, §17): what the workshops make and the shops sell ------------
 /**
  * Crates a workshop puts out per job per minute, and what a shop wants per job.

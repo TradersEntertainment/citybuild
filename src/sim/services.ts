@@ -6,6 +6,7 @@ import {
   type ServiceKind,
 } from '../data/services';
 import { UTILITIES_REQUIRED_FROM } from '../data/utilities';
+import { budgetOf } from './budgets';
 import type { Fields } from './fields';
 import type { GameState } from './state';
 import { eraReached, SERVICE, type Era } from './tiles';
@@ -88,9 +89,25 @@ export function removeService(state: GameState, id: number): boolean {
 export function serviceUpkeep(state: GameState): number {
   let total = 0;
   for (const service of state.services.values()) {
-    total += SERVICE_SPECS[service.kind].upkeep;
+    // Scaled by what the department is funded at (sim/budgets.ts): the same
+    // multiplier that decides what it achieves decides what it costs.
+    total += SERVICE_SPECS[service.kind].upkeep * budgetOf(state, service.kind);
   }
   return total;
+}
+
+/**
+ * The ground one station covers, given what its department is funded at.
+ *
+ * The square root is the point. Radius scaled straight by the budget would make
+ * the *area* grow with the square of the money, which is a free upgrade every
+ * player would max out on sight. Scaling the radius by the root makes the area
+ * grow in step with the bill — a budget buys exactly what it costs, which is
+ * what keeps the slider a question about priorities rather than a puzzle with an
+ * answer.
+ */
+export function fundedRadius(state: GameState, kind: ServiceKind): number {
+  return SERVICE_SPECS[kind].radius * Math.sqrt(budgetOf(state, kind));
 }
 
 /**
@@ -104,12 +121,13 @@ export function computeServiceCoverage(state: GameState, fields: Fields): void {
 
   for (const service of state.services.values()) {
     const spec = SERVICE_SPECS[service.kind];
-    const radius = spec.radius;
+    const radius = fundedRadius(state, service.kind);
     const radiusSquared = radius * radius;
-    const x0 = Math.max(0, service.x - radius);
-    const y0 = Math.max(0, service.y - radius);
-    const x1 = Math.min(world.size - 1, service.x + radius);
-    const y1 = Math.min(world.size - 1, service.y + radius);
+    const reach = Math.ceil(radius);
+    const x0 = Math.max(0, service.x - reach);
+    const y0 = Math.max(0, service.y - reach);
+    const x1 = Math.min(world.size - 1, service.x + reach);
+    const y1 = Math.min(world.size - 1, service.y + reach);
 
     for (let y = y0; y <= y1; y++) {
       const dy = y - service.y;

@@ -5,10 +5,12 @@ import {
   tiersOf,
   type ProgrammeId,
 } from '../data/investments';
+import { SERVICE_ORDER, type ServiceKind } from '../data/services';
 import { STR } from '../data/strings.tr';
 import type { Era } from '../sim/tiles';
 import { uiStore, type MissionView, type ProgrammeView } from '../state/store';
 import { describeGoal } from './missionText';
+import * as haptics from './haptics';
 
 /**
  * The city's books, always on screen.
@@ -51,6 +53,8 @@ export interface CityPanelDeps {
   onRetire(): void;
   /** Buys the next tier of a civic programme; returns whether it went through. */
   onInvest(id: ProgrammeId): void;
+  /** Moves a department's funding one notch (sim/budgets.ts). */
+  onBudget(kind: ServiceKind, direction: number): void;
 }
 
 export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPanelHandle {
@@ -135,6 +139,53 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
 
   // Hidden until the era expects utilities at all, so a village is not shown a
   // shortfall in a system it is not meant to have.
+  /**
+   * A row per department, with what it is funded at and two buttons.
+   *
+   * Only the departments the city has actually built: a village shown six
+   * sliders for services it has never met is a settings screen, and this is
+   * supposed to be a decision about the city in front of it.
+   */
+  const budgets = section(STR.budget.title);
+  budgets.body.append(noteRow(STR.budget.note));
+  const budgetRows = new Map<ServiceKind, { el: HTMLElement; set: (text: string) => void }>();
+  for (const kind of SERVICE_ORDER) {
+    const built = budgetRow(kind);
+    budgetRows.set(kind, built);
+    budgets.body.append(built.el);
+  }
+
+  /** One department: its name, what it is funded at, and two buttons. */
+  function budgetRow(kind: ServiceKind): { el: HTMLElement; set: (text: string) => void } {
+    const el = document.createElement('div');
+    el.className = 'panel-row budget-row';
+    const name = document.createElement('span');
+    name.textContent = STR.service[kind];
+    const value = document.createElement('span');
+    value.className = 'panel-value mono';
+    const controls = document.createElement('span');
+    controls.className = 'budget-controls';
+    for (const direction of [-1, 1]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'budget-button';
+      button.textContent = direction < 0 ? STR.budget.down : STR.budget.up;
+      button.setAttribute('aria-label', `${STR.service[kind]} ${button.textContent}`);
+      button.addEventListener('click', () => {
+        deps.onBudget(kind, direction);
+        haptics.tap();
+      });
+      controls.append(button);
+    }
+    el.append(name, value, controls);
+    return {
+      el,
+      set: (text) => {
+        if (value.textContent !== text) value.textContent = text;
+      },
+    };
+  }
+
   const grid = section(STR.panel.gridTitle);
   const water = row(STR.panel.water);
   const power = row(STR.panel.power);
@@ -263,6 +314,13 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     unemployment.set(STR.format.percent(idle));
     // Unemployment is the number that quietly stalls a city, so it says so.
     unemployment.el.dataset['alarm'] = String(idle > 0.35 && s.population > 30);
+    // Only the departments the city has actually built. Six sliders for services
+    // a village has never met is a settings screen, not a decision.
+    for (const [kind, built] of budgetRows) {
+      const has = (s.stations[kind] ?? 0) > 0;
+      built.el.hidden = !has;
+      if (has) built.set(STR.budget.level(s.budgets[kind] ?? 1));
+    }
     // The age structure, as four counts on one line: children, young, adult, old.
     // Four rows would bury the section; one reads as a shape.
     ages.set(STR.cohort.spread(d.child, d.young, d.adult, d.elder));
@@ -482,6 +540,14 @@ function programmeRow(id: ProgrammeId, onBuy: () => void): ProgrammeRow {
         : STR.lockedAt(STR.eraName[next.unlockedAt]);
     },
   };
+}
+
+/** A line of explanation inside a section, styled like the sheet's notes. */
+function noteRow(text: string): HTMLElement {
+  const el = document.createElement('p');
+  el.className = 'panel-note';
+  el.textContent = text;
+  return el;
 }
 
 function row(label: string, strong = false): Row {

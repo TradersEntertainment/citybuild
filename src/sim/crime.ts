@@ -17,6 +17,7 @@ import {
 import type { Building } from './buildings';
 import { dayFraction, nightAmount } from './daytime';
 import { dispatchFrom, runArrived, runFinished, type TruckRun } from './dispatch';
+import { budgetOf } from './budgets';
 import { schoolingCrimeFactor } from './cohorts';
 import { lightingShare } from './investments';
 import { techFactor } from './tech';
@@ -149,7 +150,9 @@ function startCrimes(
     let chance = CRIME_PER_SEC * dt * nightMult * miseryMult * forensics * schooling;
     if (building.zone === 'com') chance *= CRIME_COMMERCIAL_MULT;
     const covered = coveredByPolice(state, building);
-    if (covered) chance *= CRIME_COVERED_MULT;
+    // A watched street is watched harder or thinner depending on what the
+    // karakols are funded at (sim/budgets.ts).
+    if (covered) chance *= CRIME_COVERED_MULT / budgetOf(state, 'police');
     if (rand() >= chance) continue;
 
     const id = state.nextCrimeId++;
@@ -181,7 +184,7 @@ function resolveCrimes(state: GameState, dt: number, events: CrimeEvent[]): void
     }
 
     if (crime.car) {
-      crime.car.progress += CRIME_CAR_SPEED * dt;
+      crime.car.progress += CRIME_CAR_SPEED * budgetOf(state, 'police') * dt;
       if (runFinished(crime.car, CRIME_ARREST_S)) {
         state.crimes.delete(crime.id);
         events.push({

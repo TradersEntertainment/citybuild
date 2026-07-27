@@ -18,6 +18,7 @@ import { demolish, type Building } from './buildings';
 import { dispatchFrom, runArrived, type TruckRun } from './dispatch';
 import { drainPopulation } from './population';
 import { rubbishEpidemicFactor } from './rubbish';
+import { budgetOf } from './budgets';
 import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
 import type { GameState } from './state';
@@ -167,7 +168,9 @@ function stepFires(
         // A storm slows the run: dividing by the multiplier turns "the brigade
         // is 30% slower" into "the all-clear comes 30% later", which is the
         // same sentence from the player's side.
-      } else if (fire.age >= FIRE_RESPONSE_S / sky.responseMult) {
+        // A thinly funded brigade takes longer over everything, including the
+        // fires it cannot drive to (sim/budgets.ts).
+      } else if (fire.age >= FIRE_RESPONSE_S / (sky.responseMult * budgetOf(state, 'fire'))) {
         state.fires.delete(fire.id);
         events.push({ kind: 'fireOut', x: fire.x, y: fire.y });
       }
@@ -266,8 +269,13 @@ function stepEpidemic(
     state.epidemic = {
       age: 0,
       duration: EPIDEMIC_DURATION_S * (1 - coveredShare * 0.55),
-      // Medicine cannot stop an outbreak arriving; it decides how hard it bites.
-      severity: clamp((1 - coveredShare * 0.8) * techFactor(state, 'medicine'), 0.12, 1),
+      // Medicine cannot stop an outbreak arriving; it decides how hard it bites —
+      // and so does what the health service is funded at (sim/budgets.ts).
+      severity: clamp(
+        ((1 - coveredShare * 0.8) * techFactor(state, 'medicine')) / budgetOf(state, 'health'),
+        0.12,
+        1,
+      ),
       coveredShare,
       toll: 0,
     };

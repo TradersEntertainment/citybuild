@@ -1,5 +1,6 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
+import { createBudgets, type Budgets } from './budgets';
 import type { Loan } from './credit';
 import { createCohorts, type Cohorts } from './cohorts';
 import type { Crime } from './crime';
@@ -131,6 +132,13 @@ export interface GameState {
   /** Techs researched, by id (§12.2). */
   techsDone: string[];
   /**
+   * What each department is funded at, 0.5..1.5 (sim/budgets.ts).
+   *
+   * Saved: it is a decision, and one a city can be quietly ruined by forgetting
+   * it made.
+   */
+  budgets: Budgets;
+  /**
    * Level bought in each civic programme (data/investments.ts). What a rich city
    * spends its money on, and the only purchase whose effect is the whole map.
    */
@@ -201,6 +209,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     highwayWear: new Array<number>(sectionCount(world)).fill(0),
     missionsDone: [],
     techsDone: [],
+    budgets: createBudgets(),
     investments: { lighting: 0, greening: 0, festivals: 0 },
     nextBuildingId: 1,
     nextServiceId: 1,

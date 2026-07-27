@@ -3,6 +3,7 @@ import { STARTING_MONEY, STARTING_TAX_RATE, HAPPINESS_START } from '../data/bala
 import { START_YEAR } from '../data/timeline';
 import type { MissionGoal } from '../data/missions';
 import type { ProgrammeId } from '../data/investments';
+import { SERVICE_ORDER } from '../data/services';
 import type { Era } from '../sim/tiles';
 
 /**
@@ -11,6 +12,9 @@ import type { Era } from '../sim/tiles';
  */
 export type ToolId = 'none' | 'road' | 'zone' | 'service' | 'inspect';
 export type OverlayId = 'none' | 'traffic' | 'pollution' | 'landValue' | 'services';
+
+/** The department keys the equality check walks. */
+const SERVICE_KEYS = SERVICE_ORDER;
 
 export interface UiState {
   era: Era;
@@ -33,6 +37,10 @@ export interface UiState {
   totals: CityTotals;
   demography: DemographyView;
   rubbish: RubbishView;
+  /** How many of each station stand, so the panel only offers real departments. */
+  stations: Record<string, number>;
+  /** What each is funded at (sim/budgets.ts). */
+  budgets: Record<string, number>;
   grid: GridView;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
@@ -155,6 +163,8 @@ export interface SimSnapshot {
   totals: CityTotals;
   demography: DemographyView;
   rubbish: RubbishView;
+  stations: Record<string, number>;
+  budgets: Record<string, number>;
   grid: GridView;
 }
 
@@ -217,6 +227,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     awaitingBurial: 0,
   },
   rubbish: { waiting: 0, strain: 0 },
+  stations: {},
+  budgets: {},
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
   hintVisible: true,
@@ -273,7 +285,15 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
         Math.round(snapshot.demography.awaitingBurial) &&
       Math.round(current.demography.schooled * 100) ===
         Math.round(snapshot.demography.schooled * 100) &&
-      Math.round(current.rubbish.waiting) === Math.round(snapshot.rubbish.waiting)
+      Math.round(current.rubbish.waiting) === Math.round(snapshot.rubbish.waiting) &&
+      // Cheap because both objects are small and rebuilt from the same key set:
+      // the panel repaints twice a second and a stale budget row would be the one
+      // thing on it the player just changed.
+      SERVICE_KEYS.every(
+        (kind) =>
+          current.stations[kind] === snapshot.stations[kind] &&
+          current.budgets[kind] === snapshot.budgets[kind],
+      )
         ? current
         : { ...current, ...snapshot },
     ),

@@ -1269,6 +1269,40 @@ body {
   box-shadow: 0 0 14px color-mix(in srgb, var(--pirinc) 40%, transparent);
 }
 
+/* A department's funding row: name, figure, and two buttons that fit a thumb.
+   Laid out as three columns rather than the usual two so the figure stays put
+   as the buttons are pressed — a number that shuffles sideways on every tap is
+   a number nobody can read while tapping. */
+.panel-row.budget-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.budget-controls {
+  display: flex;
+  gap: 6px;
+}
+
+.budget-button {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 22%, transparent);
+  background: color-mix(in srgb, var(--parsomen) 8%, transparent);
+  color: var(--parsomen);
+  font: inherit;
+  font-size: 17px;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.budget-button:active {
+  background: color-mix(in srgb, var(--pirinc) 45%, transparent);
+}
+
 /* --- Neighbourhood names -------------------------------------------------- */
 
 .district-labels {

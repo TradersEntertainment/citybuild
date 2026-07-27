@@ -149,6 +149,20 @@ export const STR = {
     depot: 'Çöp toplama',
   },
 
+  /**
+   * Department budgets (sim/budgets.ts): the lever between "build one" and
+   * "knock one down".
+   */
+  budget: {
+    title: 'Birim bütçeleri',
+    note:
+      'Her birim yarım ile bir buçuk kat arasında çalışır. Bütçe ne kadar ' +
+      'kazandırıyorsa o kadar da tutuyor — kısmak da artırmak da gerçek bir karar.',
+    level: (value: number): string => `%${Math.round(value * 100)}`,
+    down: '−',
+    up: '+',
+  },
+
   /** Bus and tram lines (sim/transit.ts): the second thing the player draws. */
   transit: {
     locked: (people: string): string => `Toplu taşıma ${people} kişide açılır.`,

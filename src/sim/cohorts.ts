@@ -12,6 +12,7 @@ import {
   SCHOOLED_OUTPUT,
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
+import { budgetOf } from './budgets';
 import { drainPopulation, settlePopulation } from './population';
 import { refreshPopulation } from './hazards';
 import type { GameState } from './state';
@@ -340,7 +341,9 @@ function bury(state: GameState, cohorts: Cohorts, dt: number): void {
   for (const service of state.services.values()) {
     if (service.kind === 'cemetery') plots++;
   }
-  const cleared = (plots * CEMETERY_RATE * dt) / 60;
+  // A department with a rate rather than a radius takes its funding straight
+  // (sim/budgets.ts): twice the money is twice the gravediggers.
+  const cleared = (plots * CEMETERY_RATE * budgetOf(state, 'cemetery') * dt) / 60;
   cohorts.awaitingBurial = Math.max(0, cohorts.awaitingBurial - cleared);
 }
 

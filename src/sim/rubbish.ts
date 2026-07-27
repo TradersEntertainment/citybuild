@@ -6,6 +6,7 @@ import {
   RUBBISH_PER_RESIDENT_MIN,
   RUBBISH_TOLERANCE_MIN,
 } from '../data/balance';
+import { budgetOf } from './budgets';
 import type { GameState } from './state';
 import { ISSUE, SERVICE } from './tiles';
 import { index } from './world';
@@ -51,7 +52,9 @@ export function collectionPerMinute(state: GameState): number {
   for (const service of state.services.values()) {
     if (service.kind === 'depot') depots++;
   }
-  return depots * RUBBISH_DEPOT_RATE;
+  // Straight, like the cemetery: a rate is lorries on the road, and twice the
+  // money is twice the lorries (sim/budgets.ts).
+  return depots * RUBBISH_DEPOT_RATE * budgetOf(state, 'depot');
 }
 
 /**

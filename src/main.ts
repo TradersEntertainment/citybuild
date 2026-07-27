@@ -27,6 +27,7 @@ import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
 import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
+import { nudgeBudget } from './sim/budgets';
 import { rubbishStrain } from './sim/rubbish';
 import { transitUnlocked } from './sim/transit';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
@@ -188,6 +189,18 @@ mountCityPanel(ui, {
     // will actually see.
     const earned = legacyValue(game);
     retirePrompt.show(earned, legacyOpeningBalance(loadLegacy() + earned));
+  },
+  /**
+   * Moves a department's funding a notch (sim/budgets.ts).
+   *
+   * The coverage radius answers to the budget, so the derived fields are stale
+   * the moment it moves — the same invalidation that placing a station triggers.
+   */
+  onBudget: (kind, direction) => {
+    nudgeBudget(game, kind, direction);
+    systems.invalidateFields();
+    syncUi();
+    autosave.flush(game);
   },
 });
 mountHint(ui);
@@ -952,6 +965,15 @@ function announceCrime(): void {
   if (lines.length > 0) eventFeed.pushCustom(lines);
 }
 
+/** How many of each station stand, for the panel's budget rows. */
+function countStations(state: typeof game): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const service of state.services.values()) {
+    counts[service.kind] = (counts[service.kind] ?? 0) + 1;
+  }
+  return counts;
+}
+
 /** Whether the player has been told what a crime marker is for. */
 let taughtCrime = false;
 
@@ -1295,6 +1317,8 @@ function syncUi(): void {
       awaitingBurial: game.cohorts.awaitingBurial,
     },
     rubbish: { waiting: game.rubbish, strain: rubbishStrain(game) },
+    stations: countStations(game),
+    budgets: { ...game.budgets },
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });
   store.setMissions(
