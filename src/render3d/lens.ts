@@ -31,6 +31,10 @@ const RAMPS: Record<LensKind, [string, string]> = {
   coverage: ['#C4463A', '#3E8656'],
   crime: ['#3A3A4E', '#B03A6E'],
   density: ['#4A5A66', '#7FB0C6'],
+  // Red for a street nothing can enter, amber for one nothing can leave,
+  // green for one that works — the same red-to-green reading as coverage,
+  // because it is the same kind of question.
+  access: ['#C4463A', '#3E8656'],
 };
 
 export interface LensLayer {

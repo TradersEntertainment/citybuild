@@ -674,6 +674,8 @@ export const STR = {
       `${tiles} sokağa girilemiyor — tek yön okları ters.`,
     trapped: (tiles: number): string => `${tiles} sokaktan çıkılamıyor — tek yön okları ters.`,
     cleared: 'Tek yön okları düzeldi; bütün sokaklara girilebiliyor.',
+    /** Where to look. Without this the count is a warning with nowhere to go. */
+    hint: 'Tek yön erişimi katmanını aç: kırmızı sokaklara girilemiyor.',
     /** The chronicle's telling. */
     chronicle: 'Ters işaretlenmiş kavşak trafiği kesti.',
     chronicleCleared: 'Tek yön düzeni onarıldı.',
@@ -916,6 +918,7 @@ export const STR = {
       coverage: 'Hizmet kapsaması',
       crime: 'Suç riski',
       density: 'İmar yoğunluğu',
+      access: 'Tek yön erişimi',
     },
     hint: {
       value: 'Altın = değerli. Vergi burada toplanır; parklar ve hizmetler değeri yükseltir.',
@@ -925,6 +928,8 @@ export const STR = {
       coverage: 'Yeşil = hizmet alıyor, kırmızı = istasyon yetişmiyor.',
       crime: 'Pembe = riskli. Dükkânlar hedef; karakol kapsaması riski düşürür.',
       density: 'Parlak = yoğun imar (beş kat), soluk = normal (üç kat).',
+      access:
+        'Yeşil = girilip çıkılabiliyor, sarı = girilir çıkılmaz, kırmızı = hiç girilemiyor.',
     },
   },
 

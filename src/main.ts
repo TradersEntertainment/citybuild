@@ -1562,8 +1562,13 @@ function announceMarooned(): void {
       reading.unreachable > 0
         ? STR.marooned.unreachable(reading.unreachable)
         : STR.marooned.trapped(reading.trapped);
-    toast.show(text);
-    eventFeed.pushCustom([{ icon: STR.marooned.icon, tone: 'warn', text }]);
+    toast.show(text, STR.marooned.hint);
+    eventFeed.pushCustom([
+      { icon: STR.marooned.icon, tone: 'warn', text },
+      // The lens is the fix, so the line that reports the problem names it.
+      // A count on its own is a warning with nowhere to go.
+      { icon: STR.marooned.icon, tone: 'warn', text: STR.marooned.hint },
+    ]);
     appendHistory([
       {
         year: yearOf(game.playedMs),

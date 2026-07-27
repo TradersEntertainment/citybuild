@@ -1,4 +1,5 @@
 import { CRIME_COMMERCIAL_MULT, CRIME_COVERED_MULT } from '../data/balance';
+import { roadAccess } from './marooned';
 import { serviceCoverageAt } from './services';
 import type { GameState } from './state';
 import { decodeRoad, decodeZone, NONE, SERVICE } from './tiles';
@@ -31,7 +32,8 @@ export type LensKind =
   | 'traffic'
   | 'coverage'
   | 'crime'
-  | 'density';
+  | 'density'
+  | 'access';
 
 /** The order the lens button walks through. */
 export const LENS_ORDER: readonly LensKind[] = [
@@ -42,6 +44,7 @@ export const LENS_ORDER: readonly LensKind[] = [
   'coverage',
   'crime',
   'density',
+  'access',
 ];
 
 /** Tiles with no reading carry this; the renderer skips them. */
@@ -121,6 +124,36 @@ export function lensField(
         if (building.zone === 'com') risk *= CRIME_COMMERCIAL_MULT;
         if (((world.serviceMask[i] ?? 0) & SERVICE.police) !== 0) risk *= CRIME_COVERED_MULT;
         out[i] = clamp01(risk / CRIME_COMMERCIAL_MULT);
+      }
+      return out;
+    }
+    case 'access': {
+      // Which streets a car can actually use, arrows and all (sim/marooned.ts).
+      //
+      // The lens the feed line points at. "8 sokağa girilemiyor" tells a player
+      // that something is wrong; only the map can tell them *which eight*, and
+      // on an hour-old city that is the whole difference between a warning and
+      // a fix.
+      //
+      // Three readings rather than two, because the two failures are not the
+      // same mistake and want different answers: a street nothing can enter is
+      // dead, one nothing can leave is a trap, and a player shown one colour
+      // for both would re-sign the wrong end of it.
+      const access = roadAccess(world);
+      for (let i = 0; i < out.length; i++) {
+        if (decodeRoad(world.road[i] ?? NONE) === null) continue;
+        if ((world.highway[i] ?? 0) === 1) continue;
+        // A street that reaches nothing is connectivity's business, not this
+        // lens's — saying "unreachable" about a lane in a field would blame the
+        // arrows for something they did not do.
+        if ((world.connected[i] ?? 0) !== 1) continue;
+        if (!access) {
+          // No arrows drawn anywhere: every connected street is usable, and
+          // saying so is information. A blank map here would read as broken.
+          out[i] = 1;
+          continue;
+        }
+        out[i] = access.inbound[i] !== 1 ? 0 : access.outbound[i] !== 1 ? 0.5 : 1;
       }
       return out;
     }

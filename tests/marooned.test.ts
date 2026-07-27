@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { findMarooned, isMarooned } from '../src/sim/marooned';
+import { findMarooned, isMarooned, roadAccess } from '../src/sim/marooned';
+import { lensField, NO_READING } from '../src/sim/lens';
 import { computeConnectivity } from '../src/sim/connectivity';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
@@ -154,5 +155,63 @@ describe('streets the arrows cut off', () => {
     computeConnectivity(game.world);
     for (const tile of path.slice(8)) sign(game, tile, WAY.south);
     expect(findMarooned(game.world)).toEqual(findMarooned(game.world));
+  });
+});
+
+describe('the access lens — where the feed line points', () => {
+  it('paints every connected street usable when no arrow is drawn', () => {
+    // A blank map here would read as broken. "All streets fine" is information.
+    const { game, ox, oy } = city();
+    street(game, { x: ox, y: oy }, 16);
+    const field = lensField(game, 'access');
+    let usable = 0;
+    for (let i = 0; i < field.length; i++) if (field[i] === 1) usable++;
+    expect(usable).toBeGreaterThan(0);
+  });
+
+  it('separates a street nothing can enter from one that works', () => {
+    const { game, ox, oy } = city();
+    const path = street(game, { x: ox, y: oy }, 16);
+    computeConnectivity(game.world);
+    for (const tile of path.slice(8)) sign(game, tile, WAY.south);
+
+    const field = lensField(game, 'access');
+    const dead = path.slice(8).map((t) => field[index(game.world, t.x, t.y)]);
+    const fine = field[index(game.world, path[0]!.x, path[0]!.y)];
+    // The cut-off half reads as unreachable; the half by the gate still works.
+    expect(dead.every((v) => v === 0)).toBe(true);
+    expect(fine).toBe(1);
+  });
+
+  it('says nothing at all about ground that is not a street', () => {
+    const { game, ox, oy } = city();
+    street(game, { x: ox, y: oy }, 16);
+    const field = lensField(game, 'access');
+    // A tile well clear of the road and the motorway.
+    expect(field[index(game.world, ox + 10, oy - 10)]).toBe(NO_READING);
+  });
+
+  it('agrees with the count the feed quotes', () => {
+    const { game, ox, oy } = city();
+    const path = street(game, { x: ox, y: oy }, 16);
+    computeConnectivity(game.world);
+    for (const tile of path.slice(8)) sign(game, tile, WAY.south);
+
+    const field = lensField(game, 'access');
+    let painted = 0;
+    for (let i = 0; i < field.length; i++) if (field[i] === 0) painted++;
+    // The map and the sentence must never disagree about how bad it is.
+    expect(painted).toBe(findMarooned(game.world).unreachable);
+  });
+
+  it('shares one reading between the lens and the count', () => {
+    const { game, ox, oy } = city();
+    const path = street(game, { x: ox, y: oy }, 16);
+    computeConnectivity(game.world);
+    for (const tile of path.slice(8)) sign(game, tile, WAY.south);
+    const access = roadAccess(game.world);
+    expect(access).not.toBeNull();
+    // Same masks, so the overlay cannot drift from the sentence.
+    expect(access!.inbound[index(game.world, path[12]!.x, path[12]!.y)]).toBe(0);
   });
 });

@@ -139,32 +139,41 @@ function flood(world: World, seeds: readonly number[], forward: boolean): Uint8A
   return seen;
 }
 
-/**
- * Reads the map for streets the arrows have cut off.
- *
- * Returns nothing at all for a city with no one-way signs anywhere, which is
- * the common case and costs two array scans rather than two floods. A player
- * who has never used the tool cannot have made this mistake and should never
- * pay for the check.
- */
-export function findMarooned(world: World): MaroonedRoads {
-  let hasArrows = false;
+/** Whether the player has drawn a single arrow anywhere. */
+function anyArrows(world: World): boolean {
   for (let i = 0; i < world.oneWay.length; i++) {
-    if ((world.oneWay[i] ?? WAY.both) !== WAY.both) {
-      hasArrows = true;
-      break;
-    }
+    if ((world.oneWay[i] ?? WAY.both) !== WAY.both) return true;
   }
-  if (!hasArrows) return NOTHING;
+  return false;
+}
 
+/**
+ * The two masks, or null when the question does not arise.
+ *
+ * Split out because two callers want the same two floods: the count, which runs
+ * on every road rebuild, and the map overlay, which runs on a slow timer while
+ * the player has it up. Computing them twice would be the cheaper mistake and
+ * letting them disagree the worse one.
+ *
+ * Null for a city with no arrows at all — the common case, and two array scans
+ * rather than two floods. A player who has never used the tool cannot have made
+ * this mistake and should never pay for the check. Null too when there is no
+ * way into the country: that is connectivity's story, and reporting every
+ * street as unreachable because the motorway is barricaded would bury the real
+ * message under a false one.
+ */
+export function roadAccess(world: World): { inbound: Uint8Array; outbound: Uint8Array } | null {
+  if (!anyArrows(world)) return null;
   const seeds = gatesOf(world);
-  // No way into the country at all is connectivity's story to tell, not this
-  // one. Reporting every street as unreachable because the motorway is
-  // barricaded would bury the real message under a false one.
-  if (seeds.length === 0) return NOTHING;
+  if (seeds.length === 0) return null;
+  return { inbound: flood(world, seeds, true), outbound: flood(world, seeds, false) };
+}
 
-  const inbound = flood(world, seeds, true);
-  const outbound = flood(world, seeds, false);
+/** Reads the map for streets the arrows have cut off. */
+export function findMarooned(world: World): MaroonedRoads {
+  const access = roadAccess(world);
+  if (!access) return NOTHING;
+  const { inbound, outbound } = access;
 
   let unreachable = 0;
   let trapped = 0;

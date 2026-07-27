@@ -630,8 +630,12 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
    (`sim/marooned.ts`): oklara *uyan* iki BFS — kapılardan içeri, kapılara
    geri. Girilemeyen ve çıkılamayan sokaklar sayılıyor, feed'e/tarihçeye bir
    satır düşüyor, düzeltilince ikinci satır. Sim'e hiç dokunmuyor: sorun kayıp
-   gelir değildi, oyuncunun bunu öğrenememesiydi. (Kalan açık iş: haritada
-   işaretlemek — şu an sadece sayı ve bir konum veriliyor.)
+   gelir değildi, oyuncunun bunu öğrenememesiydi. Sekizinci lens
+   (`access` — "Tek yön erişimi") *hangi* sokaklar olduğunu boyuyor: kırmızı =
+   girilemiyor, sarı = çıkılamıyor, yeşil = çalışıyor. Feed satırı doğrudan bu
+   katmanı işaret ediyor, yoksa sayı gidilecek yeri olmayan bir uyarı olurdu.
+   Sayı ile katman aynı iki BFS maskesini paylaşıyor (`roadAccess`), böylece
+   cümle ile harita birbirinden sapamıyor — test var.
 3. **Tramvay/metro** ve **üniversite** — §21–22 turunda bilinçli atlandı,
    gerekçeleri §1'in sonunda.
 
