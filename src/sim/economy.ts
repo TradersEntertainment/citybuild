@@ -19,7 +19,9 @@ import { investmentUpkeep, tradeNow } from './investments';
 import { portUpkeep, seaIncome } from './ports';
 import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
+import { attractionUpkeep, tourismIncome } from './attractions';
 import { skillFactor } from './cohorts';
+import { commerceFactor, fareFactor, industryFactor, policyUpkeep } from './policies';
 import { resourceFactor } from './resources';
 import { fareIncome, transitUpkeep } from './transit';
 import { exportIncome, marketFactor, stockFactor, type GoodsField } from './goods';
@@ -67,6 +69,8 @@ export interface Ledger {
   programmeUpkeep: number;
   /** Fares off the bus and tram lines (sim/transit.ts). */
   fareIncome: number;
+  /** What the hotels billed their guests (sim/attractions.ts). */
+  tourismIncome: number;
   /** …and what running the stops costs, which is usually more at first. */
   transitUpkeep: number;
 }
@@ -117,6 +121,10 @@ export function computeLedger(
   // be sold here goes on the next lorry, so which workshop is the unlucky one is
   // a precision the player could not act on.
   const market = goods ? marketFactor(state) : 1;
+  // The ordinances in force (sim/policies.ts): a night shift, a smoking ban.
+  // Both answer 1 when off, so the two output lines multiply unconditionally.
+  const industry = industryFactor(state);
+  const commerce = commerceFactor(state);
 
   for (const building of state.buildings.values()) {
     const landValue = fields.landValue[index(state.world, building.x, building.y)] ?? 0;
@@ -143,7 +151,8 @@ export function computeLedger(
             building.jobs * GOODS_PER_COMMERCIAL_JOB,
           )
         : 1;
-      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor * hour * skill * stock;
+      building.output =
+        building.jobs * COMMERCIAL_TURNOVER * corridor * hour * skill * stock * commerce;
       // What the visitors themselves spend, kept apart from the city's own
       // custom so the panel can say where the money came from.
       visitorTrade += building.output * (1 - 1 / corridor) * COMMERCIAL_TAX;
@@ -171,7 +180,7 @@ export function computeLedger(
       // worth putting there, until the seam runs out.
       const seam = resourceFactor(state.world, building.x, building.y);
       building.output =
-        building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill * seam * market;
+        building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill * seam * market * industry;
       building.output *= corridor;
       visitorTrade += building.output * (1 - 1 / corridor) * INDUSTRIAL_TAX;
       taxIncome += building.output * INDUSTRIAL_TAX;
@@ -183,7 +192,7 @@ export function computeLedger(
   // than refunding anything.
   const admin = techFactor(state, 'administration');
   const roads = roadUpkeep(state);
-  const stations = serviceUpkeep(state) * admin;
+  const stations = (serviceUpkeep(state) + attractionUpkeep(state) + policyUpkeep(state)) * admin;
   const plants = utilityUpkeep(state) * admin;
   const debt = debtService(state);
   // Rain feeds a farm and a hot spell does not — the one place the weather
@@ -216,7 +225,11 @@ export function computeLedger(
   // rather than recomputed here: the trips taken off the road and the trips that
   // paid a fare are the same trips, and working them out twice is how the two
   // would quietly drift apart.
-  const fares = fareIncome(riders);
+  // Free transit collects nothing at the fare box — that is what it is for.
+  const fares = fareIncome(riders) * fareFactor(state);
+  // What the hotels brought in overnight (sim/attractions.ts), read off the
+  // same visitor field the shops sell to.
+  const tourism = tourismIncome(state, fields, visitors);
   const lines = transitUpkeep(state);
   // What the harbours ship out, folded into the sea line: it is the same quay,
   // and a second row for it would tell the player about a distinction they have
@@ -235,7 +248,8 @@ export function computeLedger(
       transit +
       sea +
       exports +
-      fares -
+      fares +
+      tourism -
       roads -
       stations -
       plants -
@@ -251,6 +265,7 @@ export function computeLedger(
     programmeUpkeep: programmes,
     visitorIncome: visiting,
     fareIncome: fares,
+    tourismIncome: tourism,
     transitUpkeep: lines,
   };
 }

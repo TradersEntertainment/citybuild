@@ -11,6 +11,8 @@ import { refreshSeaGates } from './ports';
 import { stopsAlong } from './transit';
 import { PROGRAMME_ORDER, tiersOf } from '../data/investments';
 import { investmentLevels } from './investments';
+import { ATTRACTION_ORDER } from '../data/attractions';
+import { POLICY_SPECS, type PolicyId } from '../data/policies';
 import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
@@ -102,6 +104,11 @@ export interface SaveData {
   /** Berths on the coast, flattened the same way. */
   ports: number[];
   nextPortId: number;
+  /** Hotels, landmarks and the airport, flattened: id, kind index, x, y. */
+  attractions: number[];
+  nextAttractionId: number;
+  /** Ordinances in force, by id — filtered on load like goals and techs. */
+  policies: string[];
   /**
    * Bus and tram lines, flattened: id, path length, then the path's x,y pairs.
    *
@@ -126,6 +133,7 @@ const LOAN_FIELDS = 5;
 const SERVICE_FIELDS = 4;
 const UTILITY_FIELDS = 4;
 const PORT_FIELDS = 4;
+const ATTRACTION_FIELDS = 4;
 
 export function serialize(state: GameState): SaveData {
   const buildings: number[] = [];
@@ -154,6 +162,16 @@ export function serialize(state: GameState): SaveData {
   const ports: number[] = [];
   for (const port of state.ports.values()) {
     ports.push(port.id, PORT_ORDER.indexOf(port.kind), port.x, port.y);
+  }
+
+  const attractions: number[] = [];
+  for (const attraction of state.attractions.values()) {
+    attractions.push(
+      attraction.id,
+      ATTRACTION_ORDER.indexOf(attraction.kind),
+      attraction.x,
+      attraction.y,
+    );
   }
 
   const transit: number[] = [];
@@ -210,6 +228,9 @@ export function serialize(state: GameState): SaveData {
     nextUtilityId: state.nextUtilityId,
     ports,
     nextPortId: state.nextPortId,
+    attractions,
+    nextAttractionId: state.nextAttractionId,
+    policies: [...state.policies],
     transit,
     nextTransitId: state.nextTransitId,
   };
@@ -450,6 +471,28 @@ export function deserialize(data: unknown): GameState | null {
     state.ports.set(id, { id, kind, x, y });
   }
   state.nextPortId = Math.max(1, data.nextPortId ?? 1);
+
+  // Attractions arrived after the berths; a file without them is a city that
+  // never built a hotel — not a corrupt one. Same flattening, same rules.
+  const attractions = Array.isArray(data.attractions) ? data.attractions : [];
+  if (attractions.length % ATTRACTION_FIELDS !== 0) return null;
+  for (let i = 0; i < attractions.length; i += ATTRACTION_FIELDS) {
+    const kind = ATTRACTION_ORDER[attractions[i + 1] ?? -1];
+    if (!kind) continue; // a kind this build no longer knows is dropped, kept nowhere
+    state.attractions.set(attractions[i] ?? 0, {
+      id: attractions[i] ?? 0,
+      kind,
+      x: attractions[i + 2] ?? 0,
+      y: attractions[i + 3] ?? 0,
+    });
+  }
+  state.nextAttractionId = Math.max(1, data.nextAttractionId ?? 1);
+
+  // Ordinances, filtered to the ones this build still has — a policy that no
+  // longer exists simply lapses, the same rule as goals and techs.
+  for (const id of Array.isArray(data.policies) ? data.policies : []) {
+    if (typeof id === 'string' && id in POLICY_SPECS) state.policies.add(id as PolicyId);
+  }
 
   // Lines arrived after the roads did, so a file without them is a city that
   // never ran a bus — not a corrupt one. A malformed run is dropped rather than

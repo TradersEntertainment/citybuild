@@ -8,6 +8,7 @@ import {
   TRANSIT_UNLOCK_POPULATION,
 } from '../data/balance';
 import type { Fields } from './fields';
+import { transitCapacityFactor } from './policies';
 import type { GameState } from './state';
 import { nearestRoad } from './traffic';
 import type { World } from './world';
@@ -179,7 +180,9 @@ export function transitLoad(
     wanted += tripsAt(building.x, building.y) * share;
   }
 
-  const capacity = lines * TRANSIT_LINE_CAPACITY;
+  // Free transit fills seats the fare box was scaring off (sim/policies.ts):
+  // the same fleet carries more before the network strains. 1 when off.
+  const capacity = lines * TRANSIT_LINE_CAPACITY * transitCapacityFactor(state);
   // Over capacity the whole network scales back together rather than the last
   // stop drawn being the one that fails: a full bus is full everywhere on the
   // route, and "which of my stops is the unlucky one" is not a decision the

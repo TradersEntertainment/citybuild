@@ -16,7 +16,9 @@ import {
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
+import { attractionHappiness } from './attractions';
 import { burialHappiness, schooledShare, workingShare } from './cohorts';
+import { policyHappiness } from './policies';
 import { crimeHappiness } from './crime';
 import { verdictHappiness } from './elections';
 import { rubbishHappiness } from './rubbish';
@@ -83,6 +85,10 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   target += state.timelineEffects.happinessMod;
   // A waterfront worth walking on is worth something to live near (sim/ports.ts).
   target += portHappiness(state);
+  // Monuments lift, capped — pride is finite (sim/attractions.ts) — and the
+  // ordinances push both ways: a night shift tires, clean air breathes.
+  target += attractionHappiness(state);
+  target += policyHappiness(state);
   // And a city on a holiday is a happier city, for the few seconds it lasts
   // (sim/rituals.ts). Derived from the date, so an absence cannot bank four.
   target += ritualHappiness(state);

@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { FACILITY_LOOKS, type FacilityKind } from '../data/looks';
+import { ATTRACTION_ORDER } from '../data/attractions';
 import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
 import { UTILITY_ORDER } from '../data/utilities';
@@ -22,6 +23,7 @@ const FACILITY_ORDER: readonly FacilityKind[] = [
   ...SERVICE_ORDER,
   ...UTILITY_ORDER,
   ...PORT_ORDER,
+  ...ATTRACTION_ORDER,
 ];
 
 const INITIAL_CAPACITY = 32;
@@ -121,6 +123,7 @@ export function createStations(): StationLayer {
       ...state.services.values(),
       ...state.utilities.values(),
       ...state.ports.values(),
+      ...state.attractions.values(),
     ];
     for (const station of standing) {
       let bucket = buckets.get(station.kind);

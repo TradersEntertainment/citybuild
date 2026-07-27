@@ -19,6 +19,7 @@ import { dispatchFrom, runArrived, type TruckRun } from './dispatch';
 import { drainPopulation } from './population';
 import { rubbishEpidemicFactor } from './rubbish';
 import { budgetOf } from './budgets';
+import { epidemicSeverityFactor } from './policies';
 import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
 import type { GameState } from './state';
@@ -272,7 +273,12 @@ function stepEpidemic(
       // Medicine cannot stop an outbreak arriving; it decides how hard it bites —
       // and so does what the health service is funded at (sim/budgets.ts).
       severity: clamp(
-        ((1 - coveredShare * 0.8) * techFactor(state, 'medicine')) / budgetOf(state, 'health'),
+        // …and so does the smoking ban (sim/policies.ts): cleaner lungs, milder
+        // outbreak. 1 while the ordinance is off.
+        ((1 - coveredShare * 0.8) *
+          techFactor(state, 'medicine') *
+          epidemicSeverityFactor(state)) /
+          budgetOf(state, 'health'),
         0.12,
         1,
       ),

@@ -8,6 +8,7 @@ import {
 } from '../data/balance';
 import { isServiceUnlocked } from '../data/services';
 import { budgetOf } from './budgets';
+import { rubbishFactor } from './policies';
 import type { GameState } from './state';
 
 /**
@@ -42,7 +43,9 @@ export function rubbishPerMinute(state: GameState): number {
     residents += building.population;
     jobs += building.jobs;
   }
-  return residents * RUBBISH_PER_RESIDENT_MIN + jobs * RUBBISH_PER_JOB_MIN;
+  // The recycling ordinance takes its cut before anything reaches the tip
+  // (sim/policies.ts); 1 while the policy is off.
+  return (residents * RUBBISH_PER_RESIDENT_MIN + jobs * RUBBISH_PER_JOB_MIN) * rubbishFactor(state);
 }
 
 /** What the depots standing can clear per minute. */

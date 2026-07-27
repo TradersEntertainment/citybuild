@@ -1,3 +1,4 @@
+import type { AttractionKind } from './attractions';
 import type { PortKind } from './ports';
 import type { ServiceKind } from './services';
 import type { UtilityKind } from './utilities';
@@ -16,7 +17,7 @@ import type { RoadKind } from '../sim/tiles';
  * So it moved down here, beside the specs it describes. No three.js — a colour
  * and a size are data, and both drawings read them.
  */
-export type FacilityKind = ServiceKind | UtilityKind | PortKind;
+export type FacilityKind = ServiceKind | UtilityKind | PortKind | AttractionKind;
 
 export interface FacilityLook {
   /** Walls. */
@@ -63,6 +64,15 @@ export const FACILITY_LOOKS: Readonly<Record<FacilityKind, FacilityLook>> = {
   cargo: { body: '#8D9297', accent: '#E0A32E', width: 0.98, height: 0.46, mast: 1.7 },
   shipyard: { body: '#6F757A', accent: '#B24C3A', width: 1, height: 0.6, mast: 2 },
   marina: { body: '#E8E6DF', accent: '#2F7FA8', width: 0.62, height: 0.3, mast: 1.3 },
+  // Attractions read as occasions, not infrastructure: lighter bodies, warmer
+  // accents, and the tallest silhouettes in the city short of a reactor —
+  // a landmark the eye cannot find from across the map is not a landmark.
+  hotel: { body: '#E4D6C2', accent: '#C08A2E', width: 0.6, height: 0.9, mast: 0.3 },
+  clockTower: { body: '#D8CDB6', accent: '#C08A2E', width: 0.3, height: 1.1, mast: 0.6 },
+  opera: { body: '#EDE8DC', accent: '#8A5A8A', width: 0.95, height: 0.55, mast: 0 },
+  stadium: { body: '#C9CDD2', accent: '#3E8656', width: 1.1, height: 0.4, mast: 0.9 },
+  tvTower: { body: '#B8BEC6', accent: '#C4463A', width: 0.24, height: 1.6, mast: 1.6 },
+  airport: { body: '#DDE0E4', accent: '#2F7FA8', width: 1.15, height: 0.35, mast: 1.2 },
 };
 
 /** The carriageway, by tier. Read by the map's road mesh and by the menu card. */

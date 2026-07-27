@@ -1,6 +1,8 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
+import type { Attraction } from './attractions';
 import { createBudgets, type Budgets } from './budgets';
+import type { PolicyId } from '../data/policies';
 import type { Loan } from './credit';
 import { createCohorts, type Cohorts } from './cohorts';
 import type { Crime } from './crime';
@@ -73,6 +75,14 @@ export interface GameState {
    * facility whose worth comes from the terrain rather than from the city.
    */
   ports: Map<number, Port>;
+  /** Hotels, landmarks and the airport (sim/attractions.ts). */
+  attractions: Map<number, Attraction>;
+  nextAttractionId: number;
+  /**
+   * Ordinances in force (sim/policies.ts). A set of ids rather than flags on
+   * state, so adding a policy never touches this file again.
+   */
+  policies: Set<PolicyId>;
   /**
    * Bus and tram lines the player drew (sim/transit.ts).
    *
@@ -205,6 +215,9 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     services: new Map(),
     utilities: new Map(),
     ports: new Map(),
+    attractions: new Map(),
+    nextAttractionId: 1,
+    policies: new Set(),
     transit: new Map(),
     nextTransitId: 1,
     farmTiles: 0,
@@ -232,6 +245,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     nextPortId: 1,
     ledger: {
       taxIncome: 0,
+      tourismIncome: 0,
       roadUpkeep: 0,
       serviceUpkeep: 0,
       utilityUpkeep: 0,

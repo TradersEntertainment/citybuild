@@ -268,6 +268,45 @@ export const STR = {
     `₺${money.format(cost)} · ${money.format(upkeep)} ₺/dk gider`,
 
   serviceBuilt: 'Hizmet binası kuruldu.',
+  tourismIncome: 'Turizm',
+  policy: {
+    title: 'Politikalar',
+    note: 'Meclisin inşaatsız kolları. Her biri bir takas — bedavası yok.',
+    on: 'Yürürlükte',
+    off: 'Kapalı',
+    name: {
+      freeTransit: 'Ücretsiz ulaşım',
+      nightShift: 'Gece vardiyası',
+      schoolBuses: 'Okul servisi',
+      recycling: 'Geri dönüşüm',
+      smokeBan: 'Sigara yasağı',
+      touristTax: 'Turist vergisi',
+    },
+    detail: {
+      freeTransit: 'Otobüsler dolar, hat ferahlar — ama bilet kasası boş kalır.',
+      nightShift: 'Atölyeler gece de çalışır: üretim artar, sokak gürler, şehir yorulur.',
+      schoolBuses: 'Okul daha uzağa ulaşır; servis dakika başı yazar.',
+      recycling: 'Çöpün beşte biri tesise hiç gitmez; ayrıştırma üretimi azıcık yavaşlatır.',
+      smokeBan: 'Salgınlar hafif atlatılır, hava ferahlar; dükkân cirosu kılca düşer.',
+      touristTax: 'Otel geliri artar; yabancıların bir kısmı hiç sapmaz.',
+    },
+    applied: (name: string): string => `${name} yürürlükte.`,
+    repealed: (name: string): string => `${name} kaldırıldı.`,
+  },
+  attractionSheetTitle: 'Turizm ve simge',
+  attractionNote:
+    'Otel, kavşaktan sapan ziyaretçiyi geceletir — akışın ulaştığı bir sokağa ' +
+    'kur. Simge yapılar birer kez kurulur: şehre gurur, yabancıya sebep.',
+  attraction: {
+    hotel: 'Otel',
+    clockTower: 'Saat kulesi',
+    opera: 'Opera binası',
+    stadium: 'Stadyum',
+    tvTower: 'TV kulesi',
+    airport: 'Havalimanı',
+  },
+  attractionBuilt: 'Kuruldu — şehirde bir tane olur',
+
   serviceBlocked: {
     locked: 'Bu bina henüz açılmadı.',
     unowned: 'Burası senin arazin değil.',
@@ -277,6 +316,7 @@ export const STR = {
     // Only asphalt and above carry mains; a dirt track cannot be dug up for pipe.
     noMains: 'Şebeke taşıyan yol yok. Asfalt ya da bulvar kenarına kur.',
     tooDear: 'Bakiye yetmiyor.',
+    alreadyBuilt: 'Bundan zaten bir tane var — simge yapılar birer kez kurulur.',
   },
 
   zone: {

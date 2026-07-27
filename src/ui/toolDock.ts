@@ -2,6 +2,12 @@ import { BRUSH_SIZES, ZONE_COST } from '../data/balance';
 import { isZoneUnlocked, ZONE_UNLOCK } from '../data/buildings';
 import { facilityCard, roadCard, zoneCard } from './cards';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
+import {
+  ATTRACTION_ORDER,
+  ATTRACTION_SPECS,
+  isAttractionUnlocked,
+  type AttractionKind,
+} from '../data/attractions';
 import { PORT_ORDER, PORT_SPECS, isPortUnlocked, type PortKind } from '../data/ports';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
 import {
@@ -45,6 +51,8 @@ export interface DockDeps {
   onPickTransit: () => void;
   /** A zone the city has not reached yet was tapped; the shell says what opens it. */
   onZoneLocked: (kind: ZoneKind) => void;
+  /** Whether a unique attraction already stands, for the "built" row state. */
+  hasAttraction: (kind: AttractionKind) => boolean;
   /** Research points in hand, and what they will buy. */
   research: () => number;
   /**
@@ -302,6 +310,39 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.append(sheetTitle(STR.portSheetTitle));
     sheet.append(sheetNote(STR.portNote));
     for (const kind of PORT_ORDER) sheet.append(portRow(kind));
+    // What the city is visited for: hotels, landmarks, and eventually the
+    // airport. Same verb — a tap on owned ground — so the same sheet.
+    sheet.append(sheetTitle(STR.attractionSheetTitle));
+    sheet.append(sheetNote(STR.attractionNote));
+    for (const kind of ATTRACTION_ORDER) sheet.append(attractionRow(kind));
+  }
+
+  function attractionRow(kind: AttractionKind): HTMLElement {
+    const spec = ATTRACTION_SPECS[kind];
+    const unlocked = isAttractionUnlocked(kind, deps.era());
+    // A landmark already standing says so instead of its price: "one each" is
+    // the rule that makes it a landmark, and the row is where the rule lives.
+    const built = spec.unique && deps.hasAttraction(kind);
+    const row = sheetRow(
+      STR.attraction[kind],
+      built
+        ? STR.attractionBuilt
+        : unlocked
+          ? STR.serviceCost(spec.cost, spec.upkeep)
+          : STR.lockedAt(STR.eraName[spec.unlockedAt]),
+    );
+    row.prepend(facilityCard(kind));
+    row.dataset['locked'] = String(!unlocked || built);
+    row.disabled = !unlocked || built;
+    const active = deps.tools.activeFacility;
+    row.dataset['selected'] = String(active.type === 'attraction' && active.kind === kind);
+    row.addEventListener('click', () => {
+      if (!deps.tools.setFacility({ type: 'attraction', kind })) return;
+      haptics.tap();
+      refresh();
+      closeSheet();
+    });
+    return row;
   }
 
   function portRow(kind: PortKind): HTMLElement {
@@ -533,6 +574,7 @@ function plantDetail(spec: UtilitySpec): string {
 function facilityName(selection: FacilitySelection): string {
   if (selection.type === 'service') return STR.service[selection.kind];
   if (selection.type === 'utility') return STR.utility[selection.kind];
+  if (selection.type === 'attraction') return STR.attraction[selection.kind];
   return STR.port[selection.kind];
 }
 

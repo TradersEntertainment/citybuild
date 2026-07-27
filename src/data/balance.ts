@@ -1275,6 +1275,23 @@ export const ERA_THRESHOLDS = [
   { era: 'megacity', population: 1_000_000 },
 ] as const;
 
+// --- Attractions and tourism (§21) --------------------------------------------
+/**
+ * ₺ per occupied bed per minute, before the tourist tax.
+ *
+ * Sized against the shops: a full 60-bed hotel earns about what a good level-3
+ * shop turns over in tax — strong enough to be worth siting well, never strong
+ * enough to replace a commercial district.
+ */
+export const TOURIST_SPEND_PER_BED = 1.4;
+/**
+ * The most mood the monuments can add, however many stand.
+ *
+ * Pride is real and pride is finite: a treasury that could buy its way past
+ * every closed hospital with statues would be the wrong lesson.
+ */
+export const ATTRACTION_HAPPINESS_CAP = 10;
+
 // --- Events (§13) ------------------------------------------------------------
 export const EVENT_INTERVAL_MIN_S = 180;
 export const EVENT_INTERVAL_MAX_S = 480;

@@ -329,6 +329,60 @@ state'i yazmıyor. Test: `tests/bootHealth.test.ts`.
   (geometri, doku, program). Bunların bir şehir oturduktan sonra düz durması
   gerekir; tırmanan biri sızıntıdır. Profiler'ın JS heap'i bunu **göstermez**.
 
+### Cazibe yapıları ve turizm (§21): otel, simgeler, havalimanı
+
+"Ziyaretçi geliyor ama *kalmıyor*" boşluğu kapandı. `data/attractions.ts` +
+`sim/attractions.ts`, tesislerle aynı kalıp (el ile konan bina, bakım, sebep):
+
+- **Otel** (kasaba, tekrarlanabilir): geliri kendi sokağındaki ziyaretçi
+  akışından okur — `visitorFactor`, dükkânların kullandığı okuma ile **aynı**,
+  yani otel ile yanındaki mağaza sokakta kimse var mı sorusuna hep aynı cevabı
+  verir. Doluluk yatak sayısında doyar; alan yoksa (eski kayıt) taban gelir.
+- **Simgeler** (saat kulesi/opera/stadyum/TV kulesi): `unique: true` — ikincisi
+  fiyatla değil **kuralla** reddedilir (`alreadyBuilt`, arsaya bakılmadan önce;
+  menüde de "Kuruldu" olarak kapalı). Mutluluk `ATTRACTION_HAPPINESS_CAP` ile
+  kapaklı: anıt, kapalı hastanenin yerine geçemez. Ziyaretçi çekimi
+  (`attractionPull`) çarpımsal ama sönümlü — ikinci anıt kendi spec'inin
+  söylediğinden az etkiler (testte sabit).
+- **Havalimanı** (metropol): üçüncü **kapı** — `refreshSeaGates` pistin
+  karolarını `seaGate` kolonuna damgalar, `goods.ts` ihracatı
+  `hasSeaGate || hasAirGate` ile açar. Barikatlanmış otoyol, pisti olan şehri
+  mahsur bırakamaz.
+
+Kayıt: `attractions: number[]` ([id, kindIdx, x, y] × n, `ATTRACTION_ORDER`
+**sadece sona eklenir**), bilinmeyen tür indeksi ölümcül değil düşülür; alan
+hiç yoksa boş başlar. UI: hizmet menüsünde "Turizm ve simge" bölümü, kartlar
+`looks.ts`'e eklenen altı siluetten. Testler: `tests/attractions.test.ts`.
+
+### Politikalar (§22): altı kararname, sıfır bedava öğle yemeği
+
+`data/policies.ts` + `sim/policies.ts` + şehir panelinde "Politikalar" bölümü.
+Ücretsiz ulaşım / gece vardiyası / okul servisi / geri dönüşüm / sigara yasağı
+/ turist vergisi. İki sözleşme, ikisi de testte:
+
+1. **Kapalı politika tam olarak hiçtir.** Her faktör fonksiyonu (ulaşım
+   kapasitesi, sanayi, ticaret, okul erişimi, çöp, salgın şiddeti, turist
+   vergisi çifti…) kapalıyken **tam 1** döner (mutluluk tam 0), çünkü kancalar
+   koşulsuz çarpıyor — 1'den kayan bir varsayılan altı sistemi sessizce yeniden
+   ayarlamak olurdu.
+2. **Her politika bir takastır.** `tests/policies.test.ts` tüm tabloyu tarar:
+   bakiye gideri ya da birinin aleyhine bakan bir faktör olmayan politika
+   "free lunch" diye patlar. Konsey onay kutusu değildir.
+
+Etki sabitleri bilinçli olarak `data/policies.ts` içinde (`POLICY_EFFECTS`),
+`balance.ts`'te değil — politikanın ne yaptığı, spec'inin yanında okunmalı
+(dosyada gerekçesi yazılı). Kancalar: `economy.ts` (sanayi/ticaret çıktısı,
+bilet geliri, bakım), `transit.ts` (kapasite), `cohorts.ts` (okul erişimi),
+`rubbish.ts`, `hazards.ts` (salgın şiddeti), `diffusion.ts` (gece sanayi
+gürültüsü), `visitors.ts` (çekim), `population.ts` (mutluluk). Kayıt:
+`policies: string[]`, bilinmeyen kimlik sessizce düşer (yürürlükten kalkmış
+kararname gibi).
+
+Bu turda bilinçli atlananlar: **tramvay/metro** (ayrı taşıt modu — mevcut
+`transit.ts` hat modeli üstüne mod eklemek büyük iş, tek başına bir tur) ve
+**üniversite** (okul zincirinin üçüncü halkası; kohort modelinde genç bandının
+ayrışmasını ister).
+
 ---
 
 ## 2. Mimari kurallar ve tuzaklar (bozma)
@@ -489,11 +543,13 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
 ### Sırada duran, başlanmamış
 1. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip
    genişletebilse "faturayı öde" mekaniğinin olumlu kardeşi olurdu.
-2. **Turizm/otel.** Ziyaretçi alanı var ama ziyaretçi *kalmıyor*. Marina ve
-   ziyaretçi akışının kesiştiği yerde otel = gecelik gelir.
-3. **Tek yön için görsel geri bildirim.** Ok işaretleri var; eksik olan
+2. **Tek yön için görsel geri bildirim.** Ok işaretleri var; eksik olan
    "buraya giremiyorlar" uyarısı. Ters imzalanmış bir kavşak ziyaretçi
    gelirini sessizce sıfırlıyor — feed'e bir satır hak ediyor.
+3. **Tramvay/metro** ve **üniversite** — §21–22 turunda bilinçli atlandı,
+   gerekçeleri §1'in sonunda.
+
+(*Turizm/otel bu listedeydi — §21 ile yapıldı.*)
 
 ### Denenmiş ve bilinçli olarak yapılmayanlar (tekrar açmadan önce oku)
 - **Ağaç salınımı:** on binlerce instance'ın matrisini her kare yazmak demek.

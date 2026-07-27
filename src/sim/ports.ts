@@ -1,5 +1,6 @@
 import { ROAD_ACCESS_MAX_WALK, SEA_GATE_HAPPINESS_CAP } from '../data/balance';
 import { isPortUnlocked, PORT_SPECS, type PortKind } from '../data/ports';
+import { ATTRACTION_SPECS } from '../data/attractions';
 import type { Fields } from './fields';
 import type { PlacementResult } from './services';
 import type { GameState } from './state';
@@ -177,6 +178,13 @@ export function refreshSeaGates(state: GameState): void {
     if (!spec.seaGate) continue;
     if (openWaterNear(world, port.x, port.y, spec.reach) < spec.waterNeeded) continue;
     world.seaGate[index(world, port.x, port.y)] = 1;
+  }
+  // The airport is the third gate (sim/attractions.ts), and it seeds the same
+  // column: "a way into the country that is not the motorway" is one concept,
+  // and connectivity should not care whether it floats or flies.
+  for (const attraction of state.attractions.values()) {
+    if (!ATTRACTION_SPECS[attraction.kind].gate) continue;
+    world.seaGate[index(world, attraction.x, attraction.y)] = 1;
   }
 }
 

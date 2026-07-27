@@ -9,6 +9,7 @@ import {
   GOODS_SHORTAGE_FLOOR,
 } from '../data/balance';
 import type { Fields } from './fields';
+import { hasAirGate } from './attractions';
 import { hasSeaGate } from './ports';
 import type { GameState } from './state';
 import { NONE } from './tiles';
@@ -184,7 +185,8 @@ export function marketFactor(state: GameState): number {
   if (made <= 0) return 1;
   // A working harbour sells whatever the city cannot: the export the port
   // system has claimed in its name since it was written.
-  const sold = goodsWanted(state) + (hasSeaGate(state) ? exportCapacity(state) : 0);
+  const sold =
+    goodsWanted(state) + (hasSeaGate(state) || hasAirGate(state) ? exportCapacity(state) : 0);
   if (sold >= made) return 1;
   const share = sold / made;
   return GOODS_GLUT_FLOOR + (1 - GOODS_GLUT_FLOOR) * share;

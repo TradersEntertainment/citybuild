@@ -5,6 +5,7 @@ import { isServiceUnlocked, type ServiceKind } from '../data/services';
 import { isUtilityUnlocked, type UtilityKind } from '../data/utilities';
 
 import { demolishArea, didDemolish, isEmptyRemoval, touchedRoads } from '../sim/demolish';
+import { isAttractionUnlocked, type AttractionKind } from '../data/attractions';
 import { setOneWayAlong } from '../sim/oneWay';
 import { buildRoad, estimateRoad, type RoadEstimate } from '../sim/roads';
 import type { GameState } from '../sim/state';
@@ -39,7 +40,8 @@ import { buildRoadPath, type RoadPath } from './pathSmoothing';
 export type FacilitySelection =
   | { type: 'service'; kind: ServiceKind }
   | { type: 'utility'; kind: UtilityKind }
-  | { type: 'port'; kind: PortKind };
+  | { type: 'port'; kind: PortKind }
+  | { type: 'attraction'; kind: AttractionKind };
 
 export type ToolId = 'none' | 'road' | 'zone' | 'erase' | 'service' | 'transit';
 
@@ -190,7 +192,9 @@ export class ToolController {
         ? isServiceUnlocked(selection.kind, this.state.era)
         : selection.type === 'utility'
           ? isUtilityUnlocked(selection.kind, this.state.era)
-          : isPortUnlocked(selection.kind, this.state.era);
+          : selection.type === 'attraction'
+            ? isAttractionUnlocked(selection.kind, this.state.era)
+            : isPortUnlocked(selection.kind, this.state.era);
     if (!unlocked) return false;
     this.facility = selection;
     this.tool = 'service';

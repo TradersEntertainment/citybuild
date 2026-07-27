@@ -30,6 +30,8 @@ import { Clock } from './sim/clock';
 import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
 import { nudgeBudget } from './sim/budgets';
+import { policyActive, togglePolicy } from './sim/policies';
+import { isPolicyUnlocked, POLICY_SPECS } from './data/policies';
 import { approval, secondsToElection } from './sim/elections';
 import { buildingAt, inspectBuilding } from './sim/inspect';
 import { LENS_ORDER, type LensKind } from './sim/lens';
@@ -46,7 +48,9 @@ import { applyOfflineProgress, cityAtAGlance, creditAwayTime } from './sim/offli
 import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions';
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { buyInvestment } from './sim/investments';
+import { hasAttraction, placeAttraction } from './sim/attractions';
 import { hasSeaGate, placePort } from './sim/ports';
+import { ATTRACTION_SPECS } from './data/attractions';
 import { PORT_SPECS } from './data/ports';
 import { placeService, utilitiesExpected } from './sim/services';
 import { SERVICE_SPECS } from './data/services';
@@ -241,6 +245,27 @@ mountCityPanel(ui, {
    * The coverage radius answers to the budget, so the derived fields are stale
    * the moment it moves — the same invalidation that placing a station triggers.
    */
+  // Ordinances (sim/policies.ts). Every outcome is spoken, the lock included:
+  // a toggle that silently does nothing reads as a broken switch.
+  onPolicy: (id) => {
+    const outcome = togglePolicy(game, id);
+    haptics.tap();
+    if (outcome === 'locked') {
+      sfx.play('blocked');
+      toast.show(STR.policy.name[id], STR.lockedAt(STR.eraName[POLICY_SPECS[id].unlockedAt]));
+      return;
+    }
+    sfx.play(outcome === 'on' ? 'build' : 'erase');
+    toast.show(
+      outcome === 'on'
+        ? STR.policy.applied(STR.policy.name[id])
+        : STR.policy.repealed(STR.policy.name[id]),
+    );
+    autosave.flush(game);
+    syncUi();
+  },
+  policyActive: (id) => policyActive(game, id),
+  policyUnlocked: (id) => isPolicyUnlocked(id, game.era),
   onBudget: (kind, direction) => {
     nudgeBudget(game, kind, direction);
     systems.invalidateFields();
@@ -279,6 +304,7 @@ const dock = mountToolDock(ui, {
     renderer.invalidateRoads();
   },
   transitUnlocked: () => transitUnlocked(game),
+  hasAttraction: (kind) => hasAttraction(game, kind),
   onZoneLocked: (kind: ZoneKind) => {
     sfx.play('blocked');
     toast.show(
@@ -793,6 +819,14 @@ function facilityAt(tileX: number, tileY: number): { name: string; upkeep: numbe
       return { name: STR.port[port.kind], upkeep: PORT_SPECS[port.kind].upkeep };
     }
   }
+  for (const attraction of game.attractions.values()) {
+    if (attraction.x === tileX && attraction.y === tileY) {
+      return {
+        name: STR.attraction[attraction.kind],
+        upkeep: ATTRACTION_SPECS[attraction.kind].upkeep,
+      };
+    }
+  }
   return null;
 }
 
@@ -822,13 +856,17 @@ function buildStation(tileX: number, tileY: number): void {
       ? STR.service[facility.kind]
       : facility.type === 'utility'
         ? STR.utility[facility.kind]
-        : STR.port[facility.kind];
+        : facility.type === 'attraction'
+          ? STR.attraction[facility.kind]
+          : STR.port[facility.kind];
   const result =
     facility.type === 'service'
       ? placeService(game, systems.fields, facility.kind, tileX, tileY)
       : facility.type === 'utility'
         ? placePlant(game, systems.fields, facility.kind, tileX, tileY)
-        : placePort(game, systems.fields, facility.kind, tileX, tileY);
+        : facility.type === 'attraction'
+          ? placeAttraction(game, systems.fields, facility.kind, tileX, tileY)
+          : placePort(game, systems.fields, facility.kind, tileX, tileY);
 
   if (!result.ok) {
     sfx.play('blocked');
@@ -1461,6 +1499,7 @@ function syncUi(): void {
       visitorIncome: game.ledger.visitorIncome,
       programmeUpkeep: game.ledger.programmeUpkeep,
       fareIncome: game.ledger.fareIncome,
+      tourismIncome: game.ledger.tourismIncome,
       transitUpkeep: game.ledger.transitUpkeep,
     },
     investments: {

@@ -7,6 +7,7 @@ import {
   VISITOR_SHARE,
   VISITOR_SPEND,
 } from '../data/balance';
+import { attractionPull } from './attractions';
 import { highwayInterchanges, transitFlow } from './highway';
 import { dayFraction, nightAmount } from './daytime';
 import { tradeNow } from './investments';
@@ -73,7 +74,10 @@ export function visitorsWanting(state: GameState, shopJobs: number): number {
   // into an unlit town; lamps buy that back (sim/investments.ts), which is most
   // of what makes the lighting programme pay for itself.
   const hour = tradeNow(state, nightAmount(dayFraction(state.playedMs)));
-  return passing * draw * hour;
+  // What the city is *for*: landmarks pull strangers off the road that shops
+  // alone would not, and the tourist tax turns a share of them away
+  // (sim/attractions.ts — the tax is folded into the pull there).
+  return passing * draw * hour * attractionPull(state);
 }
 
 /**

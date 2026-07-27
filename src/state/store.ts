@@ -97,6 +97,7 @@ export interface LedgerView {
   programmeUpkeep: number;
   /** Fares in and stops out (sim/transit.ts). */
   fareIncome: number;
+  tourismIncome: number;
   transitUpkeep: number;
 }
 
@@ -217,6 +218,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     visitorIncome: 0,
     programmeUpkeep: 0,
     fareIncome: 0,
+    tourismIncome: 0,
     transitUpkeep: 0,
   },
   investments: { lighting: { level: 0 }, greening: { level: 0 }, festivals: { level: 0 } },

@@ -6,6 +6,7 @@ import {
   type ProgrammeId,
 } from '../data/investments';
 import { SERVICE_ORDER, type ServiceKind } from '../data/services';
+import { POLICY_ORDER, POLICY_SPECS, type PolicyId } from '../data/policies';
 import { STR } from '../data/strings.tr';
 import type { Era } from '../sim/tiles';
 import { uiStore, type MissionView, type ProgrammeView } from '../state/store';
@@ -55,6 +56,11 @@ export interface CityPanelDeps {
   onInvest(id: ProgrammeId): void;
   /** Moves a department's funding one notch (sim/budgets.ts). */
   onBudget(kind: ServiceKind, direction: number): void;
+  /** Toggles an ordinance; the shell speaks the outcome (sim/policies.ts). */
+  onPolicy(id: PolicyId): void;
+  /** Whether an ordinance is in force, for the row state. */
+  policyActive(id: PolicyId): boolean;
+  policyUnlocked(id: PolicyId): boolean;
 }
 
 export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPanelHandle {
@@ -115,6 +121,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const riders = row(STR.transit.riders);
   const fares = row(STR.transit.fares);
   const visiting = row(STR.visitorIncome);
+  const tourism = row(STR.tourismIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
@@ -126,6 +133,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     tax.el,
     transit.el,
     visiting.el,
+    tourism.el,
     sea.el,
     riders.el,
     fares.el,
@@ -248,6 +256,40 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     invest.body.append(built.el);
   }
   inner.append(invest.el);
+
+  /**
+   * The ordinances (sim/policies.ts): the levers a council pulls without
+   * building anything. Each row is the toggle itself — a separate button per
+   * row would double the section to say the same thing — and every row shows
+   * both sides of its trade, because a policy with no visible cost would be a
+   * checkbox rather than a decision.
+   */
+  const policies = section(STR.policy.title);
+  const policyNote = document.createElement('p');
+  policyNote.className = 'mission-empty';
+  policyNote.textContent = STR.policy.note;
+  policies.body.append(policyNote);
+  const policyRows = new Map<PolicyId, HTMLButtonElement>();
+  for (const id of POLICY_ORDER) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'panel-policy';
+    const head = document.createElement('div');
+    head.className = 'panel-row';
+    const name = document.createElement('span');
+    name.textContent = STR.policy.name[id];
+    const stateTag = document.createElement('span');
+    stateTag.className = 'panel-value mono';
+    head.append(name, stateTag);
+    const detail = document.createElement('p');
+    detail.className = 'mission-empty';
+    detail.textContent = STR.policy.detail[id];
+    button.append(head, detail);
+    button.addEventListener('click', () => deps.onPolicy(id));
+    policyRows.set(id, button);
+    policies.body.append(button);
+  }
+  inner.append(policies.el);
 
   // it to be one. A destructive action a new player can reach by accident is
   // not a feature.
@@ -376,6 +418,26 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     riders.set(count(s.riders));
     fares.el.hidden = s.ledger.fareIncome <= 0;
     fares.set(`+${money(s.ledger.fareIncome)}`);
+    // Hidden until the first hotel bills a guest, like the fares: a zero row
+    // for a system the player has not touched is furniture.
+    tourism.el.hidden = s.ledger.tourismIncome <= 0;
+    tourism.set(`+${money(s.ledger.tourismIncome)}`);
+    // The ordinance rows carry their own state: in force, available, or what
+    // era opens them — a lock always shows what opens it (§1).
+    for (const [id, button] of policyRows) {
+      const unlocked = deps.policyUnlocked(id);
+      const active = deps.policyActive(id);
+      button.dataset['selected'] = String(active);
+      button.dataset['locked'] = String(!unlocked);
+      const tag = button.querySelector('.panel-value');
+      if (tag) {
+        tag.textContent = !unlocked
+          ? STR.lockedAt(STR.eraName[POLICY_SPECS[id].unlockedAt])
+          : active
+            ? STR.policy.on
+            : STR.policy.off;
+      }
+    }
     lines.el.hidden = s.ledger.transitUpkeep <= 0;
     lines.set(`−${money(s.ledger.transitUpkeep)}`);
     sea.el.hidden = s.ledger.seaIncome <= 0;

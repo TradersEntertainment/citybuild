@@ -11,6 +11,7 @@ import {
 import { PORT_SPECS } from '../data/ports';
 import { greeningAbsorption } from './investments';
 import { ROAD_SPECS } from '../data/roads';
+import { industryNoiseFactor } from './policies';
 import type { GameState } from './state';
 import { techFactor } from './tech';
 import { plantPollution } from './utilities';
@@ -106,12 +107,17 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
     if (y > y1) y1 = y;
   };
 
+  const nightNoise = industryNoiseFactor(state);
   for (const building of state.buildings.values()) {
     const i = index(world, building.x, building.y);
     if (building.zone === 'ind') {
       pollutionSource[i] =
         (pollutionSource[i] ?? 0) + building.jobs * POLLUTION_PER_INDUSTRIAL_JOB * sanitation;
-      noiseSource[i] = (noiseSource[i] ?? 0) + building.jobs * NOISE_PER_INDUSTRIAL_JOB * sanitation;
+      // A workshop on the night shift is a workshop its street hears at 3am
+      // (sim/policies.ts); 1 while the ordinance is off.
+      noiseSource[i] =
+        (noiseSource[i] ?? 0) +
+        building.jobs * NOISE_PER_INDUSTRIAL_JOB * sanitation * nightNoise;
       note(building.x, building.y);
     } else if (building.zone === 'com') {
       noiseSource[i] = (noiseSource[i] ?? 0) + building.jobs * NOISE_PER_COMMERCIAL_JOB;

@@ -1334,6 +1334,29 @@ body {
   border-top: 0;
 }
 
+/* Ordinance rows (ui/cityPanel.ts): the row is the toggle. */
+.panel-policy {
+  display: block;
+  width: 100%;
+  padding: 8px 0 10px;
+  border: 0;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 8%, transparent);
+  background: transparent;
+  color: var(--parsomen);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  min-height: var(--touch-min);
+}
+
+.panel-policy[data-selected='true'] .panel-row span:first-child {
+  color: var(--pirinc);
+}
+
+.panel-policy[data-locked='true'] {
+  color: var(--sis);
+}
+
 .panel-programme .panel-action {
   margin-top: 6px;
 }
