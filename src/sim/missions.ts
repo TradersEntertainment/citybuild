@@ -2,6 +2,7 @@ import { MISSIONS, MISSIONS_SHOWN, type Mission, type MissionGoal } from '../dat
 import { totalBuildings, type BuildingTotals } from './buildings';
 import { highwayInterchanges, transitFlow } from './highway';
 import { seaIncome, workingPorts } from './ports';
+import { readReport } from './report';
 import type { GameState } from './state';
 import { eraReached, NONE } from './tiles';
 import { ownedParcelCount } from './world';
@@ -60,6 +61,13 @@ export function measureGoal(state: GameState, totals: BuildingTotals, goal: Miss
       return seaIncome(state);
     case 'atLevel':
       return countAtLeastLevel(state, goal.level);
+    // The card, on the same 0..100 scale as happiness — so the panel's bar and
+    // its "18 / 24" line need no special case, and a target reads the way a
+    // player would say it out loud.
+    case 'cardOverall':
+      return readReport(state).overall * 100;
+    case 'cardDimension':
+      return readReport(state).scores[goal.dimension] * 100;
   }
 }
 

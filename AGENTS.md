@@ -556,9 +556,12 @@ strateji oyunu.** Özü:
 - Yol değerlendirme AI'ı, kişi başı kimlikli vatandaş, Urban DNA: tarayıcı
   bütçesine sığan yaklaşımları var (alan/kohort/temsilci-agent değil), kişi
   başı NPC bilinçli reddedildi (§3 sonu) — o karar geçerli kalır.
-- Görev sistemi asıl oyun olmalı (missions.ts var; **çok-metrikli karne §25
-  ile yapıldı** — `sim/report.ts`, altı boyut, kimseyi saymayan not; kalan
-  açık iş: karne hedefli görev zinciri).
+- Görev sistemi asıl oyun olmalı — **§25 karne + §27 manda zinciri ile
+  yapıldı.** Eski zincirin yirmi dört hedefinin hepsi *ne kadar* inşa
+  ettiğini ölçüyordu; hiçbiri *ne kadar iyi* yönettiğini ölçmüyordu, yani
+  tıkalı ve kirli bir şehirle zincirin tamamı bitirilebiliyordu. Yedi manda
+  (`data/missions.ts` sonunda) karnenin altı sütununu ve genel notu hedef
+  alıyor, **parayla değil miras puanıyla** ödüyor.
 
 "Yaşayan Şehir" paketlerinin **hepsi yapıldı** (§1'deki listeye bak). Bu bölüm
 artık bundan sonrası için.
@@ -622,6 +625,19 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   denetlemiyor; "kimsenin doldurmadığı tamponu okuyan lens"i yakalıyor, ki
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
+
+### §27 mandalar — tasarım kararları
+- **Miras puanı ödüyor, para değil.** Şehir çağında oyuncunun parası zaten
+  fazla; "iyi yönettin" ödülünün şehirden sonra da kalan şey olması gerekiyor.
+- **Kazanılan manda geri alınmıyor.** Petrol lobisini imzala, karne düşsün —
+  manda düşmez. Oyuncunun hak ettiği bir şeyi sonraki bir karar yüzünden geri
+  almak bu oyundaki tek geri alınamaz şey olurdu. Bu yüzden `mandateLegacy`
+  karne çarpanının *dışında* toplanıyor.
+- §27 sırasında bulunan sömürü: Adalet salt bir *oran* olduğu için "herkes
+  eşit derecede sefil" şehir tam not alıyordu ve `oneCity` mandası bedavaya
+  gelebiliyordu. Ölçüt artık *eşit ve insanca*: oran ile en alt beşte birin
+  mutlak düzeyinden hangisi kötüyse o. Ölçülmüş bir şehirde en alt beşte bir
+  ~39, taban 30 — yani normal şehre hiç dokunmuyor.
 
 ### Sırada duran, başlanmamış
 1. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip

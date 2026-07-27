@@ -236,10 +236,35 @@ describe('equity — the reading nothing else in the game takes', () => {
     expect(readReport(state).scores.equity).toBe(1);
   });
 
-  it('treats a city with no value anywhere as equal, not as failing', () => {
+  it('does not let a city buy the grade by levelling everybody down', () => {
+    // A ratio on its own says a city where every address is worthless is
+    // perfectly equal. True of the spread, and not what "Adalet" claims: the
+    // dimension asks whether the city was built for everyone in it, and one
+    // built well for nobody has not answered it. Without this a player could
+    // bank the equity mandate by keeping the whole map destitute.
+    const destitute = city();
+    place(destitute, 30, { value: 3 });
+    expect(readReport(destitute).scores.equity).toBeLessThan(0.5);
+
+    const decent = city();
+    place(decent, 30, { value: 50 });
+    expect(readReport(decent).scores.equity).toBeGreaterThan(0.9);
+  });
+
+  it('leaves an ordinary functioning city untouched by that floor', () => {
+    // Measured on a grown city the worst fifth sits near 39 against a floor of
+    // 30, so the standard only ever catches the artificially destitute.
+    const state = city();
+    place(state, 30, { value: 39 });
+    expect(readReport(state).scores.equity).toBeCloseTo(1, 5);
+  });
+
+  it('treats a city with no value at all as ungraded rather than crashing', () => {
     const state = city();
     place(state, 30, { value: 0 });
-    expect(readReport(state).scores.equity).toBe(1);
+    const equity = readReport(state).scores.equity;
+    expect(Number.isFinite(equity)).toBe(true);
+    expect(equity).toBeGreaterThanOrEqual(0);
   });
 
   it('ignores empty ground — a city is not marked down for fields', () => {

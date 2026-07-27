@@ -72,24 +72,47 @@ describe('the chain itself', () => {
     expect(opening.length).toBeGreaterThanOrEqual(MISSIONS_SHOWN);
   });
 
-  it('never asks for less than it asked for before, within one measure', () => {
+  it('never asks for less than it asked for before, within one ladder', () => {
     // A later goal that is easier than an earlier one completes out of order and
     // makes the chain read as random.
+    //
+    // Keyed by measure *and* dimension since the mandates arrived (§27): the six
+    // cardDimension goals share a measure and are not a ladder — they are six
+    // parallel asks, one per column of the report card. Two goals naming the
+    // same dimension would still have to escalate, which is what this guards.
     const seen = new Map<string, number>();
     for (const mission of MISSIONS) {
-      const key = mission.goal.measure;
+      const key =
+        mission.goal.measure === 'cardDimension'
+          ? `cardDimension:${mission.goal.dimension}`
+          : mission.goal.measure;
       const previous = seen.get(key);
       if (previous !== undefined) expect(mission.goal.target).toBeGreaterThan(previous);
       seen.set(key, mission.goal.target);
     }
   });
 
-  it('pays more for later goals', () => {
-    for (let i = 1; i < MISSIONS.length; i++) {
-      const before = MISSIONS[i - 1]!;
-      const after = MISSIONS[i]!;
+  it('pays more for later goals, along the chain that pays in money', () => {
+    // The mandates are excluded because they pay in legacy instead, and pinning
+    // that they pay no money at all is tests/mandates.test.ts's job. Escalating
+    // rewards remain the rule for the building chain, which is the part a
+    // player works through in order.
+    const paid = MISSIONS.filter((m) => (m.legacy ?? 0) === 0);
+    for (let i = 1; i < paid.length; i++) {
+      const before = paid[i - 1]!;
+      const after = paid[i]!;
       if (before.from === after.from) continue;
       expect(after.reward).toBeGreaterThan(before.reward);
+    }
+  });
+
+  it('gives every goal exactly one kind of reward', () => {
+    // A goal paying both would be two promises for one act, and the panel shows
+    // only one line.
+    for (const mission of MISSIONS) {
+      const money = mission.reward > 0;
+      const legacy = (mission.legacy ?? 0) > 0;
+      expect(money !== legacy).toBe(true);
     }
   });
 

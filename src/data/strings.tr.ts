@@ -818,6 +818,8 @@ export const STR = {
     /** Toast when one lands. */
     complete: 'Hedef tamamlandı',
     reward: (amount: number): string => `+₺${money.format(amount)}`,
+    /** A mandate pays in what outlives the city, so it says so differently. */
+    rewardLegacy: (points: number): string => `+${plain.format(points)} miras puanı`,
     /** "18 / 24" — where the city is against what was asked. */
     progress: (have: number, want: number): string =>
       `${plain.format(Math.floor(have))} / ${plain.format(want)}`,
@@ -844,6 +846,9 @@ export const STR = {
       seaIncome: (n: number): string => `Denizden dakikada ₺${money.format(n)} kazan`,
       atLevel: (level: number, n: number): string =>
         `${plain.format(n)} bina ${level}. seviyeye çıksın`,
+      /** The mandates (§27). Named as a standard to reach, not a thing to build. */
+      cardOverall: (n: number): string => `Şehir karnesini %${n}'e çıkar`,
+      cardDimension: (name: string, n: number): string => `Karnede ${name} %${n} olsun`,
     },
   },
 

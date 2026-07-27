@@ -787,6 +787,22 @@ export const REPORT_SERVICE_KINDS = ['fire', 'health', 'police'] as const;
  */
 export const REPORT_EQUITY_FLOOR = 12;
 /**
+ * The land value the worst fifth of a city is expected to reach.
+ *
+ * Equity is a ratio, and a ratio alone says a city where every address is
+ * worthless is perfectly equal — which is true, and not what "Adalet" claims.
+ * The dimension asks whether the city was built for everyone in it, and a city
+ * built well for nobody has not answered it. So the reading is the spread *and*
+ * the standard: equal, and decently off.
+ *
+ * 30 against a measured grown city, whose worst fifth sits near 39 and whose
+ * best reaches the low fifties. Comfortably below what an ordinary functioning
+ * district reaches, so this never touches a city that is merely modest — it
+ * only catches one that is uniformly destitute, which is the shape that would
+ * otherwise bank the equity mandate for free.
+ */
+export const REPORT_EQUITY_DECENT = 30;
+/**
  * How far the card swings what a retired city hands on, either way.
  *
  * 0.35 means an F city passes on 65% of what it would have, and an A city 135%.

@@ -672,7 +672,10 @@ function missionRow(view: MissionView): HTMLElement {
   name.textContent = describeGoal(view.goal);
   const reward = document.createElement('span');
   reward.className = 'mission-reward mono';
-  reward.textContent = STR.mission.reward(view.reward);
+  // A mandate pays in what outlives the city, so it must not be shown as "+₺0"
+  // — a reward line quoting nothing would read as a goal that pays nothing.
+  reward.textContent =
+    view.legacy > 0 ? STR.mission.rewardLegacy(view.legacy) : STR.mission.reward(view.reward);
   head.append(name, reward);
 
   const track = document.createElement('div');

@@ -4,6 +4,7 @@ import {
   LEGACY_POPULATION_DIVISOR,
   STARTING_MONEY,
 } from '../data/balance';
+import { missionById } from '../data/missions';
 import { reportLegacyFactor } from './report';
 import type { GameState } from './state';
 import { eraRank, type Era } from './tiles';
@@ -49,7 +50,20 @@ export function legacyValue(state: GameState): number {
   // Reaching an era at all is worth something on its own, so a player who built
   // well on a hard map is not out-earned by one who sprawled on an easy one.
   const fromEra = eraRank(state.era) * LEGACY_ERA_BONUS;
-  return Math.floor((fromPeople + fromEra) * reportLegacyFactor(state));
+  // The mandates the city met (§27), added *after* the card scales the rest.
+  //
+  // Outside the multiplier on purpose. A mandate is a standard the city
+  // provably reached at some point, and the grade is where it stands now —
+  // scaling one by the other would let a late slide quietly erode something the
+  // player had already earned, which is the one thing this game does not do.
+  return Math.floor((fromPeople + fromEra) * reportLegacyFactor(state) + mandateLegacy(state));
+}
+
+/** Legacy points from the mandates completed, which no later decision undoes. */
+export function mandateLegacy(state: GameState): number {
+  let points = 0;
+  for (const id of state.missionsDone) points += missionById(id)?.legacy ?? 0;
+  return points;
 }
 
 /** What an endowment adds to the next city's opening balance. */

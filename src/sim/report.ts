@@ -1,4 +1,5 @@
 import {
+  REPORT_EQUITY_DECENT,
   REPORT_EQUITY_FLOOR,
   REPORT_GRADE_BANDS,
   REPORT_LEGACY_SWING,
@@ -241,8 +242,15 @@ function equityScore(state: GameState): number {
     worst += values[i] ?? 0;
     best += values[values.length - 1 - i] ?? 0;
   }
-  if (best <= 0) return 1; // A city with no value anywhere is not an unequal one.
-  return clamp01(worst / fifth / (best / fifth));
+  const worstMean = worst / fifth;
+  const bestMean = best / fifth;
+  // Equal, *and* decently off. The ratio on its own scores a city where every
+  // address is worthless at full marks — true of the spread, and not what this
+  // dimension claims to measure. Whichever of the two is worse is the answer,
+  // so a city cannot buy the grade by levelling everybody down.
+  const spread = bestMean > 0 ? worstMean / bestMean : 0;
+  const standard = worstMean / REPORT_EQUITY_DECENT;
+  return clamp01(Math.min(spread, standard));
 }
 
 /**

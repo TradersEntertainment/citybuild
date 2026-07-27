@@ -111,6 +111,8 @@ export interface MissionView {
   id: string;
   goal: MissionGoal;
   reward: number;
+  /** Legacy points, for a mandate; 0 for an ordinary goal (§27). */
+  legacy: number;
   have: number;
   want: number;
   /** 0..1, for the bar. */

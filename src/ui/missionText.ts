@@ -44,5 +44,9 @@ export function describeGoal(goal: MissionGoal): string {
       return say.seaIncome(goal.target);
     case 'atLevel':
       return say.atLevel(goal.level, goal.target);
+    case 'cardOverall':
+      return say.cardOverall(goal.target);
+    case 'cardDimension':
+      return say.cardDimension(STR.report.names[goal.dimension], goal.target);
   }
 }

@@ -1402,7 +1402,11 @@ function announceMissions(finished: readonly Mission[]): void {
   for (const mission of finished) {
     toast.show(
       STR.mission.complete,
-      `${describeGoal(mission.goal)} · ${STR.mission.reward(mission.reward)}`,
+      `${describeGoal(mission.goal)} · ${
+        mission.legacy
+          ? STR.mission.rewardLegacy(mission.legacy)
+          : STR.mission.reward(mission.reward)
+      }`,
     );
   }
   haptics.confirm();
@@ -1734,6 +1738,7 @@ function syncUi(): void {
       id: view.mission.id,
       goal: view.mission.goal,
       reward: view.mission.reward,
+      legacy: view.mission.legacy ?? 0,
       have: view.have,
       want: view.want,
       fraction: view.fraction,
