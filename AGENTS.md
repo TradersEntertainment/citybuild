@@ -173,6 +173,32 @@ diye doğru değil; çarpan yığınıyla birlikte ölçülmediyse ölçülmemi�
   *tam olarak bu* olduğu kanıtlanmadı; sandbox'ta swiftshader zaten düzeltmeden
   önce de sonra da ara ara çöküyor. Düzeltmeden sonra 220 saniyelik ölçümde
   Chromium RSS ~1.5 GB'da **düz**, geometri/doku sayıları sabit.
+### Ofis bölgesi (§19): okulların karşılığı
+
+Eğitim sistemi hep vardı ve hep bir şey yapıyordu — her gelire küçük bir çarpan
+— ama oyunda eğitim *olan* bir şey yoktu. Ofis o zincirin ucu: en pahalı arsa,
+mal istemez, kirletmez, konutun yanında durur, en çok vergiyi öder — ve
+işgücünün ciddi bir kısmı okula gitmeden **zemin katın üstüne çıkmaz**. Bugün
+okul, iki kuşak bandı sonra ofis: oyundaki en uzun sebep-sonuç.
+
+Yeni bir `ZoneKind` eklemenin asıl tehlikesi sim değil **kayıt**: bölge kodu
+`ZONE_ORDER`'daki indeks + 1. Araya eklemek, kayıtlı her şehrin sanayisini park
+diye geri yüklerdi — sessizce, hatasız, geri dönüşsüz. Bu yüzden `ZONE_ORDER`,
+`save.ts`'teki `ZONES` ve `render3d/buildings.ts`'teki `ZONES` **sadece sona
+eklenir**; `tests/office.test.ts` ilk olarak bunu sabitliyor.
+
+İkinci tuzak `demand`: nesne bir anahtar kazandı, eski dosyada üç tane var.
+Doğrudan `state.demand = { ...data.demand }` yapmak `demand.office`'i
+`undefined` bırakıyordu ve o da suitability toplamına **NaN** olarak giriyor —
+bir tick içinde şehirdeki her puana yayılırdı. Artık taze state'in kendi
+varsayılanının üstüne yayılıyor.
+
+Ölçüm (aynı şehir, 3 000 sn): okulsuz ofis şehri 3 490 ₺/dk vergi, 74 ofisin
+hepsi 1. kademede (296 iş = tam olarak 74 × 4). Okullu 6 698 ₺/dk ve 1 107 iş.
+Yani okul, ofis gelirini **iki katına** çıkarıyor. Ledger'da kendi dalı var —
+öncesinde `else` sanayiye düşüyordu, yani ofis sanayi vergisiyle
+vergilendirilip kamyonlara satış yapıyordu.
+
 ### Yoğunluk: iki tasarım ölçülerek elendi (§19)
 
 Ölçmeden seçilmiş bir eşik, olmayan bir özellik demek. İkisi de böyle öldü:
@@ -416,7 +442,7 @@ Henüz **yapılmamış ama sığar** olanlar, tavsiyeyle birlikte:
    boyunda gerçek bir gökdelendi — **gökdelen hep vardı, kimse yerini
    seçmiyordu**. Kural tek satır: normal imar üçe, yoğun imar beşe çıkar;
    dördüncü ve beşinci kat da mahallenin gerçekten hizmet almasına bağlı.
-   Ofis bölgesi hâlâ yapılmadı ve *o* gerçekten yeni bir `ZoneKind`.
+   **Ofis de yapıldı** — ve o gerçekten yeni bir `ZoneKind`'dı. Bkz. aşağısı.
 2. **Hizmet kapsamasının mesafeyle azalması** (madde 28). İlk bakışta ucuz
    görünüyor, değil: `serviceMask` bit maskesi, yani doğası gereği ikili, ve
    suç/yangın/çöp/eğitim/şebeke hepsi bitleri okuyor. Dereceli yapmak tür

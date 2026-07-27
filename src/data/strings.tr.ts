@@ -285,7 +285,13 @@ export const STR = {
     ind: 'Sanayi',
     farm: 'Tarım',
     park: 'Park',
+    office: 'Ofis',
   },
+  zoneLocked: (era: string): string => `${era} çağında açılır`,
+  officeNote:
+    'Ofis, okullarının karşılığı. Kirletmez, mal istemez, konutun yanında ' +
+    'durabilir ve en çok vergiyi o öder — ama zemin katın üstüne çıkması için ' +
+    'şehrin işgücünün okumuş olması gerekir. Okul bugün, ofis iki kuşak sonra.',
 
   hud: {
     population: (value: number): string => `${plain.format(Math.round(value))} kişi`,

@@ -3,7 +3,7 @@
 export type TerrainKind = 'water' | 'marsh' | 'plain' | 'forest' | 'hill' | 'rock';
 export type ResourceKind = 'none' | 'coal' | 'iron' | 'stone' | 'clay';
 export type RoadKind = 'path' | 'stone' | 'asphalt' | 'boulevard' | 'highway' | 'metro';
-export type ZoneKind = 'res' | 'com' | 'ind' | 'farm' | 'park';
+export type ZoneKind = 'res' | 'com' | 'ind' | 'farm' | 'park' | 'office';
 export type Era = 'founding' | 'village' | 'town' | 'city' | 'metro' | 'metropolis' | 'megacity';
 
 /** Stored as small integers in typed arrays; these are the encodings. */
@@ -24,7 +24,16 @@ export const ROAD_ORDER: readonly RoadKind[] = [
   'highway',
   'metro',
 ];
-export const ZONE_ORDER: readonly ZoneKind[] = ['res', 'com', 'ind', 'farm', 'park'];
+/**
+ * Zone codes, as stored. **Append only.**
+ *
+ * `encodeZone` is this array's index plus one and that number is what goes in
+ * the save, so inserting a kind anywhere but the end would silently re-label
+ * every zoned tile in every existing city — a player's industry would load as
+ * parkland. Offices were added last for exactly that reason, not because they
+ * belong last.
+ */
+export const ZONE_ORDER: readonly ZoneKind[] = ['res', 'com', 'ind', 'farm', 'park', 'office'];
 /**
  * Eras in the order they arrive. Everything that gates on an era compares ranks
  * from this one list — three separate copies of it had already accumulated, and

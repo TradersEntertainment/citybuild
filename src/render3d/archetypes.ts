@@ -90,6 +90,18 @@ const EARLY: Record<BuiltZone, readonly Archetype[]> = {
     arch(0.74, 0.58, 0.14, '#5C4C39', wall('#AC9F86', '#3C372C', 4, 3, 0.12, false)),
     arch(0.82, 0.72, 0.15, '#564836', wall('#A4977F', '#383429', 4, 3, 0.13, false)),
   ],
+  /**
+   * A settlement has no offices, and this table exists only because a save
+   * loaded mid-session can be in any period. Counting houses in a back room
+   * over the shop: the same shapes as commerce, one storey lower.
+   */
+  office: [
+    arch(0.42, 0.22, 0.15, '#7A5638', wall('#E4DBC6', '#4E4636', 3, 1, 0.22, false)),
+    arch(0.50, 0.32, 0.18, '#745237', wall('#DDD3BC', '#494233', 3, 2, 0.26, false)),
+    arch(0.58, 0.46, 0.20, '#6E4E36', wall('#D5CBB2', '#443E31', 4, 3, 0.30, false)),
+    arch(0.66, 0.62, 0.22, '#684A35', wall('#CDC3A9', '#3F3A2E', 4, 4, 0.33, false)),
+    arch(0.74, 0.82, 0.24, '#624634', wall('#C5BBA0', '#3A362B', 5, 5, 0.36, false)),
+  ],
 };
 
 /**
@@ -120,6 +132,18 @@ const INDUSTRIAL: Record<BuiltZone, readonly Archetype[]> = {
     arch(0.84, 1.10, 0.00, '#55534E', wall('#8B6C5A', '#333833', 6, 6, 0.20, false)),
     arch(0.92, 1.50, 0.00, '#4E4D4A', wall('#816453', '#2F3430', 7, 8, 0.22, false)),
   ],
+  /**
+   * The counting house becomes a chambers, and then a block. Taller than
+   * commerce at every level and far more glass: an office is windows in a way a
+   * shop is not, and at map height that is the only thing telling them apart.
+   */
+  office: [
+    arch(0.44, 0.42, 0.09, '#57616A', wall('#D5D2C6', '#40708A', 4, 3, 0.42, false)),
+    arch(0.54, 0.82, 0.00, '#4F5962', wall('#C6C4B8', '#396B83', 5, 6, 0.48, true)),
+    arch(0.64, 1.55, 0.00, '#48525B', wall('#B4B4AC', '#31637C', 6, 12, 0.54, true)),
+    arch(0.74, 2.60, 0.00, '#414A53', wall('#A6A8A2', '#2A5B74', 7, 19, 0.59, true)),
+    arch(0.82, 3.90, 0.00, '#3A434B', wall('#98A09E', '#22536C', 8, 28, 0.64, true)),
+  ],
 };
 
 /**
@@ -148,6 +172,18 @@ const MODERN: Record<BuiltZone, readonly Archetype[]> = {
     arch(0.72, 0.95, 0.00, '#5C5750', wall('#9E9B88', '#4F584F', 5, 4, 0.18, false)),
     arch(0.84, 1.35, 0.00, '#55534E', wall('#96938A', '#4A534B', 6, 6, 0.20, false)),
     arch(0.92, 1.80, 0.00, '#4E4D4A', wall('#8D8B84', '#455049', 7, 8, 0.22, false)),
+  ],
+  /**
+   * Curtain wall from the ground up and the tallest thing in the city — six
+   * units against a tower block's three and a half. This is what the whole
+   * education chain is eventually for, so it is allowed to look like it.
+   */
+  office: [
+    arch(0.44, 0.44, 0.00, '#3E4A54', wall('#CFD6DA', '#3E7EA0', 4, 3, 0.52, true)),
+    arch(0.54, 0.95, 0.00, '#38434D', wall('#BCC8D0', '#3778A0', 5, 7, 0.58, true)),
+    arch(0.66, 2.10, 0.00, '#323C46', wall('#A6BAC6', '#2E70A0', 6, 14, 0.64, true)),
+    arch(0.78, 4.00, 0.00, '#2C3640', wall('#93AEBE', '#2769A0', 8, 26, 0.70, true)),
+    arch(0.86, 6.20, 0.00, '#26303A', wall('#82A3B6', '#1F61A0', 9, 42, 0.76, true)),
   ],
 };
 

@@ -120,6 +120,15 @@ export const residentialCapacity = (level: number): number => 4 * Math.pow(level
 export const commercialJobs = (level: number): number => 3 * Math.pow(level, 1.5);
 /** SANAYİ_İŞ(l) = 5 * l^1.4 */
 export const industrialJobs = (level: number): number => 5 * Math.pow(level, 1.4);
+/**
+ * OFİS_İŞ(l) = 4 * l^1.7 — the steepest curve of the four.
+ *
+ * A shop is a shopfront however tall the building is; an office tower is
+ * offices all the way up. So a level-one office is worse than a level-one shop
+ * and a level-five office is much better, which is the shape that makes an
+ * office district worth zoning dense and pointless to sprinkle about.
+ */
+export const officeJobs = (level: number): number => 4 * Math.pow(level, 1.7);
 
 /** Zone painting costs per tile (§6.1). */
 export const ZONE_COST = {
@@ -128,6 +137,7 @@ export const ZONE_COST = {
   ind: 55,
   farm: 20,
   park: 90,
+  office: 110,
 } as const;
 
 // --- Density (§19): suburb or downtown ---------------------------------------
@@ -261,6 +271,11 @@ export const NUISANCE_SENSITIVITY = {
   res: { pollution: 1, noise: 1 },
   com: { pollution: 0.65, noise: 0.5 },
   ind: { pollution: 0, noise: 0 },
+  // Fussier than a shop and nearly as fussy as a home. An office is where the
+  // city's educated workforce spends its day, and it will not spend it
+  // downwind of a foundry — which is the whole reason offices are a different
+  // decision from shops rather than a reskin of them.
+  office: { pollution: 0.9, noise: 0.8 },
 } as const;
 
 /** Pollution above this puts a warning mark on the building standing in it. */
@@ -446,6 +461,36 @@ export const FOOD_PRICE = 0.5;
 export const FARM_JOBS_PER_TILE = 0.35;
 export const COMMERCIAL_TAX = 0.06;
 export const INDUSTRIAL_TAX = 0.05;
+
+// --- Offices (§19): what the schools were for -------------------------------
+/**
+ * What one office job turns over per minute, and what the city takes of it.
+ *
+ * Better paid than a shop job and taxed harder, because that is the trade the
+ * whole zone exists to offer: offices are the most valuable ground in the city
+ * and the hardest to earn. They need no goods delivered, make no pollution, and
+ * sit happily beside housing — and none of that is worth anything until the
+ * city has schools, which is the point.
+ */
+export const OFFICE_TURNOVER = 34;
+export const OFFICE_TAX = 0.075;
+/** One office job wanted per this many residents, once they are schooled. */
+export const RESIDENTS_PER_OFFICE_JOB = 22;
+/**
+ * The share of the workforce that must have been to school before an office
+ * block grows past its ground floor.
+ *
+ * The long-horizon payoff the education system never had. Schools take a whole
+ * cohort band to show up in the workforce (sim/cohorts.ts), so a player who
+ * builds schools today is zoning offices two bands from now — the longest
+ * cause-and-effect chain in the game, and the reason offices unlock after
+ * education rather than beside it.
+ *
+ * Gates growth and not spawning, the same as the density rule and for the same
+ * measured reason: a zone that silently builds nothing is a zone the player
+ * thinks is broken.
+ */
+export const OFFICE_SCHOOLING_GATE = 0.35;
 
 // --- Hazards (§13): the chaos services answer --------------------------------
 /**

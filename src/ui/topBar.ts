@@ -23,6 +23,7 @@ export function mountTopBar(root: HTMLElement): () => void {
     res: required(root, '#demand-res'),
     com: required(root, '#demand-com'),
     ind: required(root, '#demand-ind'),
+    office: required(root, '#demand-office'),
   };
 
   let shown = uiStore.getState().money;
@@ -81,6 +82,7 @@ export function mountTopBar(root: HTMLElement): () => void {
     demandBars.res.style.height = `${Math.round(state.demand.res * 100)}%`;
     demandBars.com.style.height = `${Math.round(state.demand.com * 100)}%`;
     demandBars.ind.style.height = `${Math.round(state.demand.ind * 100)}%`;
+    demandBars.office.style.height = `${Math.round(state.demand.office * 100)}%`;
 
     // Happiness drives migration, and through it every other number on this
     // bar. It used to be computed, decisive, and shown nowhere — a player could

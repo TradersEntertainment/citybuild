@@ -1,6 +1,8 @@
 import {
   GOODS_PER_COMMERCIAL_JOB,
   COMMERCIAL_TAX,
+  OFFICE_TAX,
+  OFFICE_TURNOVER,
   COMMERCIAL_TURNOVER,
   FARM_YIELD,
   FOOD_PRICE,
@@ -146,6 +148,19 @@ export function computeLedger(
       // custom so the panel can say where the money came from.
       visitorTrade += building.output * (1 - 1 / corridor) * COMMERCIAL_TAX;
       taxIncome += building.output * COMMERCIAL_TAX;
+    } else if (building.zone === 'office') {
+      // The most valuable ground in the city, and the least dependent on any of
+      // the machinery the other zones need. No goods to deliver, so no lorries
+      // and no market factor; no shopfront, so no passing trade off the
+      // motorway and no closing time — an office tower is lit at midnight and
+      // the night costs it nothing.
+      //
+      // What it does depend on is `skill`, and much harder than anywhere else.
+      // Offices are where the schooling actually cashes out: an unschooled city
+      // can zone them, build them, and watch them earn very little, which is
+      // the long chain the education system never had an end for.
+      building.output = building.jobs * OFFICE_TURNOVER * skill * skill;
+      taxIncome += building.output * OFFICE_TAX;
     } else {
       // A workshop beside a busy junction sells at the gate too, but less: its
       // customers are lorries, not families in a car.

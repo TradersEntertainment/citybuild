@@ -9,13 +9,14 @@ import {
   MIGRATION_HAPPINESS_PIVOT,
   MIGRATION_HAPPINESS_SPAN,
   RESIDENTS_PER_COMMERCIAL_JOB,
+  RESIDENTS_PER_OFFICE_JOB,
   TAX_RATE_MAX,
   UNEMPLOYMENT_PENALTY,
   UNEMPLOYMENT_TOLERANCE,
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
-import { burialHappiness, workingShare } from './cohorts';
+import { burialHappiness, schooledShare, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { verdictHappiness } from './elections';
 import { rubbishHappiness } from './rubbish';
@@ -39,7 +40,11 @@ export function stepPopulation(state: GameState, totals: BuildingTotals, dt: num
   // cannot staff its factories, which is the point of having the bands at all.
   const workers = state.population * workingShare(state);
   const jobs =
-    totals.commercialJobs + totals.industrialJobs + totals.farmJobs + totals.portJobs;
+    totals.commercialJobs +
+    totals.industrialJobs +
+    totals.officeJobs +
+    totals.farmJobs +
+    totals.portJobs;
   const vacancy = totals.housing - state.population;
 
   updateHappiness(state, workers, jobs, dt);
@@ -138,10 +143,27 @@ function updateDemand(
     jobPressure * 0.8,
   );
 
+  // Desks follow the schools, not the shops.
+  //
+  // This is the one demand in the game that the player cannot raise by building
+  // more of anything else: it is the share of the workforce that has been to
+  // school, and schooling takes a whole cohort band to reach the workforce
+  // (sim/cohorts.ts). An unschooled city wants no offices and is right not to.
+  // A city that has been running schools for a generation finds it wants them
+  // badly, which is the moment the education spending finally has a name.
+  //
+  // No `jobPressure` floor, deliberately. The other two zones take up the slack
+  // when people need work, because a shop or a workshop will employ anybody;
+  // an office will not, and letting unemployment conjure office demand would
+  // quietly turn the schooling requirement into a suggestion.
+  const wantedOffice = (state.population * schooledShare(state)) / RESIDENTS_PER_OFFICE_JOB;
+  const officeTarget = ratioDemand(wantedOffice, totals.officeJobs);
+
   const rate = Math.min(1, DEMAND_RESPONSE * dt);
   state.demand.res += (resTarget - state.demand.res) * rate;
   state.demand.com += (comTarget - state.demand.com) * rate;
   state.demand.ind += (indTarget - state.demand.ind) * rate;
+  state.demand.office += (officeTarget - state.demand.office) * rate;
 }
 
 /**

@@ -29,7 +29,7 @@ export interface UiState {
   activeTool: ToolId;
   overlay: OverlayId;
   /** Diagnostics strip; Phase 0 uses it to prove the frame budget. */
-  demand: { res: number; com: number; ind: number };
+  demand: { res: number; com: number; ind: number; office: number };
   net: number;
   ledger: LedgerView;
   /** Level bought in each civic programme, for the panel's buy buttons. */
@@ -160,7 +160,7 @@ export interface SimSnapshot {
   population: number;
   happiness: number;
   taxRate: number;
-  demand: { res: number; com: number; ind: number };
+  demand: { res: number; com: number; ind: number; office: number };
   /** Net income per minute; drives the sign and colour of the HUD figure. */
   net: number;
   ledger: LedgerView;
@@ -200,7 +200,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   taxRate: STARTING_TAX_RATE,
   activeTool: 'none',
   overlay: 'none',
-  demand: { res: 0, com: 0, ind: 0 },
+  demand: { res: 0, com: 0, ind: 0, office: 0 },
   net: 0,
   ledger: {
     taxIncome: 0,
@@ -268,6 +268,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       current.demand.res === snapshot.demand.res &&
       current.demand.com === snapshot.demand.com &&
       current.demand.ind === snapshot.demand.ind &&
+      current.demand.office === snapshot.demand.office &&
       // The ledger has to be compared too, not inferred from `net`: a tax rise
       // and an upkeep rise of the same size leave net untouched while both
       // figures on the panel have moved.

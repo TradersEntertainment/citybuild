@@ -203,8 +203,9 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const demandRes = row(STR.zone.res);
   const demandCom = row(STR.zone.com);
   const demandInd = row(STR.zone.ind);
+  const demandOffice = row(STR.zone.office);
   const farms = row(STR.panel.farmYield);
-  trade.body.append(demandRes.el, demandCom.el, demandInd.el, farms.el);
+  trade.body.append(demandRes.el, demandCom.el, demandInd.el, demandOffice.el, farms.el);
 
   // Goals first: a player who opens the panel wanting to know what to do next
   // should not have to read four sections of bookkeeping to find out.
@@ -410,6 +411,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     demandRes.set(STR.format.percent(s.demand.res));
     demandCom.set(STR.format.percent(s.demand.com));
     demandInd.set(STR.format.percent(s.demand.ind));
+    demandOffice.set(STR.format.percent(s.demand.office));
     farms.set(count(s.ledger.farmYield));
   };
 

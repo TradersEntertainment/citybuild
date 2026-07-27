@@ -1,5 +1,5 @@
 import { BRUSH_SIZES, ZONE_COST } from '../data/balance';
-import { ZONE_TINTS } from '../data/buildings';
+import { isZoneUnlocked, ZONE_TINTS, ZONE_UNLOCK } from '../data/buildings';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
 import { PORT_ORDER, PORT_SPECS, isPortUnlocked, type PortKind } from '../data/ports';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
@@ -42,6 +42,8 @@ export interface DockDeps {
   transitUnlocked: () => boolean;
   /** The line tool was picked; it has no sheet, so the shell says what to do. */
   onPickTransit: () => void;
+  /** A zone the city has not reached yet was tapped; the shell says what opens it. */
+  onZoneLocked: (kind: ZoneKind) => void;
   /** Research points in hand, and what they will buy. */
   research: () => number;
   /**
@@ -386,10 +388,25 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   }
 
   function zoneRow(kind: ZoneKind): HTMLElement {
-    const row = sheetRow(STR.zone[kind], `${STR.format.money(zoneCost(kind))}/kare`);
+    // Shown rather than hidden, with what opens it: §1 of the brief is that a
+    // lock always says what unlocks it, and a row that simply is not there
+    // teaches the player that the game has three zones.
+    const locked = !isZoneUnlocked(kind, deps.era());
+    const row = sheetRow(
+      STR.zone[kind],
+      locked ? STR.zoneLocked(STR.eraName[ZONE_UNLOCK[kind]]) : `${STR.format.money(zoneCost(kind))}/kare`,
+    );
     row.dataset['selected'] = String(deps.tools.activeZoneKind === kind);
+    row.dataset['locked'] = String(locked);
     row.prepend(swatch(ZONE_TINTS[kind]));
     row.addEventListener('click', () => {
+      if (locked) {
+        // The press goes through and is answered, the same as the transit tool:
+        // a tap that does nothing and says nothing reads as a broken button.
+        haptics.tap();
+        deps.onZoneLocked(kind);
+        return;
+      }
       deps.tools.setZoneKind(kind);
       haptics.tap();
       refresh();

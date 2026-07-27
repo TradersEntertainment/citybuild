@@ -154,6 +154,12 @@ body {
   background: var(--kiremit);
 }
 
+/* Offices: the same blue-green the zone paints with, so the bar and the ground
+   the player is looking at agree about which one is which. */
+#demand-office {
+  background: #4e7a96;
+}
+
 .money {
   font-size: 15px;
   color: var(--parsomen);

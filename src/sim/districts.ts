@@ -37,7 +37,7 @@ interface Accumulator {
   population: number;
   sumX: number;
   sumY: number;
-  zones: { res: number; com: number; ind: number };
+  zones: { res: number; com: number; ind: number; office: number };
 }
 
 /**
@@ -57,7 +57,7 @@ export function findDistricts(state: GameState): District[] {
     const key = by * perSide + bx;
     let block = blocks.get(key);
     if (!block) {
-      block = { count: 0, population: 0, sumX: 0, sumY: 0, zones: { res: 0, com: 0, ind: 0 } };
+      block = { count: 0, population: 0, sumX: 0, sumY: 0, zones: { res: 0, com: 0, ind: 0, office: 0 } };
       blocks.set(key, block);
     }
     block.count++;
@@ -112,7 +112,7 @@ function uniqueName(key: number, seed: number, taken: Set<string>): string {
   return fallback;
 }
 
-function dominantZone(zones: { res: number; com: number; ind: number }): BuiltZone {
+function dominantZone(zones: { res: number; com: number; ind: number; office: number }): BuiltZone {
   if (zones.ind >= zones.res && zones.ind >= zones.com) return 'ind';
   if (zones.com >= zones.res) return 'com';
   return 'res';

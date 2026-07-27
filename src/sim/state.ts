@@ -55,7 +55,7 @@ export interface GameState {
   happiness: number;
   research: number;
 
-  demand: { res: number; com: number; ind: number };
+  demand: { res: number; com: number; ind: number; office: number };
   power: { gen: number; use: number };
   water: { gen: number; use: number };
 
@@ -194,7 +194,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     happiness: HAPPINESS_START,
     research: 0,
 
-    demand: { res: 0, com: 0, ind: 0 },
+    demand: { res: 0, com: 0, ind: 0, office: 0 },
     power: { gen: 0, use: 0 },
     water: { gen: 0, use: 0 },
 

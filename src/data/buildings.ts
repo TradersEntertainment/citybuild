@@ -1,12 +1,12 @@
-import { commercialJobs, industrialJobs, residentialCapacity } from './balance';
-import type { ZoneKind } from '../sim/tiles';
+import { commercialJobs, industrialJobs, officeJobs, residentialCapacity } from './balance';
+import { eraReached, type Era, type ZoneKind } from '../sim/tiles';
 
 /**
  * What a building is at each level (§6.3). Levels are the game's main visual
  * reward — the row a player is looking at is the story of their city so far —
  * so the names and the drawing weight both step up together.
  */
-export type BuiltZone = 'res' | 'com' | 'ind';
+export type BuiltZone = 'res' | 'com' | 'ind' | 'office';
 export type Level = 1 | 2 | 3 | 4 | 5;
 
 export interface BuildingLook {
@@ -42,18 +42,51 @@ export const BUILDING_LOOKS: Readonly<Record<BuiltZone, readonly BuildingLook[]>
     { body: '#7E7266', cap: '#584F46', footprint: 0.84, windows: 2 },
     { body: '#8C8B84', cap: '#5E5D58', footprint: 0.92, windows: 2 },
   ],
+  // More glass at every level than anything else in the city, because that is
+  // what an office is from a hundred metres up.
+  office: [
+    { body: '#6E7F8C', cap: '#4C5A66', footprint: 0.46, windows: 1 },
+    { body: '#5F7C90', cap: '#41596A', footprint: 0.58, windows: 2 },
+    { body: '#4E7A96', cap: '#33586F', footprint: 0.70, windows: 4 },
+    { body: '#5A8AA6', cap: '#3A6379', footprint: 0.82, windows: 6 },
+    { body: '#7FB0C6', cap: '#4C7D93', footprint: 0.90, windows: 8 },
+  ],
 };
 
 /** Residents housed, or jobs offered, by one building at a level (§20). */
 export function capacityOf(zone: BuiltZone, level: Level): number {
   if (zone === 'res') return residentialCapacity(level);
   if (zone === 'com') return commercialJobs(level);
+  if (zone === 'office') return officeJobs(level);
   return industrialJobs(level);
 }
 
 /** Zones that grow buildings; farm and park are worked land, not structures. */
 export function isBuiltZone(zone: ZoneKind | null): zone is BuiltZone {
-  return zone === 'res' || zone === 'com' || zone === 'ind';
+  return zone === 'res' || zone === 'com' || zone === 'ind' || zone === 'office';
+}
+
+/**
+ * When each kind of zoning becomes available.
+ *
+ * Only offices are held back, and they are held back until *after* education
+ * opens rather than beside it. A school takes a whole cohort band to reach the
+ * workforce (sim/cohorts.ts), so a player handed both at once would zone a
+ * business district that cannot grow for reasons nothing on screen explains.
+ * By the city era, a town that built schools has graduates; a town that did not
+ * has an answer to why its offices are all ground floors.
+ */
+export const ZONE_UNLOCK: Readonly<Record<ZoneKind, Era>> = {
+  res: 'founding',
+  com: 'founding',
+  ind: 'founding',
+  farm: 'founding',
+  park: 'founding',
+  office: 'city',
+};
+
+export function isZoneUnlocked(kind: ZoneKind, era: Era): boolean {
+  return eraReached(era, ZONE_UNLOCK[kind]);
 }
 
 /** Tint painted over a zoned tile that has not grown anything yet (§6.1). */
@@ -63,4 +96,5 @@ export const ZONE_TINTS: Readonly<Record<ZoneKind, string>> = {
   ind: '#A34C38',
   farm: '#8C9A4A',
   park: '#56784A',
+  office: '#4E7A96',
 };

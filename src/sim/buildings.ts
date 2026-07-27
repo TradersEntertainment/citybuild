@@ -4,6 +4,7 @@ import {
   BUILDING_SEED_OCCUPANCY,
   BUILDING_SPAWN_THRESHOLD,
   DENSE_SERVICE_GATE,
+  OFFICE_SCHOOLING_GATE,
   FARM_JOBS_PER_TILE,
   DECAY_DURATION_S,
   CONGESTION_ALARM,
@@ -23,6 +24,7 @@ import { techFactor } from './tech';
 import { congestionNear, type TrafficField } from './traffic';
 import type { GameState } from './state';
 import { decodeZone, ISSUE, NONE, SERVICE, type ZoneKind } from './tiles';
+import { schooledShare } from './cohorts';
 import { levelCapAt } from './density';
 import { index, isTileOwned, type World } from './world';
 
@@ -131,14 +133,29 @@ function opinion(zone: BuiltZone, neighbour: ZoneKind): number {
   if (zone === 'res') {
     if (neighbour === 'park') return 1;
     if (neighbour === 'res' || neighbour === 'farm') return 0.4;
+    // An office is a quiet neighbour that brings custom to the corner shop and
+    // goes home at six — better to live beside than a parade of shops.
+    if (neighbour === 'office') return 0.35;
     if (neighbour === 'com') return 0.1;
     return -1; // industry next to homes
   }
   if (zone === 'com') {
     if (neighbour === 'res') return 0.8;
+    // Somebody has to feed the offices at lunchtime.
+    if (neighbour === 'office') return 0.7;
     if (neighbour === 'com') return 0.3;
     if (neighbour === 'park') return 0.3;
     return -0.3;
+  }
+  if (zone === 'office') {
+    // Offices cluster harder than anything else in the city. A business
+    // district is a real thing and a lone office block on a ring road is not,
+    // so this is the strongest same-kind opinion in the table.
+    if (neighbour === 'office') return 0.9;
+    if (neighbour === 'park') return 0.6;
+    if (neighbour === 'com') return 0.5;
+    if (neighbour === 'res') return 0.3;
+    return -0.8; // nobody signs a lease downwind of a foundry
   }
   // Industry is indifferent to almost everything, and dislikes only parks it
   // would be taking the place of.
@@ -288,6 +305,15 @@ function updateBuilding(
     const i = index(state.world, building.x, building.y);
     if (serviceCoverageAt(state.world, state.era, i) < DENSE_SERVICE_GATE) return;
   }
+  // An office is only as tall as the workforce it can staff. A block in a city
+  // that never built a school opens its ground floor and stops there — it does
+  // not fail to appear, for the same measured reason the density gate does not:
+  // a zone that silently builds nothing reads as broken rather than as unready.
+  //
+  // The longest chain in the game runs through here. Schools take a cohort band
+  // to reach the workforce, so a player laying out a business district today is
+  // cashing in a decision they made two bands ago.
+  if (building.zone === 'office' && schooledShare(state) < OFFICE_SCHOOLING_GATE) return;
 
   // Growth rate scales with how far above the spawn threshold the score sits,
   // so a merely adequate plot creeps while a good one races.
@@ -368,6 +394,8 @@ export interface BuildingTotals {
   residents: number;
   commercialJobs: number;
   industrialJobs: number;
+  /** Desks, which are jobs the city only gets to fill if it schooled anybody. */
+  officeJobs: number;
   /** Work on painted farmland, which grows no building of its own. */
   farmJobs: number;
   /** Work on the waterfront, likewise placed rather than grown. */
@@ -380,6 +408,7 @@ export function totalBuildings(state: GameState): BuildingTotals {
     residents: 0,
     commercialJobs: 0,
     industrialJobs: 0,
+    officeJobs: 0,
     farmJobs: state.farmTiles * FARM_JOBS_PER_TILE * techFactor(state, 'agronomy'),
     // The waterfront employs people too, and it employs them whether or not a
     // house happens to have grown next to it — a berth is a workplace the player
@@ -393,6 +422,8 @@ export function totalBuildings(state: GameState): BuildingTotals {
       totals.residents += building.population;
     } else if (building.zone === 'com') {
       totals.commercialJobs += building.jobs;
+    } else if (building.zone === 'office') {
+      totals.officeJobs += building.jobs;
     } else {
       totals.industrialJobs += building.jobs;
     }

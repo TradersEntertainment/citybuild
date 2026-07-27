@@ -18,7 +18,9 @@ import { sampleHeight } from './terrain';
  * textures at start-up, most of them for buildings the player will not see for
  * an hour — and a settlement should pay for a settlement.
  */
-const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
+// Append only: the index seeds the facade hash, so re-ordering this would
+// redraw every existing building in the game as a different one.
+const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind', 'office'];
 const PERIOD_SALT: Record<Period, number> = { early: 0, industrial: 61, modern: 127 };
 const INITIAL_CAPACITY = 256;
 

@@ -23,6 +23,7 @@ import { Renderer } from './render3d/renderer';
 import { SEA_Y } from './render3d/constants';
 import { sampleHeight } from './render3d/terrain';
 import { WalkMode } from './render3d/walkMode';
+import { ZONE_UNLOCK } from './data/buildings';
 import { totalBuildings } from './sim/buildings';
 import { findDistricts } from './sim/districts';
 import { Clock } from './sim/clock';
@@ -50,7 +51,7 @@ import { placePlant, utilityBalance } from './sim/utilities';
 import { canRetire, legacyOpeningBalance, legacyValue } from './sim/legacy';
 import { createGameState } from './sim/state';
 import { Systems } from './sim/systems';
-import { NONE, type Era } from './sim/tiles';
+import { NONE, type Era, type ZoneKind } from './sim/tiles';
 import { UndoStack } from './sim/undo';
 import { index, parcelOfTile, startingCentre } from './sim/world';
 import { appendHistory, clearHistory } from './state/history';
@@ -251,6 +252,13 @@ const dock = mountToolDock(ui, {
     renderer.invalidateRoads();
   },
   transitUnlocked: () => transitUnlocked(game),
+  onZoneLocked: (kind: ZoneKind) => {
+    sfx.play('blocked');
+    toast.show(
+      `${STR.zone[kind]}: ${STR.zoneLocked(STR.eraName[ZONE_UNLOCK[kind]])}`,
+      kind === 'office' ? STR.officeNote : undefined,
+    );
+  },
   onPickTransit: () => {
     toast.show(
       transitUnlocked(game)

@@ -48,7 +48,7 @@ export interface SaveData {
   nextLoanId: number;
   happiness: number;
   research: number;
-  demand: { res: number; com: number; ind: number };
+  demand: { res: number; com: number; ind: number; office: number };
   farmTiles: number;
   /** Ids of goals already paid out; a file without them is simply an early city. */
   missionsDone: string[];
@@ -113,8 +113,14 @@ export interface SaveData {
   nextTransitId: number;
 }
 
-/** Fields packed per building, in order. Zone is stored as an index. */
-const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind'];
+/**
+ * Fields packed per building, in order. Zone is stored as an index into this.
+ *
+ * **Append only**, exactly like ZONE_ORDER and for the same reason: the index
+ * is what is written to the file, so inserting a kind ahead of another would
+ * reload every shop in every saved city as something else.
+ */
+const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind', 'office'];
 const BUILDING_FIELDS = 12;
 const LOAN_FIELDS = 5;
 const SERVICE_FIELDS = 4;
@@ -247,7 +253,12 @@ export function deserialize(data: unknown): GameState | null {
   state.debt = totalDebt(state);
   state.happiness = data.happiness;
   state.research = data.research;
-  state.demand = { ...data.demand };
+  // Offices arrived after the other three, so a file written before them has a
+  // demand object with three keys and no `office`. Spreading it over the fresh
+  // state's own defaults keeps that a city with no office demand yet rather
+  // than a city whose office demand is undefined — which would poison every
+  // suitability score it touched, silently, as NaN.
+  state.demand = { ...state.demand, ...data.demand };
   state.farmTiles = data.farmTiles;
   // Goals arrived after the first saves existed. A file without them is a city
   // that has not claimed any yet — not a corrupt one — but the ids are filtered
