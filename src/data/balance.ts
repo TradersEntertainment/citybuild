@@ -129,6 +129,51 @@ export const ZONE_COST = {
   farm: 20,
   park: 90,
 } as const;
+
+// --- Density (§19): suburb or downtown ---------------------------------------
+/**
+ * How tall ordinary zoning builds, and how tall dense zoning builds.
+ *
+ * The archetype tables have always run to five levels, and the fifth is a
+ * genuine high-rise — three units against a cottage's fifth of one. What they
+ * lacked was a reason for any particular plot to stop short of it, so a city
+ * given enough time became uniformly tall and had no districts at all. Three is
+ * the suburb: houses, corner shops, workshops, the city the player draws first.
+ * Five is what they have to decide on, pay for, and service.
+ */
+export const ZONE_LEVEL_CAP = 3;
+export const DENSE_LEVEL_CAP = 5;
+/**
+ * How well served a plot must be before it climbs past the suburb's ceiling.
+ *
+ * Dense zoning grants permission to build a tower; this is the city having to
+ * be able to carry one. A fraction of the era's required services reaching the
+ * tile, so 1.0 means every station the era expects covers it — which makes the
+ * rule "service your downtown", stated in the one unit the player can already
+ * see on the coverage overlay.
+ *
+ * Two earlier attempts are worth recording, because both were killed by
+ * measurement rather than by argument:
+ *
+ * - **A slice off the suitability score.** An unserviced downtown then grew
+ *   nothing whatsoever — the player paid four times the price, watched an empty
+ *   lot, and was told nothing. A block that stands and stays three storeys
+ *   carries the same information where it can be seen.
+ * - **A suitability threshold of 0.62.** Measured in a fully serviced city, the
+ *   best plot scored **0.470** against a spawn threshold of 0.45. The gate was
+ *   unreachable, so dense zoning was a pure money sink. Suitability is a blend
+ *   of seven weighted terms including global demand, and its achievable ceiling
+ *   is not something to guess at. Coverage has a top of 1.0 by construction.
+ */
+export const DENSE_SERVICE_GATE = 0.8;
+/**
+ * What the upzoning costs, as a multiple of the zone's own price.
+ *
+ * Dear on purpose. This is the one purchase in the game that buys a *permission*
+ * rather than a thing, and a cheap permission is not a decision — the player
+ * would paint the whole map dense and be back to a city with no districts.
+ */
+export const DENSE_ZONE_MULTIPLIER = 4;
 /** Brush diameters offered in the dock (§6.1). */
 export const BRUSH_SIZES = [1, 3, 5] as const;
 

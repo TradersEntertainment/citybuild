@@ -71,6 +71,13 @@ export interface World {
    */
   oneWay: Uint8Array;
   /**
+   * 1 where the player has paid to zone for height (see sim/density.ts). Saved,
+   * because it is a decision rather than a derivation — and beside the zone
+   * column rather than inside it, so `zone` stays five kinds wide and every
+   * `zone === 'res'` in the codebase keeps meaning what it says.
+   */
+  density: Uint8Array;
+  /**
    * 1 where a working cargo port stands — a way into the country that is not
    * the motorway. Derived from the berths that exist, never saved; see
    * sim/ports.ts.
@@ -110,6 +117,7 @@ export function createWorld(seed: number, size: number = WORLD_SIZE): World {
     highwayDamage: new Uint8Array(cells),
     highwayBlocked: new Uint8Array(cells),
     oneWay: new Uint8Array(cells),
+    density: new Uint8Array(cells),
     seaGate: new Uint8Array(cells),
     connected: new Uint8Array(cells),
   };
@@ -136,6 +144,7 @@ export function readTile(world: World, x: number, y: number): Tile | null {
     resource: RESOURCE_ORDER[world.resource[i] ?? 0] ?? 'none',
     road: decodeRoad(world.road[i] ?? NONE),
     zone: decodeZone(world.zone[i] ?? NONE),
+    dense: (world.density[i] ?? 0) === 1,
     buildingId: (world.building[i] ?? 0) || null,
     landValue: world.landValue[i] ?? 0,
     pollution: world.pollution[i] ?? 0,

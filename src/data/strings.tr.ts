@@ -135,6 +135,13 @@ export const STR = {
       '"iki yön" ile kaldırabilirsin.',
     oneWayOff: 'İki yön',
     oneWayOn: 'Tek yön →',
+    densityTitle: 'Yükseklik',
+    densityNote:
+      'Normal imar üç kata kadar çıkar: mahalle, dükkân, atölye. Yoğun imar ' +
+      'beşe kadar çıkar — ama dört katı da hizmet ister. Servisi olmayan ' +
+      'yoğun arsaya hiçbir şey kurulmaz, boş durur. Fiyatı dört katı.',
+    densityOff: 'Normal',
+    densityOn: 'Yoğun ↑',
     brushTitle: 'Fırça',
     brushSize: (size: number): string => `${size}×${size}`,
   },

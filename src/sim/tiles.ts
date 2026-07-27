@@ -118,6 +118,8 @@ export interface Tile {
   resource: ResourceKind;
   road: RoadKind | null;
   zone: ZoneKind | null;
+  /** Zoned for height (sim/density.ts): the difference between three and five. */
+  dense: boolean;
   buildingId: number | null;
   landValue: number;
   pollution: number;

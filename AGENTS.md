@@ -173,6 +173,36 @@ diye doğru değil; çarpan yığınıyla birlikte ölçülmediyse ölçülmemi�
   *tam olarak bu* olduğu kanıtlanmadı; sandbox'ta swiftshader zaten düzeltmeden
   önce de sonra da ara ara çöküyor. Düzeltmeden sonra 220 saniyelik ölçümde
   Chromium RSS ~1.5 GB'da **düz**, geometri/doku sayıları sabit.
+### Yoğunluk: iki tasarım ölçülerek elendi (§19)
+
+Ölçmeden seçilmiş bir eşik, olmayan bir özellik demek. İkisi de böyle öldü:
+
+1. **Suitability'den dilim kesmek.** Hizmetsiz yoğun arsanın puanı doğuş
+   eşiğinin altına düşüyordu, yani **hiçbir şey kurulmuyordu**: oyuncu dört
+   katı fiyat ödeyip boş araziye bakıyor ve kimse ona sebebini söylemiyor.
+   Klasik "sessiz hata oyunu bozuk gösterir" tuzağı. Doğru olan *doğuşu* değil
+   *büyümeyi* engellemek: bina kurulsun, üç katta kalsın — aynı bilgi, görünür
+   yerde.
+2. **0.62'lik suitability eşiği.** Tam hizmetli bir şehirde ölçüldü: en iyi
+   arsanın puanı **0.470**, doğuş eşiği 0.45. Eşik erişilemezdi, yani yoğun
+   imar saf para yakma olurdu. Suitability yedi ağırlıklı terimin karışımı ve
+   içinde global talep var; tavanı tahmin edilecek şey değil.
+
+Kalan tasarım: **hizmet kapsaması ≥ 0.8**. Tavanı yapısı gereği 1.0, oyuncunun
+kaplama katmanında zaten gördüğü birim, ve kuralı tek cümlede söylenebiliyor —
+"merkezine hizmet götür". Çağın beklemediği hizmet sayılmıyor, yani köyde yoğun
+imar sırf fiyatıyla beşe çıkıyor; bu bilinçli, "oyuncuyu yapamayacağı şeyden
+sorumlu tutma" kuralının aynısı.
+
+Ölçüm (hizmetli şehir, 2 400 sn): normal 6 497 konut / 2 618 iş, hepsi 3.
+kademede; yoğun 8 468 konut / 3 131 iş, **15 tane 4. ve 103 tane 5. kademe**.
+Yani karar gerçekten ödüyor: +%30 konut, +%20 iş, ve bir siluet.
+
+**Eski kayıtlar affedildi.** Density'den önce kaydedilmiş her şehir hizmetinin
+elverdiği kadar yükselmişti; kuralı geriye dönük uygulamak, güncellemeden
+sonraki ilk tick'te oyuncunun diktiği her kuleden kat sökmeye başlardı.
+`deserialize` üçüncü kademenin üstündeki her binanın altını yoğun işaretliyor.
+
 - Ölçüm aracı kalıcı: `window.__kadastro.resources()` üç sayıyı veriyor
   (geometri, doku, program). Bunların bir şehir oturduktan sonra düz durması
   gerekir; tırmanan biri sızıntıdır. Profiler'ın JS heap'i bunu **göstermez**.
@@ -377,10 +407,16 @@ Sığmayanlar ve nedenleri:
 
 Henüz **yapılmamış ama sığar** olanlar, tavsiyeyle birlikte:
 
-1. **Yoğunluk kademeleri + ofis bölgesi** (madde 19). En çok hissedilecek olan,
-   ama en pahalısı: yeni bir `ZoneKind` on dosyaya dokunuyor ve büyük kısmı
-   renderer'ın arketiplerinde — yani **sandbox'ın göremediği** kısımda. Bunu
-   oyuncu geri bildirimi alabildiğin bir turda yap.
+1. **~~Yoğunluk kademeleri~~ — yapıldı** (`sim/density.ts`). Buradaki itiraz
+   yanlış çıktı: pahalı olan `ZoneKind` eklemekti, yoğunluğun kendisi değil.
+   Yoğunluk *imar türünden bağımsız* bir şey — `res` yine `res`, yanına bir
+   `world.density` sütunu kondu (kayıtta RLE, tek yön oklarıyla aynı kalıp),
+   böylece koddaki hiçbir `zone === 'res'` değişmedi. Renderer'a da hiç
+   dokunulmadı: arketip tabloları zaten beş kademeydi ve beşincisi üç birim
+   boyunda gerçek bir gökdelendi — **gökdelen hep vardı, kimse yerini
+   seçmiyordu**. Kural tek satır: normal imar üçe, yoğun imar beşe çıkar;
+   dördüncü ve beşinci kat da mahallenin gerçekten hizmet almasına bağlı.
+   Ofis bölgesi hâlâ yapılmadı ve *o* gerçekten yeni bir `ZoneKind`.
 2. **Hizmet kapsamasının mesafeyle azalması** (madde 28). İlk bakışta ucuz
    görünüyor, değil: `serviceMask` bit maskesi, yani doğası gereği ikili, ve
    suç/yangın/çöp/eğitim/şebeke hepsi bitleri okuyor. Dereceli yapmak tür

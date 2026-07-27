@@ -88,6 +88,11 @@ export function createOverlay(world: World): OverlayLayer {
         if ((world.building[i] ?? 0) !== 0) continue;
 
         colour.set(ZONE_TINTS[zone]);
+        // Ground zoned for height reads brighter than its neighbours, so a
+        // downtown is visible as a plan before a single tower stands on it.
+        // The player paid four times as much for these tiles; they have to be
+        // able to see which ones they are.
+        if ((world.density[i] ?? 0) === 1) colour.offsetHSL(0, 0.12, 0.16);
         pushTile(positions, world, x, y, ZONE_LIFT);
         for (let v = 0; v < 6; v++) colours.push(colour.r, colour.g, colour.b);
       }

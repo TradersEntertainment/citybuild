@@ -3,6 +3,7 @@ import {
   BUILDING_GROWTH_S,
   BUILDING_SEED_OCCUPANCY,
   BUILDING_SPAWN_THRESHOLD,
+  DENSE_SERVICE_GATE,
   FARM_JOBS_PER_TILE,
   DECAY_DURATION_S,
   CONGESTION_ALARM,
@@ -11,6 +12,7 @@ import {
   POLLUTION_ALARM,
   ROAD_ACCESS_MAX_WALK,
   SUITABILITY_WEIGHTS,
+  ZONE_LEVEL_CAP,
 } from '../data/balance';
 import { capacityOf, isBuiltZone, type BuiltZone, type Level } from '../data/buildings';
 import { UNREACHABLE, type Fields } from './fields';
@@ -21,6 +23,7 @@ import { techFactor } from './tech';
 import { congestionNear, type TrafficField } from './traffic';
 import type { GameState } from './state';
 import { decodeZone, ISSUE, NONE, SERVICE, type ZoneKind } from './tiles';
+import { levelCapAt } from './density';
 import { index, isTileOwned, type World } from './world';
 
 /**
@@ -236,6 +239,22 @@ function updateBuilding(
   building.score = score;
   building.issues = diagnose(state, fields, building, collecting, traffic);
 
+  // Taller than its ground now permits: the player has re-zoned a downtown back
+  // to ordinary streets. It comes down a floor at a time on the same timer as a
+  // neglected block, rather than either standing forever over zoning that no
+  // longer allows it or vanishing the instant the brush passes over.
+  const cap = levelCapAt(state.world, building.x, building.y);
+  if (building.level > cap) {
+    building.decayTimer += dt;
+    building.growthProgress = 0;
+    if (building.decayTimer >= DECAY_DURATION_S) {
+      building.level = (building.level - 1) as Level;
+      building.decayTimer = 0;
+      applyCapacity(building, false);
+    }
+    return;
+  }
+
   if (score < BUILDING_DECAY_THRESHOLD) {
     building.decayTimer += dt;
     building.growthProgress = 0;
@@ -253,7 +272,22 @@ function updateBuilding(
   }
 
   building.decayTimer = Math.max(0, building.decayTimer - dt);
-  if (building.level >= 5) return;
+  // Three storeys on ordinary ground, five where the player paid for height.
+  if (building.level >= cap) return;
+  // And the top two floors are earned rather than bought. Dense zoning grants
+  // permission to build a tower; this is the city having to be able to carry
+  // one, measured as the share of the era's required services reaching the
+  // plot (sim/density.ts).
+  //
+  // Deliberately a *growth* gate and not a spawn gate. Subtracting from
+  // suitability was tried first and measured: an unserviced downtown grew
+  // literally nothing — not a low block, nothing — so the player paid four
+  // times the price, watched an empty lot, and was told nothing. A block that
+  // stands but stays three storeys says the same thing and says it visibly.
+  if (building.level >= ZONE_LEVEL_CAP) {
+    const i = index(state.world, building.x, building.y);
+    if (serviceCoverageAt(state.world, state.era, i) < DENSE_SERVICE_GATE) return;
+  }
 
   // Growth rate scales with how far above the spawn threshold the score sits,
   // so a merely adequate plot creeps while a good one races.

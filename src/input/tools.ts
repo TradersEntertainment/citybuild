@@ -93,6 +93,16 @@ export class ToolController {
    * a street is put back to two-way without a second verb.
    */
   private oneWay = false;
+  /**
+   * Whether the next zoning stroke buys height as well as permission.
+   *
+   * A switch on the zoning tool, exactly like the one-way switch on the road
+   * tool, and for the same reason: the player is making one decision about what
+   * a block is, not two. Painting with it off puts a block back to ordinary
+   * streets — which is the only way to un-zone a downtown, and it has to exist
+   * or the first mis-drawn tower is permanent.
+   */
+  private dense = false;
   private raw: TilePoint[] = [];
   private path: RoadPath | null = null;
   private painted: TilePoint[] = [];
@@ -129,6 +139,16 @@ export class ToolController {
 
   get activeZoneKind(): ZoneKind {
     return this.zoneKind;
+  }
+
+  get denseArmed(): boolean {
+    return this.dense;
+  }
+
+  setDense(on: boolean): void {
+    this.dense = on;
+    this.tool = 'zone';
+    this.events.onChanged?.();
   }
 
   /** What the service tool will place: a civic station or a plant. */
@@ -418,7 +438,13 @@ export class ToolController {
   private commitZone(): number {
     if (this.painted.length === 0) return 0;
 
-    const result = paintZone(this.state.world, this.painted, this.zoneKind, this.state.money);
+    const result = paintZone(
+      this.state.world,
+      this.painted,
+      this.zoneKind,
+      this.state.money,
+      this.dense,
+    );
     this.state.money -= result.spent;
     this.undo.push({ changes: result.changes, spent: result.spent });
     if (result.changes.length > 0) {
@@ -452,6 +478,7 @@ export class ToolController {
         this.painted,
         this.zoneKind,
         this.state.money,
+        this.dense,
       );
       return;
     }

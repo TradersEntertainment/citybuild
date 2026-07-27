@@ -1,4 +1,5 @@
-import { ZONE_COST } from '../data/balance';
+import { DENSE_ZONE_MULTIPLIER, ZONE_COST } from '../data/balance';
+import { isBuiltZone } from '../data/buildings';
 import type { TilePoint } from '../input/pathGeometry';
 import { isNationalHighway } from './highway';
 import { decodeTerrain, decodeZone, encodeZone, NONE, type ZoneKind } from './tiles';
@@ -13,7 +14,7 @@ import { index, inBounds, isTileOwned, type World } from './world';
 export interface ZoneChange {
   x: number;
   y: number;
-  layer: 'zone';
+  layer: 'zone' | 'density';
   previous: number;
 }
 
@@ -89,17 +90,31 @@ export function estimateZone(
   tiles: readonly TilePoint[],
   kind: ZoneKind | null,
   budget: number,
+  /**
+   * Whether this stroke is zoning for height (sim/density.ts).
+   *
+   * Part of the same stroke rather than a second tool: the player is deciding
+   * what a block *is*, and "houses" and "tall houses" are one decision. It also
+   * means a tile whose zone is unchanged but whose density is not still counts
+   * as changed, so painting dense over an existing suburb works.
+   */
+  dense = false,
 ): ZoneEstimate {
-  const cost = kind === null ? 0 : ZONE_COST[kind];
+  const cost = kind === null ? 0 : ZONE_COST[kind] * (dense ? DENSE_ZONE_MULTIPLIER : 1);
   const changed: TilePoint[] = [];
   let total = 0;
   let affordable = 0;
   let affordableCost = 0;
   let truncatedAt = -1;
+  const wanted = dense ? 1 : 0;
 
   for (const tile of tiles) {
-    const current = world.zone[index(world, tile.x, tile.y)] ?? NONE;
-    if (current === encodeZone(kind)) continue; // already this zone
+    const at = index(world, tile.x, tile.y);
+    const current = world.zone[at] ?? NONE;
+    // Already exactly this: same zone and same height permission. Upzoning a
+    // block that is already the right kind is the common case, so comparing the
+    // zone alone would price the whole stroke at nothing and change nothing.
+    if (current === encodeZone(kind) && (world.density[at] ?? 0) === wanted) continue;
     changed.push(tile);
     total += cost;
 
@@ -124,12 +139,16 @@ export function paintZone(
   tiles: readonly TilePoint[],
   kind: ZoneKind | null,
   budget: number,
+  dense = false,
 ): ZoneResult {
-  const estimate = estimateZone(world, tiles, kind, budget);
+  const estimate = estimateZone(world, tiles, kind, budget, dense);
   const changes: ZoneChange[] = [];
   const code = encodeZone(kind);
   let spent = 0;
-  const cost = kind === null ? 0 : ZONE_COST[kind];
+  const cost = kind === null ? 0 : ZONE_COST[kind] * (dense ? DENSE_ZONE_MULTIPLIER : 1);
+  // Only ground that grows buildings can be tall; clearing a zone clears the
+  // permission with it, so no marker is ever left behind on bare ground.
+  const wanted = dense && isBuiltZone(kind) ? 1 : 0;
 
   const limit = kind === null ? estimate.tiles.length : estimate.affordable;
   for (let i = 0; i < limit; i++) {
@@ -137,6 +156,13 @@ export function paintZone(
     const at = index(world, tile.x, tile.y);
     changes.push({ x: tile.x, y: tile.y, layer: 'zone', previous: world.zone[at] ?? NONE });
     world.zone[at] = code;
+    // Its own undo entry, because it is its own column: undoing a stroke that
+    // upzoned a suburb has to put the suburb back, not just the zone kind.
+    const before = world.density[at] ?? 0;
+    if (before !== wanted) {
+      changes.push({ x: tile.x, y: tile.y, layer: 'density', previous: before });
+      world.density[at] = wanted;
+    }
     spent += cost;
   }
 

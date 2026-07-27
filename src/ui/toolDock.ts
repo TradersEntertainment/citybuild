@@ -184,7 +184,40 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     sheet.textContent = '';
     sheet.append(sheetTitle(STR.tools.zoneSheetTitle));
     for (const kind of ZONE_ORDER) sheet.append(zoneRow(kind));
+    // Under the kinds, because it modifies whichever one is held — the same
+    // placement and the same reason as the one-way switch under the road tiers.
+    sheet.append(sheetTitle(STR.tools.densityTitle));
+    sheet.append(sheetNote(STR.tools.densityNote));
+    sheet.append(densityRow());
     sheet.append(sheetTitle(STR.tools.brushTitle), brushRow());
+  }
+
+  /**
+   * The height switch: low-rise or high-rise, on whichever zone is held.
+   *
+   * Shown for every zone kind rather than hidden for farm and park. Hiding it
+   * would make the sheet's shape change under the player's thumb as they move
+   * between kinds, and the rule that a field cannot be dense is already
+   * enforced where it belongs — painting simply leaves no marker there.
+   */
+  function densityRow(): HTMLElement {
+    const row = document.createElement('div');
+    row.className = 'brush-row';
+    for (const on of [false, true]) {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'brush-button';
+      button.textContent = on ? STR.tools.densityOn : STR.tools.densityOff;
+      button.dataset['selected'] = String(deps.tools.denseArmed === on);
+      button.addEventListener('click', () => {
+        deps.tools.setDense(on);
+        haptics.tap();
+        refresh();
+        fillZoneSheet();
+      });
+      row.append(button);
+    }
+    return row;
   }
 
   /**

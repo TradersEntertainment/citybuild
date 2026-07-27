@@ -3,6 +3,7 @@ import {
   BUILDING_SPAWN_THRESHOLD,
   DECAY_DURATION_S,
   ROAD_ACCESS_MAX_WALK,
+  ZONE_LEVEL_CAP,
 } from '../src/data/balance';
 import { capacityOf } from '../src/data/buildings';
 import type { TilePoint } from '../src/input/pathGeometry';
@@ -172,13 +173,17 @@ describe('building lifecycle', () => {
     expect(game.buildings.size).toBe(0);
   });
 
-  it('levels up while the plot stays good, and stops at five', () => {
+  it('levels up while the plot stays good, and stops where the zoning says', () => {
+    // Used to read "and stops at five", from when every plot in the game could
+    // reach the top of the archetype table given enough time — which is why a
+    // mature city had no districts. Ordinary ground is a suburb now; five is
+    // what dense zoning buys (sim/density.ts).
     seedNeighbourhood();
     evaluateBuildings(game, fields, 3);
     for (let i = 0; i < 400; i++) evaluateBuildings(game, fields, 3);
 
     const levels = [...game.buildings.values()].map((b) => b.level);
-    expect(Math.max(...levels)).toBe(5);
+    expect(Math.max(...levels)).toBe(ZONE_LEVEL_CAP);
   });
 
   it('gains housing capacity as it levels', () => {

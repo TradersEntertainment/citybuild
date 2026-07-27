@@ -208,9 +208,21 @@ describe('what the city does while nobody is watching', () => {
   it('reports an era the city passed while away', () => {
     // Sixty seconds of live play already carries this city past the first
     // threshold, so the era to be crossed offline is the one after it.
+    //
+    // Four hours used to be enough on the shared fixture. It stopped being
+    // enough when ordinary zoning gained a ceiling (sim/density.ts): two rows
+    // of twenty-four houses capped at level three hold about 1 100 people
+    // against a town threshold of 1 500, so that city can no longer reach the
+    // next era at all — not slowly, not ever. Waiting longer would not have
+    // fixed it, which is why this zones more ground instead of extending the
+    // absence. Local to this test on purpose: `seedCity` is measured against by
+    // half the file, and widening it there would move every one of those.
     freshCity(60);
+    for (const dy of [3, 4, 5, 6]) paintZone(game.world, row(24, dy), 'res', 1_000_000);
+    for (const dy of [4]) buildRoad(game.world, row(24, dy), 'path', 1_000_000);
+    systems.invalidateFields();
     const before = game.era;
-    const report = applyOfflineProgress(game, systems, creditAwayTime(0, 4 * HOUR));
+    const report = applyOfflineProgress(game, systems, creditAwayTime(0, 14 * HOUR));
     expect(report.eraReached).not.toBeNull();
     expect(game.era).not.toBe(before);
   });

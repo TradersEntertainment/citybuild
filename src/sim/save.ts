@@ -1,9 +1,10 @@
-import { SAVE_VERSION } from '../data/balance';
+import { SAVE_VERSION, ZONE_LEVEL_CAP } from '../data/balance';
 import type { BuiltZone, Level } from '../data/buildings';
 import { missionById } from '../data/missions';
 import { techById } from '../data/tech';
 import { totalDebt } from './credit';
 import { ensureSections, refreshHighwayDamage } from './highwayWear';
+import { pruneDensity } from './density';
 import { pruneOneWay } from './oneWay';
 import { readBudgets } from './budgets';
 import { refreshSeaGates } from './ports';
@@ -79,6 +80,8 @@ export interface SaveData {
   /** Which way each tile runs, RLE'd beside the roads it belongs to. */
   oneWay: number[];
   zone: number[];
+  /** Which ground is zoned for height, RLE'd beside the zoning it modifies. */
+  density: number[];
   /**
    * How far each seam has been worked, RLE'd like the rest (sim/resources.ts).
    *
@@ -191,6 +194,7 @@ export function serialize(state: GameState): SaveData {
     road: encodeRuns(state.world.road),
     oneWay: encodeRuns(state.world.oneWay),
     zone: encodeRuns(state.world.zone),
+    density: encodeRuns(state.world.density),
     depleted: encodeRuns(state.world.depleted),
     parcelsOwned: encodeRuns(state.world.parcelsOwned),
     buildings,
@@ -315,6 +319,15 @@ export function deserialize(data: unknown): GameState | null {
   // authoritative, and an arrow on bare ground would be a rule nobody can see.
   pruneOneWay(state.world);
 
+  // Density arrived after the zoning did, so a file without the column is a
+  // city that never built upward — not a corrupt one. A malformed run is still
+  // refused, for the same reason as the arrows: half a downtown is a map that
+  // disagrees with itself.
+  if (Array.isArray(data.density) && !decodeRuns(data.density, state.world.density)) {
+    return null;
+  }
+  pruneDensity(state.world);
+
   if (data.buildings.length % BUILDING_FIELDS !== 0) return null;
   for (let i = 0; i < data.buildings.length; i += BUILDING_FIELDS) {
     const building = readBuilding(data.buildings, i);
@@ -325,6 +338,17 @@ export function deserialize(data: unknown): GameState | null {
     // The tile → building index is derived, so it is rebuilt here rather than
     // stored and risked going out of step with the map.
     state.world.building[index(state.world, building.x, building.y)] = building.id;
+    // Grandfathered: every city saved before density existed grew as tall as
+    // its services allowed, and a good many of those blocks are above what
+    // ordinary zoning now permits. Marking their ground dense is both kinder
+    // and truer than letting the rule apply retroactively — those blocks *are*
+    // the city's downtown, the player simply was not asked. Without this, the
+    // first tick after the update starts pulling a floor off every tower they
+    // ever built, which is the update destroying a city rather than adding to
+    // one. New towers are still paid for; only standing ones are forgiven.
+    if (building.level > ZONE_LEVEL_CAP) {
+      state.world.density[index(state.world, building.x, building.y)] = 1;
+    }
   }
 
   // Services were added after the first saves existed; a file without them is
