@@ -9,7 +9,6 @@ import {
   CRIME_PER_SEC,
 } from '../src/data/balance';
 import { SECONDS_PER_DAY } from '../src/data/balance';
-import { SECONDS_PER_YEAR } from '../src/data/timeline';
 import type { Level } from '../src/data/buildings';
 import type { Building } from '../src/sim/buildings';
 import {
@@ -84,8 +83,18 @@ function addBuilding(
   return building;
 }
 
-/** Noon of an ordinary day: no holiday, and the night multiplier is off. */
-const NOON_MS = 0.46 * SECONDS_PER_YEAR * 1000;
+/**
+ * Noon, so the night multiplier is off.
+ *
+ * Measured against the *day*, not the year. These were the same length once and
+ * this was written as a fraction of the year, which quietly became dawn the
+ * moment the day was stretched to three years — and dawn is dark enough that the
+ * night tests below stopped discriminating at all.
+ *
+ * Holidays do not come into it: every test here sets `happiness` outright, and
+ * that is the only channel a holiday would reach the crime roll through.
+ */
+const NOON_MS = SECONDS_PER_DAY * 0.5 * 1000;
 
 function freshGame(era: GameState['era'] = 'village'): GameState {
   const game = createGameState(hashSeed('crime'), 0);
@@ -191,7 +200,7 @@ describe('when a crime starts', () => {
 describe('crime after dark', () => {
   /** Midnight of the same ordinary day. */
   const midnight = (game: GameState): void => {
-    game.playedMs = NOON_MS + SECONDS_PER_DAY * 500;
+    game.playedMs = NOON_MS + SECONDS_PER_DAY * 0.5 * 1000;
   };
 
   it('is likelier at night than at noon', () => {

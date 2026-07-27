@@ -50,9 +50,22 @@ describe('reading the clock', () => {
     expect(dayFraction(-5_000)).toBe(0);
   });
 
-  it('runs one day to the year, so the sun agrees with the year badge', () => {
-    // Three years inside one sunrise is the thing this avoids.
-    expect(SECONDS_PER_DAY).toBe(SECONDS_PER_YEAR);
+  it('runs a whole number of years to the day, so dawn lands on a new year', () => {
+    // It used to be exactly one, which kept the sun and the year badge in step at
+    // the cost of ninety sunsets an hour — a sky that never settles, which is
+    // what "sürekli akşam oluyor" turned out to mean. What actually mattered about
+    // the old tie was the phase, not the length: a whole number of years to the
+    // day means every cycle still opens on a year boundary.
+    const years = SECONDS_PER_DAY / SECONDS_PER_YEAR;
+    expect(years).toBe(Math.round(years));
+    expect(years).toBeGreaterThan(1);
+  });
+
+  it('does not put a sunset in front of the player every few seconds', () => {
+    // The number the complaint was actually about. Not the share of darkness —
+    // seventeen per cent, measured — but how often the sky changes.
+    const perHour = 3600 / SECONDS_PER_DAY;
+    expect(perHour).toBeLessThanOrEqual(30);
   });
 });
 

@@ -761,19 +761,41 @@ export const WEATHER_CLEAR_WEIGHT = 16;
 /**
  * Seconds in one day/night cycle.
  *
- * Set equal to SECONDS_PER_YEAR so one year is one day: every new year opens
- * with a dawn, and there is a single notion of how fast time passes rather than
- * a sun that contradicts the year badge. The plan asked for 120, which would
- * have put three years inside one sunrise.
+ * Three years to the day, not one.
+ *
+ * The first version tied it to SECONDS_PER_YEAR so the sun could never contradict
+ * the year badge, and that reasoning was sound about the badge and wrong about
+ * the sky. A forty-second cycle is **ninety sunsets an hour**, and a transition
+ * that recurs that often does not read as a day passing — it reads as a sky that
+ * will not settle. "Sürekli akşam oluyor" was the report, and measuring it bore it
+ * out: not because the twilight share was high (it was seventeen per cent) but
+ * because the player was never more than twenty seconds from one.
+ *
+ * At 120 the count drops to thirty an hour and a full day runs seventy-five
+ * seconds, which is long enough to be a day rather than a flicker. The badge
+ * still lines up, because three is a whole number: every cycle opens on a year
+ * boundary, which was the part of the old tie that actually mattered.
+ *
+ * The cost is a longer night — twenty-three seconds against eleven — and that is
+ * the deliberate half of the trade. The night was dead when the first complaint
+ * came in; it now trades at full rate under lights (sim/investments.ts) and can
+ * be run at four times speed (sim/clock.ts), so length is no longer the same
+ * problem it was.
  */
-export const SECONDS_PER_DAY = 40;
+export const SECONDS_PER_DAY = 120;
 /**
  * Share of the cycle the sun spends above the horizon.
  *
  * An even split leaves the city dark half the time it is being looked at. The
  * night is worth having for the lights coming on, not for the dark.
+ *
+ * Raised from 0.68 alongside the longer day, and for the same report. Tripling
+ * the cycle on its own would have tripled the night with it — twenty-three
+ * seconds of dark against eleven is the trade, and widening the daylight is what
+ * keeps it to that rather than to thirty-four. Measured across the whole cycle:
+ * dark or in transition falls from 45% to 37%.
  */
-export const DAYLIGHT_SHARE = 0.68;
+export const DAYLIGHT_SHARE = 0.78;
 
 // --- National highway wear (savaş ve yol bakımı) -----------------------------
 /**
