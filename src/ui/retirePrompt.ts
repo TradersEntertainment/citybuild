@@ -14,7 +14,7 @@ import { STR } from '../data/strings.tr';
  * that does not exist until the city is old enough to be worth retiring.
  */
 export interface RetirePromptHandle {
-  show(points: number, endowment: number): void;
+  show(points: number, endowment: number, grade: string, factor: number): void;
   dismiss(): void;
   readonly open: boolean;
   dispose(): void;
@@ -63,6 +63,10 @@ export function mountRetirePrompt(
   confirm.textContent = STR.legacy.confirm;
 
   card.append(title, worth, endowment, warning, confirm, cancel);
+  const graded = document.createElement('div');
+  graded.className = 'bank-terms';
+  card.append(graded);
+
   overlay.append(card);
   root.append(overlay);
 
@@ -73,9 +77,14 @@ export function mountRetirePrompt(
     overlay.dataset['shown'] = 'false';
   };
 
-  const show = (points: number, money: number): void => {
+  const show = (points: number, money: number, grade: string, factor: number): void => {
     worth.textContent = STR.legacy.worth(points);
     endowment.textContent = STR.legacy.endowment(money);
+    // Why the figure is what it is. Without this the card quotes a number the
+    // report card silently scaled, and a player who ran a careful city would
+    // have no way to know that was what earned it — which is the difference
+    // between a reward and a number that moved on its own (§1).
+    graded.textContent = STR.legacy.graded(grade, STR.format.percent(factor));
     overlay.dataset['shown'] = 'true';
     open = true;
     // Focus lands on cancel, not on the button that deletes the city.

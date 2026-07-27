@@ -205,6 +205,7 @@ export function computeLandValue(
       const base = terrainValue[i] ?? WATER;
       if (base === WATER) {
         landValue[i] = 0;
+        world.landValue[i] = 0;
         continue;
       }
 
@@ -235,7 +236,17 @@ export function computeLandValue(
       // rather than the state, because this pass has never seen the state and
       // giving it one would let a field read anything.
       value *= valueFactor;
-      landValue[i] = value < 0 ? 0 : value > 100 ? 100 : value;
+      const settled = value < 0 ? 0 : value > 100 ? 100 : value;
+      landValue[i] = settled;
+      // Published to the world alongside the working copy, the same way the
+      // diffusion pass publishes pollution and noise.
+      //
+      // This was missing, and silently: `world.landValue` is what the lens and
+      // the tile inspector read, and nothing had ever written to it, so the
+      // "arazi değeri" overlay drew an empty map on every city ever built. The
+      // field itself was always correct — only the copy the player could see
+      // was not, which is why nothing caught it.
+      world.landValue[i] = settled;
     }
   }
 }

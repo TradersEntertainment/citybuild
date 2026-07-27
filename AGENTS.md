@@ -548,15 +548,17 @@ strateji oyunu.** Özü:
   ikilem tasarımın kendisi.
 - Medya her olayı farklı seslerle anlatır (§23 iki gazete; sosyal medya /
   üçüncü ses açık iş).
-- Lobiler teklif getirir: kısa vadeli kazanç, uzun vadeli risk (açık iş —
-  `parcels/petitions` kalıbı üstüne kurulabilir).
+- Lobiler teklif getirir: kısa vadeli kazanç, uzun vadeli risk (§24 ile
+  yapıldı — altı şirket, süreli sözleşme, imza kesimleri böler).
 - Görünmeyen motor: onlarca metrik zaten var (trafik, gürültü, kirlilik,
   kapsama, suç, arazi değeri…) — oyuncu azını görür, kalanını hisseder.
   Yeni metrik eklerken önce **tüketicisini** yaz (bkz. §2 kural).
 - Yol değerlendirme AI'ı, kişi başı kimlikli vatandaş, Urban DNA: tarayıcı
   bütçesine sığan yaklaşımları var (alan/kohort/temsilci-agent değil), kişi
   başı NPC bilinçli reddedildi (§3 sonu) — o karar geçerli kalır.
-- Görev sistemi asıl oyun olmalı (missions.ts var; çok-metrikli karne açık iş).
+- Görev sistemi asıl oyun olmalı (missions.ts var; **çok-metrikli karne §25
+  ile yapıldı** — `sim/report.ts`, altı boyut, kimseyi saymayan not; kalan
+  açık iş: karne hedefli görev zinciri).
 
 "Yaşayan Şehir" paketlerinin **hepsi yapıldı** (§1'deki listeye bak). Bu bölüm
 artık bundan sonrası için.
@@ -599,6 +601,19 @@ Oyuncunun otuz maddelik listesinden yapılanlar:
   aynı eğri.
 
 Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
+
+### Yönetişim paketi (§21–25) — yapıldı
+- **§21 turizm**, **§22 kararnameler**, **§23 kesimler + iki gazete**,
+  **§24 lobiler** (`sim/lobbies.ts`), **§25 şehir karnesi** (`sim/report.ts`).
+- §25'in çekirdeği: **sandık oy sayar, karne saymaz.** Onay oranı kesimleri
+  nüfusla ağırlıklandırır; karne altı boyutu eşit ağırlıklandırır. İkisinin
+  ayrışabilmesi *test edilmiş bir özellik* — popülist şehir sandıkta kazanıp
+  karnede kalır. Karnenin tüketicisi `legacyValue`: devredilen miras artık
+  şehrin ne kadar iyi yönetildiğine göre ±%35 ölçekleniyor.
+- §25 sırasında bulunan gerçek hata: `world.landValue` hiçbir zaman
+  yazılmıyordu, dolayısıyla **arazi değeri merceği kurulduğundan beri boş
+  harita çiziyordu**. Alan doğruydu, oyuncunun gördüğü kopya değildi —
+  `computeLandValue` artık ikisini birden yazıyor (regresyon testi var).
 
 ### Sırada duran, başlanmamış
 1. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip

@@ -758,6 +758,44 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- The report card (§25) -----------------------------------------------------
+/**
+ * Where each letter starts, richest band first.
+ *
+ * Bands rather than a curve, so a letter means the same thing in a village and
+ * in a metropolis: a player who improves should see the grade move, and one who
+ * merely grew should not. The top band is deliberately hard — an A wants a city
+ * that is doing well on six unrelated things at once, which is the only way the
+ * card stays worth reading once a player knows how it is scored.
+ */
+export const REPORT_GRADE_BANDS = [
+  { from: 0.85, grade: 'A' },
+  { from: 0.7, grade: 'B' },
+  { from: 0.55, grade: 'C' },
+  { from: 0.4, grade: 'D' },
+] as const;
+/** Residents per park square the environment dimension expects. */
+export const REPORT_PARK_PER_RESIDENTS = 900;
+/** The services welfare is graded on; the rest are situational. */
+export const REPORT_SERVICE_KINDS = ['fire', 'health', 'police'] as const;
+/**
+ * Fewest buildings before the equity reading means anything.
+ *
+ * Below this a "worst fifth" is one or two buildings and the figure swings
+ * wildly on a village placing its second shop — a grade that moves for reasons
+ * the player cannot see is worse than no grade.
+ */
+export const REPORT_EQUITY_FLOOR = 12;
+/**
+ * How far the card swings what a retired city hands on, either way.
+ *
+ * 0.35 means an F city passes on 65% of what it would have, and an A city 135%.
+ * A swing rather than a gate: forfeiting the endowment would punish a player for
+ * a run they have already finished, which nothing else in this game does, and
+ * no swing at all would leave the card decorative.
+ */
+export const REPORT_LEGACY_SWING = 0.35;
+
 // --- Lobbies (§24) ------------------------------------------------------------
 /**
  * How often somebody comes to the door, and how long they wait.

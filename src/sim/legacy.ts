@@ -4,6 +4,7 @@ import {
   LEGACY_POPULATION_DIVISOR,
   STARTING_MONEY,
 } from '../data/balance';
+import { reportLegacyFactor } from './report';
 import type { GameState } from './state';
 import { eraRank, type Era } from './tiles';
 
@@ -28,7 +29,19 @@ import { eraRank, type Era } from './tiles';
  * also be the thing that decides to.
  */
 
-/** What retiring this city right now would be worth. */
+/**
+ * What retiring this city right now would be worth.
+ *
+ * Size and era, scaled by how well the city was actually run (sim/report.ts).
+ *
+ * The scaling is §25's whole reason for existing. Without it these two terms
+ * measure only *how much* a player built, so a sprawling, choked, unequal city
+ * hands on exactly as much as a well-planned one of the same size — and the
+ * constitution's central dilemma, that populism can out-earn good planning, had
+ * nothing on the other side of it. Elections reward the mayor who pleased the
+ * most voters. This rewards the one who left the better city, and the two are
+ * allowed to be different people.
+ */
 export function legacyValue(state: GameState): number {
   // Population, sub-linearly: a city twice the size is worth more but not twice
   // as much, or the only way to play would be to grind one run forever.
@@ -36,7 +49,7 @@ export function legacyValue(state: GameState): number {
   // Reaching an era at all is worth something on its own, so a player who built
   // well on a hard map is not out-earned by one who sprawled on an easy one.
   const fromEra = eraRank(state.era) * LEGACY_ERA_BONUS;
-  return Math.floor(fromPeople + fromEra);
+  return Math.floor((fromPeople + fromEra) * reportLegacyFactor(state));
 }
 
 /** What an endowment adds to the next city's opening balance. */

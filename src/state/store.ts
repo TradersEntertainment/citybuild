@@ -4,6 +4,7 @@ import { START_YEAR } from '../data/timeline';
 import type { MissionGoal } from '../data/missions';
 import type { ProgrammeId } from '../data/investments';
 import { SERVICE_ORDER } from '../data/services';
+import { REPORT_DIMENSIONS } from '../sim/report';
 import type { Era } from '../sim/tiles';
 
 /**
@@ -47,6 +48,8 @@ export interface UiState {
   groups: GroupView[];
   /** Lobby deals in force, with what is left of each (sim/lobbies.ts, §24). */
   lobbies: LobbyView[];
+  /** How the city is graded, which is a different question from approval (§25). */
+  report: ReportView;
   /** Riders a minute the bus lines are carrying (sim/transit.ts). */
   riders: number;
   /** Seconds until the next vote is counted (sim/elections.ts). */
@@ -76,6 +79,18 @@ export interface GroupView {
   weight: number;
   /** How the faction would vote today, 0..1. */
   approval: number;
+}
+
+/**
+ * The report card as the panel draws it (sim/report.ts).
+ *
+ * Carried whole rather than as six loose fields, so the panel cannot draw a
+ * grade from one reading and a bar from another.
+ */
+export interface ReportView {
+  scores: Record<string, number>;
+  overall: number;
+  grade: string;
 }
 
 /**
@@ -205,6 +220,7 @@ export interface SimSnapshot {
   approval: number;
   groups: GroupView[];
   lobbies: LobbyView[];
+  report: ReportView;
   riders: number;
   secondsToElection: number;
   grid: GridView;
@@ -276,6 +292,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   approval: 0,
   groups: [],
   lobbies: [],
+  report: { scores: {}, overall: 0, grade: 'F' },
   riders: 0,
   secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
@@ -364,6 +381,14 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
           Math.round(row.remaining) === Math.round(next.remaining)
         );
       }) &&
+      // Compared by the whole percent the bars actually draw.
+      current.report.grade === snapshot.report.grade &&
+      Math.round(current.report.overall * 100) === Math.round(snapshot.report.overall * 100) &&
+      REPORT_DIMENSIONS.every(
+        (dimension) =>
+          Math.round((current.report.scores[dimension] ?? 0) * 100) ===
+          Math.round((snapshot.report.scores[dimension] ?? 0) * 100),
+      ) &&
       Math.round(current.riders) === Math.round(snapshot.riders) &&
       Math.ceil(current.secondsToElection) === Math.ceil(snapshot.secondsToElection) &&
       SERVICE_KEYS.every(

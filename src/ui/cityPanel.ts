@@ -8,6 +8,7 @@ import {
 import { SERVICE_ORDER, type ServiceKind } from '../data/services';
 import { POLICY_ORDER, POLICY_SPECS, type PolicyId } from '../data/policies';
 import { STR } from '../data/strings.tr';
+import { REPORT_DIMENSIONS } from '../sim/report';
 import type { Era } from '../sim/tiles';
 import { uiStore, type MissionView, type ProgrammeView } from '../state/store';
 import { describeGoal } from './missionText';
@@ -287,6 +288,47 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
    * pollution that lifts when it lapses would read as the sim wandering rather
    * than as their term ending.
    */
+  /**
+   * The report card (§25), directly above the electorate it is allowed to
+   * disagree with.
+   *
+   * Position is the argument. Approval sits a few rows below with a big number
+   * beside it; putting the card anywhere else would let a player read one and
+   * never the other, and the entire point is that a mayor on 78% approval with
+   * a D in Adalet should have to look at both at once.
+   *
+   * The note under the heading says so in one line, because a second percentage
+   * with no explanation reads as a bug rather than as a different question.
+   */
+  const report = section(STR.report.title);
+  const reportNote = document.createElement('p');
+  reportNote.className = 'mission-empty';
+  reportNote.textContent = STR.report.note;
+  const reportOverall = row(STR.report.overall);
+  report.body.append(reportNote, reportOverall.el);
+
+  const reportRows = new Map<string, { value: HTMLSpanElement; bar: HTMLDivElement }>();
+  for (const dimension of REPORT_DIMENSIONS) {
+    const el = document.createElement('div');
+    el.className = 'panel-group';
+    const head = document.createElement('div');
+    head.className = 'panel-row';
+    const name = document.createElement('span');
+    name.textContent = STR.report.names[dimension];
+    const value = document.createElement('span');
+    value.className = 'panel-value mono';
+    head.append(name, value);
+    const track = document.createElement('div');
+    track.className = 'panel-group-track';
+    const bar = document.createElement('div');
+    bar.className = 'panel-group-bar';
+    track.append(bar);
+    el.append(head, track);
+    report.body.append(el);
+    reportRows.set(dimension, { value, bar });
+  }
+  inner.append(report.el);
+
   const deals = section(STR.lobby.heading);
   const dealsEmpty = document.createElement('p');
   dealsEmpty.className = 'mission-empty';
@@ -524,6 +566,16 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       row.value.textContent = STR.format.percent(view.approval);
       row.el.dataset['alarm'] = String(view.approval < 0.4);
       row.bar.style.width = `${Math.round(view.approval * 100)}%`;
+    }
+    // The card, graded. Hidden until anybody lives here, the same rule the
+    // electorate keeps: a report on a city that has not started is the game
+    // marking a player down for not having built anything yet.
+    report.el.hidden = s.population <= 0;
+    reportOverall.set(`${s.report.grade} · ${STR.format.percent(s.report.overall)}`);
+    for (const [id, row_] of reportRows) {
+      const score = s.report.scores[id] ?? 0;
+      row_.value.textContent = STR.format.percent(score);
+      row_.bar.style.width = `${Math.round(score * 100)}%`;
     }
     // The deals in force, with what is left of each. The section stays visible
     // with none signed and says so: "imzalı anlaşma yok" is information — a

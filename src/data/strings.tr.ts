@@ -543,6 +543,9 @@ export const STR = {
     /** What the endowment buys next time. */
     endowment: (amount: number): string =>
       `Yeni şehir ₺${plain.format(Math.round(amount))} ile başlar.`,
+    /** Why the points are what they are — the card's grade, and its effect. */
+    graded: (grade: string, percent: string): string =>
+      `Şehir karnesi: ${grade} — miras puanının ${percent}'i.`,
     warning: 'Bu şehir silinir. Geri alınamaz.',
     confirm: 'Devret ve yeniden başla',
     cancel: 'Vazgeç',
@@ -631,6 +634,31 @@ export const STR = {
     /** The chronicle's telling. */
     chronicleSigned: 'Belediye anlaşmayı imzaladı.',
     chronicleLapsed: 'Anlaşmanın süresi doldu.',
+  },
+  /**
+   * The city's report card (§25).
+   *
+   * Six graded dimensions, and one sentence saying what the card is *for*: the
+   * ballot box counts voters, this counts none. Without that line the player
+   * reads a second approval rating and wonders why it disagrees.
+   */
+  report: {
+    title: 'Şehir karnesi',
+    icon: '\u{1F4CB}',
+    note: 'Sandık oy sayar; karne saymaz. İkisi ayrı düşebilir.',
+    overall: 'Genel',
+    /** The chronicle line at each election. */
+    chronicle: (grade: string): string => `Dönem karnesi: ${grade}`,
+    /** What the card is worth to the next city, on the retire screen. */
+    endowment: (percent: string): string => `Karne mirası ${percent} etkiliyor`,
+    names: {
+      mobility: 'Ulaşım',
+      environment: 'Çevre',
+      welfare: 'Refah',
+      economy: 'Ekonomi',
+      equity: 'Adalet',
+      endurance: 'Kalıcılık',
+    },
   },
   roadRepair: {
     title: 'Karayolları müdürlüğü',

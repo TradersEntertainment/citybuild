@@ -74,6 +74,7 @@ import { mountRoadRepairPrompt } from './ui/roadRepairPrompt';
 import { mountLobbyPrompt } from './ui/lobbyPrompt';
 import { LOBBY_SPECS } from './data/lobbies';
 import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
+import { readReport, reportLegacyFactor } from './sim/report';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
@@ -241,7 +242,13 @@ mountCityPanel(ui, {
     // cities before this one — the card has to quote the balance the player
     // will actually see.
     const earned = legacyValue(game);
-    retirePrompt.show(earned, legacyOpeningBalance(loadLegacy() + earned));
+    const card = readReport(game);
+    retirePrompt.show(
+      earned,
+      legacyOpeningBalance(loadLegacy() + earned),
+      card.grade,
+      reportLegacyFactor(game),
+    );
   },
   /**
    * Moves a department's funding a notch (sim/budgets.ts).
@@ -1252,6 +1259,18 @@ function announceElection(): void {
     appendHistory([
       { year: yearOf(game.playedMs), icon: '🗳️', title: text, detail: undefined },
     ]);
+    // …and the card beside the verdict, every term, won or lost. Together they
+    // are the transcript this game never had: a mayor can read back four terms
+    // of "kazandı" against four terms of D and see exactly what they traded.
+    const card = readReport(game);
+    appendHistory([
+      {
+        year: yearOf(game.playedMs),
+        icon: STR.report.icon,
+        title: STR.report.chronicle(card.grade),
+        detail: STR.report.note,
+      },
+    ]);
   }
   syncUi();
 }
@@ -1649,6 +1668,7 @@ function syncUi(): void {
       id: deal.id,
       remaining: dealRemaining(game, deal.id),
     })),
+    report: readReport(game),
     riders: systems.traffic.riders,
     secondsToElection: secondsToElection(game.playedMs),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
