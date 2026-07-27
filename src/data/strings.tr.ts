@@ -660,6 +660,24 @@ export const STR = {
       endurance: 'Kalıcılık',
     },
   },
+  /**
+   * Streets the one-way arrows cut off (§26).
+   *
+   * Named as a signing mistake rather than as a disaster, because that is what
+   * it is and the fix is thirty seconds with the same tool that caused it. The
+   * line says how many and roughly where — a count alone is halfway to a bug
+   * report and no way to a fix.
+   */
+  marooned: {
+    icon: '\u{26D4}',
+    unreachable: (tiles: number): string =>
+      `${tiles} sokağa girilemiyor — tek yön okları ters.`,
+    trapped: (tiles: number): string => `${tiles} sokaktan çıkılamıyor — tek yön okları ters.`,
+    cleared: 'Tek yön okları düzeldi; bütün sokaklara girilebiliyor.',
+    /** The chronicle's telling. */
+    chronicle: 'Ters işaretlenmiş kavşak trafiği kesti.',
+    chronicleCleared: 'Tek yön düzeni onarıldı.',
+  },
   roadRepair: {
     title: 'Karayolları müdürlüğü',
     /** The feed, as each stretch crosses a line. */

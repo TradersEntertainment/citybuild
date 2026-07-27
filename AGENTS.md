@@ -610,17 +610,28 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   ayrışabilmesi *test edilmiş bir özellik* — popülist şehir sandıkta kazanıp
   karnede kalır. Karnenin tüketicisi `legacyValue`: devredilen miras artık
   şehrin ne kadar iyi yönetildiğine göre ±%35 ölçekleniyor.
+- **§26 tek yön geri bildirimi** (`sim/marooned.ts`) — bkz. aşağıdaki liste.
 - §25 sırasında bulunan gerçek hata: `world.landValue` hiçbir zaman
   yazılmıyordu, dolayısıyla **arazi değeri merceği kurulduğundan beri boş
   harita çiziyordu**. Alan doğruydu, oyuncunun gördüğü kopya değildi —
   `computeLandValue` artık ikisini birden yazıyor (regresyon testi var).
+- Bu hata sınıfı için süpürme testi: `tests/lensLiveness.test.ts`. Mevcut lens
+  testi *sessizlik sözleşmesini* tutuyor (0..1 ya da NO_READING) ve tamamen boş
+  bir alan onu mükemmel geçiyor — kör nokta tam buydu. Yeni test gerçek bir
+  şehir büyütüp her lensin **en az bir şey söylemesini** şart koşuyor. Doğruluk
+  denetlemiyor; "kimsenin doldurmadığı tamponu okuyan lens"i yakalıyor, ki
+  gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
+  doğrulandı.)
 
 ### Sırada duran, başlanmamış
 1. **Otoyol genişletme.** Devlet yolu tek şerit; oyuncu para verip
    genişletebilse "faturayı öde" mekaniğinin olumlu kardeşi olurdu.
-2. **Tek yön için görsel geri bildirim.** Ok işaretleri var; eksik olan
-   "buraya giremiyorlar" uyarısı. Ters imzalanmış bir kavşak ziyaretçi
-   gelirini sessizce sıfırlıyor — feed'e bir satır hak ediyor.
+2. ~~**Tek yön için görsel geri bildirim.**~~ §26 ile yapıldı
+   (`sim/marooned.ts`): oklara *uyan* iki BFS — kapılardan içeri, kapılara
+   geri. Girilemeyen ve çıkılamayan sokaklar sayılıyor, feed'e/tarihçeye bir
+   satır düşüyor, düzeltilince ikinci satır. Sim'e hiç dokunmuyor: sorun kayıp
+   gelir değildi, oyuncunun bunu öğrenememesiydi. (Kalan açık iş: haritada
+   işaretlemek — şu an sadece sayı ve bir konum veriliyor.)
 3. **Tramvay/metro** ve **üniversite** — §21–22 turunda bilinçli atlandı,
    gerekçeleri §1'in sonunda.
 

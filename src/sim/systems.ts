@@ -5,6 +5,7 @@ import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './
 import { stepEconomy } from './economy';
 import { stepElections, type ElectionEvent } from './elections';
 import { stepLobbies, type LobbyLapse } from './lobbies';
+import { findMarooned, isMarooned, type MaroonedRoads } from './marooned';
 import { computeGoods, createGoodsField, type GoodsField } from './goods';
 import { lobbyValueFactor } from './lobbies';
 import {
@@ -47,6 +48,7 @@ const EMPTY_RUBBISH: readonly RubbishEvent[] = [];
 const EMPTY_ELECTIONS: readonly ElectionEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_LOBBIES: readonly LobbyLapse[] = [];
+const EMPTY_MAROONED: readonly MaroonedRoads[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
 
@@ -76,6 +78,13 @@ export class Systems {
   private diffusionTimer = FIELD_DIFFUSION_S; // solve once on the first step
   private trafficTimer = TRAFFIC_REFRESH_S;
   private fieldsDirty = true;
+  /**
+   * Whether the arrows were cutting anything off last time the roads were
+   * rebuilt. Not saved: a reload re-reads the map and re-reports within a tick,
+   * which is the same rule the petitions keep.
+   */
+  private wasMarooned = false;
+  private readonly maroonedEvents: MaroonedRoads[] = [];
   private readonly completedMissions: Mission[] = [];
   /**
    * Petitions the city is currently making. Not saved: a reload re-raises
@@ -149,6 +158,16 @@ export class Systems {
       // After the civic services, because it clears only the two bits it owns
       // and would otherwise be wiped by the wholesale rebuild above.
       computeUtilityCoverage(state, this.fields);
+      // The arrows, checked on the same clock as the roads they are drawn on —
+      // which is exactly when they can have changed (sim/marooned.ts). Only the
+      // crossing in each direction is reported: a player who has cut a district
+      // off is told once, and told once more when they fix it.
+      const marooned = findMarooned(state.world);
+      const cutOff = isMarooned(marooned);
+      if (cutOff !== this.wasMarooned) {
+        this.wasMarooned = cutOff;
+        this.maroonedEvents.push(marooned);
+      }
       this.fieldsDirty = false;
     }
 
@@ -293,6 +312,12 @@ export class Systems {
   drainRoadEvents(): readonly HighwayWearEvent[] {
     if (this.roadEvents.length === 0) return EMPTY_ROAD;
     return this.roadEvents.splice(0, this.roadEvents.length);
+  }
+
+  /** One-way schemes cutting streets off, or ceasing to, since the last drain. */
+  drainMarooned(): readonly MaroonedRoads[] {
+    if (this.maroonedEvents.length === 0) return EMPTY_MAROONED;
+    return this.maroonedEvents.splice(0, this.maroonedEvents.length);
   }
 
   /** Lobby deals that ran out since the last drain, for the UI to announce. */

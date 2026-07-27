@@ -75,6 +75,7 @@ import { mountLobbyPrompt } from './ui/lobbyPrompt';
 import { LOBBY_SPECS } from './data/lobbies';
 import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
 import { readReport, reportLegacyFactor } from './sim/report';
+import { isMarooned } from './sim/marooned';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
@@ -1121,6 +1122,7 @@ function frame(now: number): void {
     announcePetitions();
     announceRoadDamage(seconds);
     announceLobbies();
+    announceMarooned();
     announceRituals();
     checkBank();
   }
@@ -1522,6 +1524,55 @@ function announceRoadDamage(seconds: number): void {
   if (!asked && roadRepairReminder < HIGHWAY_BILL_REMINDER_S) return;
   roadRepairReminder = 0;
   roadRepair.offer(cost, blocked > 0);
+}
+
+/**
+ * Says when the one-way arrows have cut a street off, and when they stop.
+ *
+ * The one thing AGENTS.md asked for by name, and the reason it asked: a junction
+ * signed the wrong way round means no car can legally enter the street behind
+ * it, so every shop on it quietly earns nothing from passing trade — with no
+ * marker, no complaint, and a map that looks entirely normal. The player sees
+ * shops that never do well and has no way to learn why.
+ *
+ * A warning rather than an alarm, and a toast rather than a card. Nothing is
+ * lost that cannot be undone with the same tool that caused it, and the sim is
+ * not punishing the player for it — it never was. The bug was that nobody told
+ * them.
+ */
+function announceMarooned(): void {
+  for (const reading of systems.drainMarooned()) {
+    if (!isMarooned(reading)) {
+      eventFeed.pushCustom([
+        { icon: STR.marooned.icon, tone: 'calm', text: STR.marooned.cleared },
+      ]);
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: STR.marooned.icon,
+          title: STR.marooned.cleared,
+          detail: STR.marooned.chronicleCleared,
+        },
+      ]);
+      continue;
+    }
+
+    // Unreachable first: it is the one that costs money.
+    const text =
+      reading.unreachable > 0
+        ? STR.marooned.unreachable(reading.unreachable)
+        : STR.marooned.trapped(reading.trapped);
+    toast.show(text);
+    eventFeed.pushCustom([{ icon: STR.marooned.icon, tone: 'warn', text }]);
+    appendHistory([
+      {
+        year: yearOf(game.playedMs),
+        icon: STR.marooned.icon,
+        title: text,
+        detail: STR.marooned.chronicle,
+      },
+    ]);
+  }
 }
 
 /**
