@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { ROAD_SPECS } from '../data/roads';
 import { FLYING_YEAR, SHUTTLE_YEAR } from '../data/timeline';
 import { vehicleAgeFor, type VehicleAge, type VehicleEra } from '../data/vehicles';
+import { dayFraction, streetActivity } from '../sim/daytime';
 import { transitFlow } from '../sim/highway';
 import { canTravelOn } from '../sim/oneWay';
 import { exitAhead, routeStepOf, throughLegs, type Along } from './transitRoute';
@@ -602,16 +603,33 @@ interface FleetCounts {
 }
 
 /** Targets per fleet, scaled to the city and capped against the pools. */
+/**
+ * How many of each fleet should be on the road right now.
+ *
+ * Scaled by the hour, which it was not until now: the streets carried the same
+ * count at four in the morning as at the evening peak, so the one moment the day
+ * cycle should be most visible — a city that empties and fills — looked exactly
+ * like noon with the lights off.
+ *
+ * `streetActivity` is the curve the pedestrians already walk to (sim/daytime.ts),
+ * so the cars and the people on the pavement thin out together rather than
+ * disagreeing about what time it is. Freight keeps a floor: a night shift is
+ * fewer lorries, not no lorries, and an empty motorway at 3am with the workshops
+ * still lit would read as a bug.
+ */
 function desiredCounts(state: GameState): FleetCounts {
   let workshops = 0;
   for (const building of state.buildings.values()) {
     if (building.zone === 'ind') workshops += building.jobs;
   }
+  const hour = streetActivity(dayFraction(state.playedMs));
   return {
-    commute: Math.min(250, Math.round(state.population / 22)),
-    freight: Math.min(80, Math.round(workshops / 25)),
-    // The sim's own figure, so what is seen is what is billed.
-    transit: Math.min(70, Math.round(transitFlow(state) * 0.45)),
+    commute: Math.min(250, Math.round((state.population / 22) * hour)),
+    freight: Math.min(80, Math.round((workshops / 25) * (0.45 + hour * 0.55))),
+    // The sim's own figure, so what is seen is what is billed. The country's
+    // traffic keeps its own hours — a motorway is busy at night — but not
+    // entirely: the same curve, flattened.
+    transit: Math.min(70, Math.round(transitFlow(state) * 0.45 * (0.6 + hour * 0.4))),
   };
 }
 

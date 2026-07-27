@@ -262,6 +262,23 @@ Oyuncunun otuz maddelik listesinden yapılanlar:
 - **On üç araştırma**, her birinin `sim/` içinde tam bir tüketicisi var.
 - **Zaman kontrolü** (duraklat/0.5×/2×/4×) ve **suç + polis sevki**.
 
+İkinci turda eklenenler:
+
+- **Toplu taşıma** (`sim/transit.ts`) — hattı parmakla çiziyorsun, duraklar
+  aralıkla kendiliğinden diziliyor, çevresindeki binalar yolculuklarının bir
+  kısmını yola değil hatta bindiriyor. Kapasitesi var: dolan hattın cevabı
+  ikinci hat. Yol ağını *boşaltmıyor*, hafifletiyor — yol bu oyunun enstrümanı.
+- **Sanayi–ticaret zinciri** (`sim/goods.ts`) — atölyeler yola sandık koyuyor,
+  sandık mesafeyle ve kuyrukla eriyor, mağaza ulaşanı satıyor. Liman fazlayı
+  ihraç ediyor (port sisteminin adında olan ama hiç yapmadığı şey).
+- **Birim bütçeleri** (`sim/budgets.ts`) — altı birim yarım ile bir buçuk kat
+  arası. Yarıçap bütçenin *karekökü* ile ölçekleniyor: kapladığı alan parayla
+  aynı hızda büyüsün diye. Düz ölçeklemek bedava yükseltme olurdu.
+- **Seçim** (`sim/elections.ts`) — beş yılda bir, zar yok. **Kaybetmek oyunu
+  bitirmiyor**: şehir de para da harita da kalıyor, giden sadece ödenek.
+- **Gece trafiği** — araç sayısı artık saate bağlı (`streetActivity`), yayalarla
+  aynı eğri.
+
 Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
 
 ### Sırada duran, başlanmamış
@@ -305,10 +322,21 @@ Sığmayanlar ve nedenleri:
   şebeke katmanı; su/elektrik zaten yol üstünden akıyor, üçüncü bir ağ
   oyuncuya üç kat kurulum işi demek. Değeri ölçülmeden açılmasın.
 
-Henüz **yapılmamış ama sığar** olanlar: toplu taşıma (otobüs hattını parmakla
-çizmek bu oyunun diline tam oturur), sanayi tedarik zinciri, yoğunluk
-kademeleri + ofis bölgesi, birim bazlı bütçe kalemleri, seçim/kamuoyu,
-emlak piyasası, hizmet kapsamasının mesafeyle azalması.
+Henüz **yapılmamış ama sığar** olanlar, tavsiyeyle birlikte:
+
+1. **Yoğunluk kademeleri + ofis bölgesi** (madde 19). En çok hissedilecek olan,
+   ama en pahalısı: yeni bir `ZoneKind` on dosyaya dokunuyor ve büyük kısmı
+   renderer'ın arketiplerinde — yani **sandbox'ın göremediği** kısımda. Bunu
+   oyuncu geri bildirimi alabildiğin bir turda yap.
+2. **Hizmet kapsamasının mesafeyle azalması** (madde 28). İlk bakışta ucuz
+   görünüyor, değil: `serviceMask` bit maskesi, yani doğası gereği ikili, ve
+   suç/yangın/çöp/eğitim/şebeke hepsi bitleri okuyor. Dereceli yapmak tür
+   başına bir Float32Array (~1.5 MB) ve her tüketicinin değişmesi demek.
+   Kazancı cila; sırası bunlardan sonra.
+3. **Emlak piyasası** (madde 29). Marjinal değeri düşük: kira/fiyat zaten arazi
+   değeri + nüfus üzerinden vergiye giriyor, ayrı bir kira akışı yeni bir karar
+   getirmiyor. Değerli olan tek parçası — boşluk oranının çöküşü tetiklemesi —
+   `suitability` içinde zaten var.
 
 ### Sandbox'ın göremediği şeyler (dürüst ol)
 Bu ortamda GPU yok: Chromium swiftshader ile ~0.5 fps çiziyor ve
