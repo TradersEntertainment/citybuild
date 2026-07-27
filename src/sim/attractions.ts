@@ -11,6 +11,7 @@ import {
 import type { Fields } from './fields';
 import { touristTaxIncome, touristTaxPull } from './policies';
 import type { GameState } from './state';
+import { lobbyPullFactor } from './lobbies';
 import { decodeTerrain, NONE } from './tiles';
 import { visitorFactor, type VisitorField } from './visitors';
 import { index, inBounds, isTileOwned } from './world';
@@ -137,7 +138,7 @@ export function attractionPull(state: GameState): number {
     pull *= 1 + (spec.pull - 1) / (1 + standing * 0.5);
     standing++;
   }
-  return pull * touristTaxPull(state);
+  return pull * touristTaxPull(state) * lobbyPullFactor(state);
 }
 
 /**

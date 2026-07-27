@@ -10,6 +10,7 @@ import { isServiceUnlocked } from '../data/services';
 import { budgetOf } from './budgets';
 import { rubbishFactor } from './policies';
 import type { GameState } from './state';
+import { lobbyRubbishFactor } from './lobbies';
 
 /**
  * What the city throws away (§15).
@@ -45,7 +46,13 @@ export function rubbishPerMinute(state: GameState): number {
   }
   // The recycling ordinance takes its cut before anything reaches the tip
   // (sim/policies.ts); 1 while the policy is off.
-  return (residents * RUBBISH_PER_RESIDENT_MIN + jobs * RUBBISH_PER_JOB_MIN) * rubbishFactor(state);
+  // …and the tourism lobby's crowds add to it before the ordinance takes any
+  // of it away, which is why the two multiply rather than one winning.
+  return (
+    (residents * RUBBISH_PER_RESIDENT_MIN + jobs * RUBBISH_PER_JOB_MIN) *
+    rubbishFactor(state) *
+    lobbyRubbishFactor(state)
+  );
 }
 
 /** What the depots standing can clear per minute. */

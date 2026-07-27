@@ -122,6 +122,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const fares = row(STR.transit.fares);
   const visiting = row(STR.visitorIncome);
   const tourism = row(STR.tourismIncome);
+  const lobbies = row(STR.lobbyIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
@@ -275,6 +276,40 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const groupList = document.createElement('div');
   opinion.body.append(groupList);
   inner.append(opinion.el);
+
+  /**
+   * The signed deals (§24), directly under the electorate they moved.
+   *
+   * The countdown is the whole reason this section exists. The card that
+   * offered the deal is gone within seconds; without a row saying "petrol
+   * şirketi, 240 sn kaldı" the player would be living with a consequence whose
+   * source they cannot look up and whose end they cannot plan for — and the
+   * pollution that lifts when it lapses would read as the sim wandering rather
+   * than as their term ending.
+   */
+  const deals = section(STR.lobby.heading);
+  const dealsEmpty = document.createElement('p');
+  dealsEmpty.className = 'mission-empty';
+  dealsEmpty.textContent = STR.lobby.none;
+  const dealList = document.createElement('div');
+  deals.body.append(dealsEmpty, dealList);
+  inner.append(deals.el);
+
+  const dealRows = new Map<string, { el: HTMLDivElement; value: HTMLSpanElement }>();
+  /** Built on first sight and reused, exactly like a faction's row. */
+  const dealRow = (id: string) => {
+    const el = document.createElement('div');
+    el.className = 'panel-row';
+    const name = document.createElement('span');
+    name.textContent = STR.lobby.names[id as keyof typeof STR.lobby.names] ?? id;
+    const value = document.createElement('span');
+    value.className = 'panel-value mono';
+    el.append(name, value);
+    const row = { el, value };
+    dealRows.set(id, row);
+    dealList.append(el);
+    return row;
+  };
 
   /** A faction's row is built on first sight and reused; only text and width move. */
   const groupRow = (id: string) => {
@@ -466,6 +501,15 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     // for a system the player has not touched is furniture.
     tourism.el.hidden = s.ledger.tourismIncome <= 0;
     tourism.set(`+${money(s.ledger.tourismIncome)}`);
+    // The one row that can go either way, so it carries its own sign rather
+    // than a fixed one. Hidden only when nothing is signed — a deal costing the
+    // city money is exactly the case the player must be able to see.
+    lobbies.el.hidden = s.ledger.lobbyIncome === 0;
+    lobbies.set(
+      s.ledger.lobbyIncome >= 0
+        ? `+${money(s.ledger.lobbyIncome)}`
+        : `−${money(-s.ledger.lobbyIncome)}`,
+    );
     // The factions, weight and verdict each (§23). Hidden until anybody lives
     // here — an opinion section about nobody is furniture. Rows with no real
     // constituency (a village with no industry has no industrialists) stay
@@ -481,6 +525,17 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       row.el.dataset['alarm'] = String(view.approval < 0.4);
       row.bar.style.width = `${Math.round(view.approval * 100)}%`;
     }
+    // The deals in force, with what is left of each. The section stays visible
+    // with none signed and says so: "imzalı anlaşma yok" is information — a
+    // player who has forgotten whether they took the oil money can check —
+    // whereas a section that vanished would leave them nowhere to look.
+    for (const row of dealRows.values()) row.el.hidden = true;
+    for (const view of s.lobbies) {
+      const row = dealRows.get(view.id) ?? dealRow(view.id);
+      row.el.hidden = false;
+      row.value.textContent = STR.lobby.remaining(view.remaining);
+    }
+    dealsEmpty.hidden = s.lobbies.length > 0;
     // The ordinance rows carry their own state: in force, available, or what
     // era opens them — a lock always shows what opens it (§1).
     for (const [id, button] of policyRows) {

@@ -4,7 +4,9 @@ import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
 import { stepElections, type ElectionEvent } from './elections';
+import { stepLobbies, type LobbyLapse } from './lobbies';
 import { computeGoods, createGoodsField, type GoodsField } from './goods';
+import { lobbyValueFactor } from './lobbies';
 import {
   computeLandValue,
   computeParkValue,
@@ -44,6 +46,7 @@ const EMPTY_RESOURCES: readonly ResourceEvent[] = [];
 const EMPTY_RUBBISH: readonly RubbishEvent[] = [];
 const EMPTY_ELECTIONS: readonly ElectionEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
+const EMPTY_LOBBIES: readonly LobbyLapse[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
 
@@ -87,6 +90,7 @@ export class Systems {
   private readonly resourceEvents: ResourceEvent[] = [];
   private readonly rubbishEvents: RubbishEvent[] = [];
   private readonly electionEvents: ElectionEvent[] = [];
+  private readonly lobbyLapses: LobbyLapse[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -138,7 +142,7 @@ export class Systems {
       computeTraffic(state, this.fields, this.traffic);
       this.refreshVisitors(state);
       computeGoods(state, this.fields, this.goods, this.traffic.load);
-      computeLandValue(state.world, this.fields, this.traffic);
+      computeLandValue(state.world, this.fields, this.traffic, lobbyValueFactor(state));
       // Coverage is gated on road access, so it is only valid once the road
       // distance field beside it has been rebuilt.
       computeServiceCoverage(state, this.fields);
@@ -155,7 +159,7 @@ export class Systems {
       computeTraffic(state, this.fields, this.traffic);
       this.refreshVisitors(state);
       computeGoods(state, this.fields, this.goods, this.traffic.load);
-      computeLandValue(state.world, this.fields, this.traffic);
+      computeLandValue(state.world, this.fields, this.traffic, lobbyValueFactor(state));
       this.trafficTimer = 0;
     }
 
@@ -224,6 +228,9 @@ export class Systems {
     // wait, and a player who leaves for an hour should come back to the votes
     // that happened rather than to one enormous one (sim/elections.ts).
     this.electionEvents.push(...stepElections(state, dt));
+    // Signed deals run down on the same clock as the votes, and for the same
+    // reason: a term the player is away for is a term spent (sim/lobbies.ts).
+    this.lobbyLapses.push(...stepLobbies(state));
     stepResearch(state, dt);
     const era = stepProgression(state);
 
@@ -286,6 +293,12 @@ export class Systems {
   drainRoadEvents(): readonly HighwayWearEvent[] {
     if (this.roadEvents.length === 0) return EMPTY_ROAD;
     return this.roadEvents.splice(0, this.roadEvents.length);
+  }
+
+  /** Lobby deals that ran out since the last drain, for the UI to announce. */
+  drainLobbyLapses(): readonly LobbyLapse[] {
+    if (this.lobbyLapses.length === 0) return EMPTY_LOBBIES;
+    return this.lobbyLapses.splice(0, this.lobbyLapses.length);
   }
 
   /** Holidays that began since the last drain, for the UI to announce. */

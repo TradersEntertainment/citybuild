@@ -10,6 +10,7 @@ import {
 } from '../data/balance';
 import { PORT_SPECS } from '../data/ports';
 import { greeningAbsorption } from './investments';
+import { lobbyPollutionFactor } from './lobbies';
 import { ROAD_SPECS } from '../data/roads';
 import { industryNoiseFactor } from './policies';
 import type { GameState } from './state';
@@ -95,6 +96,11 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
   // a scrubber, not faster wind, and cutting emission leaves the falloff — which
   // was measured and tuned — exactly as it was.
   const sanitation = techFactor(state, 'sanitation');
+  // What a standing deal does to every chimney at once — the oil lobby's smoke,
+  // the NGO's trees (sim/lobbies.ts). At the chimney for the same reason
+  // sanitation is, and kept out of `sanitation` itself because it must not touch
+  // the noise beside it: an oil contract is not a night shift.
+  const smoke = lobbyPollutionFactor(state);
 
   let x0 = Infinity;
   let y0 = Infinity;
@@ -112,7 +118,7 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
     const i = index(world, building.x, building.y);
     if (building.zone === 'ind') {
       pollutionSource[i] =
-        (pollutionSource[i] ?? 0) + building.jobs * POLLUTION_PER_INDUSTRIAL_JOB * sanitation;
+        (pollutionSource[i] ?? 0) + building.jobs * POLLUTION_PER_INDUSTRIAL_JOB * sanitation * smoke;
       // A workshop on the night shift is a workshop its street hears at 3am
       // (sim/policies.ts); 1 while the ordinance is off.
       noiseSource[i] =
@@ -127,7 +133,7 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
 
   // Cheap power is cheap because somebody downwind pays the rest of the price.
   for (const plant of state.utilities.values()) {
-    const emission = plantPollution(plant);
+    const emission = plantPollution(plant) * smoke;
     if (emission <= 0) continue;
     const i = index(world, plant.x, plant.y);
     pollutionSource[i] = (pollutionSource[i] ?? 0) + emission;
@@ -137,7 +143,7 @@ function collectSources(state: GameState, scratch: DiffusionScratch): Window {
   // A shipyard is heavy industry with a hull in front of it, and smells like it.
   const greening = greeningAbsorption(state);
   for (const port of state.ports.values()) {
-    const emission = (PORT_SPECS[port.kind].pollution ?? 0) * sanitation;
+    const emission = (PORT_SPECS[port.kind].pollution ?? 0) * sanitation * smoke;
     if (emission <= 0) continue;
     const i = index(world, port.x, port.y);
     pollutionSource[i] = (pollutionSource[i] ?? 0) + emission;

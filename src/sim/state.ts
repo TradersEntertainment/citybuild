@@ -1,6 +1,7 @@
 import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/balance';
 import type { Building } from './buildings';
 import type { Attraction } from './attractions';
+import type { LobbyDeal } from './lobbies';
 import { createBudgets, type Budgets } from './budgets';
 import type { PolicyId } from '../data/policies';
 import type { Loan } from './credit';
@@ -83,6 +84,12 @@ export interface GameState {
    * state, so adding a policy never touches this file again.
    */
   policies: Set<PolicyId>;
+  /**
+   * Deals signed with the lobbies (sim/lobbies.ts), each with the played-time
+   * it lapses at. Saved: a term the player signed has to still be running when
+   * they come back, and has to have run down while they were away.
+   */
+  lobbies: LobbyDeal[];
   /**
    * Bus and tram lines the player drew (sim/transit.ts).
    *
@@ -218,6 +225,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     attractions: new Map(),
     nextAttractionId: 1,
     policies: new Set(),
+    lobbies: [],
     transit: new Map(),
     nextTransitId: 1,
     farmTiles: 0,
@@ -246,6 +254,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     ledger: {
       taxIncome: 0,
       tourismIncome: 0,
+      lobbyIncome: 0,
       roadUpkeep: 0,
       serviceUpkeep: 0,
       utilityUpkeep: 0,

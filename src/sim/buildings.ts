@@ -23,6 +23,7 @@ import { collectionPerMinute } from './rubbish';
 import { techFactor } from './tech';
 import { congestionNear, type TrafficField } from './traffic';
 import type { GameState } from './state';
+import { lobbyGrowthFactor } from './lobbies';
 import { decodeZone, ISSUE, NONE, SERVICE, type ZoneKind } from './tiles';
 import { schooledShare } from './cohorts';
 import { levelCapAt } from './density';
@@ -320,7 +321,11 @@ function updateBuilding(
   const headroom = (score - BUILDING_SPAWN_THRESHOLD) / (1 - BUILDING_SPAWN_THRESHOLD);
   if (headroom <= 0) return;
   const seconds = BUILDING_GROWTH_S[building.level - 1] ?? 200;
-  building.growthProgress += (dt * headroom * techFactor(state, 'codes')) / seconds;
+  // The builders' lobby, if the city signed with them: the same headroom, taken
+  // faster. It multiplies the rate rather than lowering the bar, so a building
+  // with no headroom still does not grow — a deal cannot override a gate.
+  building.growthProgress +=
+    (dt * headroom * techFactor(state, 'codes') * lobbyGrowthFactor(state)) / seconds;
 
   if (building.growthProgress >= 1) {
     building.growthProgress = 0;

@@ -758,6 +758,26 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- Lobbies (§24) ------------------------------------------------------------
+/**
+ * How often somebody comes to the door, and how long they wait.
+ *
+ * 150 against a 200-second election term: a mayor is asked two or three times
+ * a term, which is often enough to be part of governing and rare enough that
+ * each one is an event. The window is what makes it a decision rather than a
+ * menu — 45 seconds is long enough to finish drawing a road and read the card,
+ * short enough that "I'll think about it" is itself an answer.
+ */
+export const LOBBY_OFFER_INTERVAL_S = 150;
+export const LOBBY_OFFER_WINDOW_S = 45;
+/**
+ * How hard a standing deal swings the factions that back or oppose it, on the
+ * 0..1 pet score (sim/groups.ts). Bigger than an ordinance's sway: an
+ * ordinance is policy, a deal is a name on a contract, and the city minds it
+ * more.
+ */
+export const LOBBY_GROUP_SWAY = 0.22;
+
 // --- Department budgets (§3, §33) --------------------------------------------
 /**
  * How far a department's funding can be moved, and in how many notches.

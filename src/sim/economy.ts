@@ -29,6 +29,7 @@ import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
 import { utilityUpkeep } from './utilities';
 import type { GameState } from './state';
+import { lobbyOutputFactor, lobbyStipend } from './lobbies';
 import { decodeRoad, decodeZone, NONE } from './tiles';
 import { index } from './world';
 
@@ -71,6 +72,14 @@ export interface Ledger {
   fareIncome: number;
   /** What the hotels billed their guests (sim/attractions.ts). */
   tourismIncome: number;
+  /**
+   * Net of every signed lobby deal (sim/lobbies.ts) — positive when the deals
+   * pay the city, negative when they cost it.
+   *
+   * The only row in the ledger that swings both ways, which is the point: it is
+   * the one line that says out loud what the mayor traded for.
+   */
+  lobbyIncome: number;
   /** …and what running the stops costs, which is usually more at first. */
   transitUpkeep: number;
 }
@@ -121,9 +130,11 @@ export function computeLedger(
   // be sold here goes on the next lorry, so which workshop is the unlucky one is
   // a precision the player could not act on.
   const market = goods ? marketFactor(state) : 1;
-  // The ordinances in force (sim/policies.ts): a night shift, a smoking ban.
-  // Both answer 1 when off, so the two output lines multiply unconditionally.
-  const industry = industryFactor(state);
+  // The ordinances in force (sim/policies.ts) and any signed deal
+  // (sim/lobbies.ts): a night shift, a smoking ban, an oil contract, a wage
+  // settlement. Every one answers 1 when off, so the output lines multiply
+  // unconditionally.
+  const industry = industryFactor(state) * lobbyOutputFactor(state);
   const commerce = commerceFactor(state);
 
   for (const building of state.buildings.values()) {
@@ -235,6 +246,10 @@ export function computeLedger(
   // and a second row for it would tell the player about a distinction they have
   // no separate lever over.
   const exports = goods ? exportIncome(state) : 0;
+  // What the signed deals pay the city, net of what they cost it (sim/lobbies.ts).
+  // Signed, so it belongs in the ledger rather than in a one-off: a deal the
+  // player took for the cheque should be visible every minute it is running.
+  const lobbies = lobbyStipend(state);
 
   return {
     taxIncome,
@@ -249,7 +264,8 @@ export function computeLedger(
       sea +
       exports +
       fares +
-      tourism -
+      tourism +
+      lobbies -
       roads -
       stations -
       plants -
@@ -266,6 +282,7 @@ export function computeLedger(
     visitorIncome: visiting,
     fareIncome: fares,
     tourismIncome: tourism,
+    lobbyIncome: lobbies,
     transitUpkeep: lines,
   };
 }

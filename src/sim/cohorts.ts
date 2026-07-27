@@ -18,6 +18,7 @@ import { drainPopulation, settlePopulation } from './population';
 import { refreshPopulation } from './hazards';
 import type { GameState } from './state';
 import { schoolingFactor } from './policies';
+import { lobbySchoolingFactor } from './lobbies';
 import { educationCoverage } from './tech';
 
 /**
@@ -209,7 +210,10 @@ function age(state: GameState, cohorts: Cohorts, dt: number, live: boolean): voi
   // them. Read once per step: coverage cannot change inside a tick.
   // School buses stretch what the same schools reach (sim/policies.ts), and
   // the cap is the truth: coverage is a fraction of children, not a bonus.
-  const coverage = Math.min(1, educationCoverage(state) * schoolingFactor(state));
+  const coverage = Math.min(
+    1,
+    educationCoverage(state) * schoolingFactor(state) * lobbySchoolingFactor(state),
+  );
 
   // Walked from the top down so a person cannot cross two bands in one step.
   let deaths = cohorts.people[3] ?? 0;

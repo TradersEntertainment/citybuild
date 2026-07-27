@@ -45,6 +45,8 @@ export interface UiState {
   approval: number;
   /** The factions and how each would vote (sim/groups.ts, §23). */
   groups: GroupView[];
+  /** Lobby deals in force, with what is left of each (sim/lobbies.ts, §24). */
+  lobbies: LobbyView[];
   /** Riders a minute the bus lines are carrying (sim/transit.ts). */
   riders: number;
   /** Seconds until the next vote is counted (sim/elections.ts). */
@@ -74,6 +76,19 @@ export interface GroupView {
   weight: number;
   /** How the faction would vote today, 0..1. */
   approval: number;
+}
+
+/**
+ * One signed deal as the panel draws it (sim/lobbies.ts).
+ *
+ * The seconds are what make the section worth having: a deal the player can see
+ * running down is a deal they can plan around, which is the difference between
+ * a term and a thing that happens to them.
+ */
+export interface LobbyView {
+  id: string;
+  /** Seconds left on the term. */
+  remaining: number;
 }
 
 /** One goal as the panel draws it — already measured, so the UI does no sums. */
@@ -109,6 +124,8 @@ export interface LedgerView {
   /** Fares in and stops out (sim/transit.ts). */
   fareIncome: number;
   tourismIncome: number;
+  /** Net of the signed lobby deals; the one row that can be either sign. */
+  lobbyIncome: number;
   transitUpkeep: number;
 }
 
@@ -187,6 +204,7 @@ export interface SimSnapshot {
   budgets: Record<string, number>;
   approval: number;
   groups: GroupView[];
+  lobbies: LobbyView[];
   riders: number;
   secondsToElection: number;
   grid: GridView;
@@ -231,6 +249,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     programmeUpkeep: 0,
     fareIncome: 0,
     tourismIncome: 0,
+    lobbyIncome: 0,
     transitUpkeep: 0,
   },
   investments: { lighting: { level: 0 }, greening: { level: 0 }, festivals: { level: 0 } },
@@ -256,6 +275,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   budgets: {},
   approval: 0,
   groups: [],
+  lobbies: [],
   riders: 0,
   secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
@@ -330,6 +350,18 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
           row.id === next.id &&
           Math.round(row.approval * 100) === Math.round(next.approval * 100) &&
           Math.round(row.weight * 100) === Math.round(next.weight * 100)
+        );
+      }) &&
+      // Compared by the second, which is what the row displays: a countdown is
+      // the one figure on the panel that changes on its own, and comparing it
+      // any finer would repaint the whole section every frame.
+      current.lobbies.length === snapshot.lobbies.length &&
+      current.lobbies.every((row, i) => {
+        const next = snapshot.lobbies[i];
+        return (
+          next !== undefined &&
+          row.id === next.id &&
+          Math.round(row.remaining) === Math.round(next.remaining)
         );
       }) &&
       Math.round(current.riders) === Math.round(snapshot.riders) &&

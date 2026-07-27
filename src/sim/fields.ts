@@ -194,6 +194,7 @@ export function computeLandValue(
   world: World,
   fields: Fields,
   traffic?: { load: Float32Array },
+  valueFactor = 1,
 ): void {
   if (!fields.terrainValid) computeTerrainValue(world, fields);
   const { roadDistance, landValue, terrainValue, parkValue } = fields;
@@ -229,6 +230,11 @@ export function computeLandValue(
         }
       }
 
+      // Whatever a standing deal does to what the ground is worth, applied last
+      // so it scales the finished figure rather than one term of it. A number
+      // rather than the state, because this pass has never seen the state and
+      // giving it one would let a field read anything.
+      value *= valueFactor;
       landValue[i] = value < 0 ? 0 : value > 100 ? 100 : value;
     }
   }

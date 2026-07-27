@@ -5,11 +5,13 @@ import {
   GROUP_MOOD_WEIGHT,
   GROUP_PARK_PER_RESIDENTS,
   GROUP_POLICY_SWAY,
+  LOBBY_GROUP_SWAY,
   GROUP_SOLVENT_WEIGHT,
   GROUP_STOP_PER_RESIDENTS,
   GROUP_TAX_WEIGHT,
   TAX_RATE_MAX,
 } from '../data/balance';
+import { LOBBY_SPECS } from '../data/lobbies';
 import { bandCount, burialHappiness, schooledShare, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { rubbishStrain } from './rubbish';
@@ -253,7 +255,34 @@ function petScore(state: GameState, id: GroupId, t: Tallies): number {
       break;
     }
   }
+  // Whatever the mayor signed (sim/lobbies.ts), applied from the deal table
+  // rather than case by case — so adding a lobby never touches this file, the
+  // same rule the ordinances would have followed had there been six of them.
+  //
+  // It lands after the switch and before the clamp, which matters: a faction
+  // already at the ceiling cannot be pleased further by a deal, and one already
+  // at the floor cannot be angered further. A signature moves a group that has
+  // somewhere to move.
+  score += lobbySway(state, id);
   return score < 0 ? 0 : score > 1 ? 1 : score;
+}
+
+/**
+ * What the standing deals are worth to one faction, positive or negative.
+ *
+ * Summed across deals rather than taking the strongest, because two contracts
+ * a group hates should read as worse than one — and a city that signed both the
+ * oil lobby and the NGO has genuinely done something confusing to the greens,
+ * which is the correct answer rather than a bug.
+ */
+function lobbySway(state: GameState, id: GroupId): number {
+  let sway = 0;
+  for (const deal of state.lobbies) {
+    const spec = LOBBY_SPECS[deal.id];
+    if (spec.pleases.includes(id)) sway += LOBBY_GROUP_SWAY;
+    if (spec.angers.includes(id)) sway -= LOBBY_GROUP_SWAY;
+  }
+  return sway;
 }
 
 /** How many voters each banner plausibly claims. Overlap is fine — this is a

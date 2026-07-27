@@ -388,6 +388,7 @@ export const STR = {
 
   serviceBuilt: 'Hizmet binası kuruldu.',
   tourismIncome: 'Turizm',
+  lobbyIncome: 'Anlaşmalar',
   policy: {
     title: 'Politikalar',
     note: 'Meclisin inşaatsız kolları. Her biri bir takas — bedavası yok.',
@@ -575,6 +576,62 @@ export const STR = {
   },
 
   /** The war on the road: convoys wear the motorway, the state sends a bill. */
+  /**
+   * The lobbies (§24). Each one gets a name, the sentence it opens with, and a
+   * plain statement of what the city is trading — never a euphemism, because a
+   * card that undersells the cost would make the term feel like a trick rather
+   * than a decision the player made.
+   */
+  lobby: {
+    title: 'Teklif',
+    icon: '\u{1F91D}',
+    /** ₺ they pay, or ₺ the city pays, at signing. */
+    signingPaid: (amount: number): string => `Peşin ödeme: +₺${money.format(amount)}`,
+    signingCost: (amount: number): string => `Peşin bedel: −₺${money.format(amount)}`,
+    /** …and the same, per minute, for as long as it runs. */
+    stipendPaid: (amount: number): string => `Ayrıca dakikada +₺${money.format(amount)}`,
+    stipendCost: (amount: number): string => `Ayrıca dakikada −₺${money.format(amount)}`,
+    term: (seconds: number): string => `Süre: ${Math.round(seconds)} sn`,
+    remaining: (seconds: number): string => `${Math.round(seconds)} sn kaldı`,
+    accept: 'İmzala',
+    decline: 'Reddet',
+    tooPoor: 'Kasa yetmiyor.',
+    /** The feed, when a term runs out on its own. */
+    lapsed: (name: string): string => `${name} anlaşması sona erdi.`,
+    declined: 'Teklif reddedildi.',
+    /** The panel's own section. */
+    heading: 'Anlaşmalar',
+    none: 'İmzalı anlaşma yok.',
+    names: {
+      builder: 'İnşaat şirketi',
+      oil: 'Petrol şirketi',
+      tourism: 'Turizm şirketi',
+      university: 'Üniversite',
+      ngo: 'Çevre derneği',
+      union: 'Sendika',
+    },
+    /** What each one wants, in its own voice. */
+    pitch: {
+      builder: 'Ruhsatları hızlandırın, şehri biz büyütelim.',
+      oil: 'Rafineriye izin verin; karşılığı bu.',
+      tourism: 'Şehri tanıtalım, otobüsler dolsun.',
+      university: 'Kampüs için arsa ve bütçe istiyoruz.',
+      ngo: 'Havayı temizleyecek bütçeyi ayırın.',
+      union: 'Ücretlere zam istiyoruz.',
+    },
+    /** …and what it costs, said plainly. */
+    cost: {
+      builder: 'Binalar hızlı yükselir; arsa değeri her yerde düşer.',
+      oil: 'Sanayi üretimi artar; bacalar daha çok kirletir.',
+      tourism: 'Ziyaretçi artar; çöp de artar.',
+      university: 'Eğitim daha uzağa ulaşır, araştırma hızlanır.',
+      ngo: 'Kirlilik her karede azalır.',
+      union: 'Şehir mutlu olur; atölyeler yavaşlar.',
+    },
+    /** The chronicle's telling. */
+    chronicleSigned: 'Belediye anlaşmayı imzaladı.',
+    chronicleLapsed: 'Anlaşmanın süresi doldu.',
+  },
   roadRepair: {
     title: 'Karayolları müdürlüğü',
     /** The feed, as each stretch crosses a line. */

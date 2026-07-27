@@ -71,6 +71,9 @@ import { uiStore } from './state/store';
 import { mountChronicle } from './ui/chronicle';
 import { mountBankPrompt } from './ui/bankPrompt';
 import { mountRoadRepairPrompt } from './ui/roadRepairPrompt';
+import { mountLobbyPrompt } from './ui/lobbyPrompt';
+import { LOBBY_SPECS } from './data/lobbies';
+import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
 import { mountCostLabel } from './ui/costLabel';
@@ -389,6 +392,57 @@ const roadRepair = mountRoadRepairPrompt(ui, {
   },
   onTooPoor: () => toast.show(STR.roadRepair.tooPoor),
 });
+
+const lobbyPrompt = mountLobbyPrompt(ui, {
+  onSign: (id) => {
+    if (signLobby(game, id) !== 'signed') return false;
+    // A deal signs into the fields as well as the ledger: the builders' lobby
+    // changes what every plot in the city is worth, and the oil contract what
+    // every chimney puts out, so both have to be recomputed rather than waited
+    // for. Without this the player signs, sees nothing move, and learns the
+    // card was decorative.
+    systems.invalidateFields();
+    haptics.confirm();
+    sfx.play('coin');
+    syncUi();
+    autosave.flush(game);
+    answeredOffer = offerIndex(game.playedMs);
+    eventFeed.pushCustom([
+      { icon: STR.lobby.icon, tone: 'calm', text: STR.lobby.pitch[id] },
+    ]);
+    appendHistory([
+      {
+        year: yearOf(game.playedMs),
+        icon: STR.lobby.icon,
+        title: STR.lobby.names[id],
+        detail: STR.lobby.chronicleSigned,
+      },
+    ]);
+    return true;
+  },
+  // Refusing is free and final for this window — no penalty, no second ask.
+  onDecline: () => {
+    answeredOffer = offerIndex(game.playedMs);
+    toast.show(STR.lobby.declined);
+  },
+  onTooPoor: () => toast.show(STR.lobby.tooPoor),
+});
+
+/**
+ * The offer window the player has already answered — either way.
+ *
+ * It latches on signing as well as on refusing, and that is the whole of its
+ * job. `currentOffer` derives from the lobbies *not yet signed*, so without this
+ * a player who signed would have the next unsigned lobby on screen a frame
+ * later, and could take every deal in the game inside one forty-five-second
+ * window. One window, one answer.
+ *
+ * Not saved, and deliberately: a reload inside a window offers it again. That is
+ * the honest trade — the alternative is a save field for a refusal, and
+ * re-offering costs the player one tap while never taking anything away from
+ * them.
+ */
+let answeredOffer = -1;
 
 /**
  * Offers the bank when the city has run dry, and says so when a loan closes.
@@ -1059,6 +1113,7 @@ function frame(now: number): void {
     announceWeather();
     announcePetitions();
     announceRoadDamage(seconds);
+    announceLobbies();
     announceRituals();
     checkBank();
   }
@@ -1451,6 +1506,49 @@ function announceRoadDamage(seconds: number): void {
 }
 
 /**
+ * Puts whoever is at the door in front of the player, and reports a term ending.
+ *
+ * Two halves that look alike and are not. The lapse is news — a thing that
+ * happened, said once, in the feed. The offer is a decision with a deadline, so
+ * it is a card; and it is raised only while the window is open and only once
+ * per window, because a lobby that re-asked every frame after a refusal would
+ * be the game arguing with the player.
+ *
+ * The card is held back while another one is up. A player looking at a repair
+ * bill should not have a contract land on top of it, and the offer will still
+ * be there on the next frame — it is derived from the clock, not fired at a
+ * moment, so nothing is lost by waiting for the screen to clear.
+ */
+function announceLobbies(): void {
+  for (const lapse of systems.drainLobbyLapses()) {
+    eventFeed.pushCustom([
+      {
+        icon: STR.lobby.icon,
+        tone: 'warn',
+        text: STR.lobby.lapsed(STR.lobby.names[lapse.id]),
+      },
+    ]);
+    appendHistory([
+      {
+        year: yearOf(game.playedMs),
+        icon: STR.lobby.icon,
+        title: STR.lobby.names[lapse.id],
+        detail: STR.lobby.chronicleLapsed,
+      },
+    ]);
+    // The term ending changes the same fields signing it changed.
+    systems.invalidateFields();
+  }
+
+  const offer = currentOffer(game);
+  if (!offer) return;
+  if (offerIndex(game.playedMs) === answeredOffer) return;
+  if (lobbyPrompt.open || roadRepair.open || bank.open) return;
+  const spec = LOBBY_SPECS[offer];
+  lobbyPrompt.offer(offer, spec.signing, spec.stipend, spec.termS);
+}
+
+/**
  * Says so when the sky changes, once per spell.
  *
  * Clear weather is announced too, but only as the end of something: "hava açtı"
@@ -1518,6 +1616,7 @@ function syncUi(): void {
       programmeUpkeep: game.ledger.programmeUpkeep,
       fareIncome: game.ledger.fareIncome,
       tourismIncome: game.ledger.tourismIncome,
+      lobbyIncome: game.ledger.lobbyIncome,
       transitUpkeep: game.ledger.transitUpkeep,
     },
     investments: {
@@ -1546,6 +1645,10 @@ function syncUi(): void {
     budgets: { ...game.budgets },
     approval: approval(game),
     groups: readGroups(game),
+    lobbies: game.lobbies.map((deal) => ({
+      id: deal.id,
+      remaining: dealRemaining(game, deal.id),
+    })),
     riders: systems.traffic.riders,
     secondsToElection: secondsToElection(game.playedMs),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },

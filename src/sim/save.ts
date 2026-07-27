@@ -12,6 +12,7 @@ import { stopsAlong } from './transit';
 import { PROGRAMME_ORDER, tiersOf } from '../data/investments';
 import { investmentLevels } from './investments';
 import { ATTRACTION_ORDER } from '../data/attractions';
+import { LOBBY_ORDER } from '../data/lobbies';
 import { POLICY_SPECS, type PolicyId } from '../data/policies';
 import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
@@ -110,6 +111,14 @@ export interface SaveData {
   /** Ordinances in force, by id — filtered on load like goals and techs. */
   policies: string[];
   /**
+   * Signed lobby deals, flattened: kind index, played-ms it lapses at.
+   *
+   * The expiry is stored as played time rather than as a countdown, so an
+   * offline absence spends the term rather than pausing it — the same reason
+   * the elections derive their calendar from playedMs.
+   */
+  lobbies: number[];
+  /**
    * Bus and tram lines, flattened: id, path length, then the path's x,y pairs.
    *
    * The stops are not stored — they are derived from the path by the same rule
@@ -134,6 +143,8 @@ const SERVICE_FIELDS = 4;
 const UTILITY_FIELDS = 4;
 const PORT_FIELDS = 4;
 const ATTRACTION_FIELDS = 4;
+/** A signed deal is a kind index and the played-ms it lapses at. */
+const LOBBY_FIELDS = 2;
 
 export function serialize(state: GameState): SaveData {
   const buildings: number[] = [];
@@ -172,6 +183,13 @@ export function serialize(state: GameState): SaveData {
       attraction.x,
       attraction.y,
     );
+  }
+
+  const lobbies: number[] = [];
+  for (const deal of state.lobbies) {
+    const kind = LOBBY_ORDER.indexOf(deal.id);
+    if (kind < 0) continue;
+    lobbies.push(kind, Math.round(deal.until));
   }
 
   const transit: number[] = [];
@@ -231,6 +249,7 @@ export function serialize(state: GameState): SaveData {
     attractions,
     nextAttractionId: state.nextAttractionId,
     policies: [...state.policies],
+    lobbies,
     transit,
     nextTransitId: state.nextTransitId,
   };
@@ -492,6 +511,21 @@ export function deserialize(data: unknown): GameState | null {
   // longer exists simply lapses, the same rule as goals and techs.
   for (const id of Array.isArray(data.policies) ? data.policies : []) {
     if (typeof id === 'string' && id in POLICY_SPECS) state.policies.add(id as PolicyId);
+  }
+
+  // Signed deals. A file from before the lobbies existed has no key at all and
+  // loads as a city nobody has approached, which is exactly right. An index this
+  // build no longer knows is dropped like an unknown attraction, and a deal whose
+  // term has already run out is simply not restored — the step would retire it on
+  // the next tick anyway, and dropping it here means the load never has to
+  // announce a lapse the player was not present for.
+  const deals = Array.isArray(data.lobbies) ? data.lobbies : [];
+  for (let i = 0; i + 1 < deals.length; i += LOBBY_FIELDS) {
+    const id = LOBBY_ORDER[deals[i] ?? -1];
+    if (!id) continue;
+    const until = deals[i + 1] ?? 0;
+    if (!Number.isFinite(until) || until <= state.playedMs) continue;
+    state.lobbies.push({ id, until });
   }
 
   // Lines arrived after the roads did, so a file without them is a city that

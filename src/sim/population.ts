@@ -24,6 +24,7 @@ import { verdictHappiness } from './elections';
 import { rubbishHappiness } from './rubbish';
 import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
+import { lobbyHappiness } from './lobbies';
 import { portHappiness } from './ports';
 import { ritualHappiness } from './rituals';
 import type { GameState } from './state';
@@ -96,6 +97,9 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // marked down for being unlit, because punishing a player for not buying
   // something they have not been shown teaches resentment, not planning.
   target += nightHappiness(state, nightAmount(dayFraction(state.playedMs)));
+  // A wage settlement, while the city is paying for one (sim/lobbies.ts). Zero
+  // with nothing signed, like every other term above it.
+  target += lobbyHappiness(state);
   target = clamp(target, 0, 100);
   // Mood moves slowly; a city that swung with every tick would be unreadable.
   state.happiness += (target - state.happiness) * Math.min(1, HAPPINESS_RESPONSE * dt);
