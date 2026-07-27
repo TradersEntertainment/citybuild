@@ -291,7 +291,9 @@ export class Systems {
 
   /** Called at the economy cadence (1 Hz), separately from the sim step. */
   stepEconomy(state: GameState, dt: number): void {
-    stepEconomy(state, this.fields, dt, this.visitors);
+    // The ridership comes from the traffic pass, which is the one place it is
+    // measured (sim/transit.ts).
+    stepEconomy(state, this.fields, dt, this.visitors, this.traffic.riders);
   }
 
   /**

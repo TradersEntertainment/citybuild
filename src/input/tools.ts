@@ -1,4 +1,4 @@
-import { BRUSH_SIZES, COST_LABEL_OFFSET_PX } from '../data/balance';
+import { BRUSH_SIZES, COST_LABEL_OFFSET_PX, TRANSIT_COST_PER_TILE } from '../data/balance';
 import { isRoadUnlocked } from '../data/roads';
 import { isPortUnlocked, type PortKind } from '../data/ports';
 import { isServiceUnlocked, type ServiceKind } from '../data/services';
@@ -9,6 +9,7 @@ import { setOneWayAlong } from '../sim/oneWay';
 import { buildRoad, estimateRoad, type RoadEstimate } from '../sim/roads';
 import type { GameState } from '../sim/state';
 import type { RoadKind, ZoneKind } from '../sim/tiles';
+import { layTransit, transitUnlocked } from '../sim/transit';
 import type { TileEdit, UndoStack } from '../sim/undo';
 import { brushArea, brushTiles, estimateZone, paintZone, type ZoneEstimate } from '../sim/zoning';
 import type { CameraRig } from '../render3d/cameraRig';
@@ -40,7 +41,7 @@ export type FacilitySelection =
   | { type: 'utility'; kind: UtilityKind }
   | { type: 'port'; kind: PortKind };
 
-export type ToolId = 'none' | 'road' | 'zone' | 'erase' | 'service';
+export type ToolId = 'none' | 'road' | 'zone' | 'erase' | 'service' | 'transit';
 
 export interface DraftSummary {
   mode: 'build' | 'erase';
@@ -196,7 +197,9 @@ export class ToolController {
         ? this.commitZone()
         : this.tool === 'erase'
           ? this.commitErase()
-          : this.commitRoad();
+          : this.tool === 'transit'
+            ? this.commitTransit()
+            : this.commitRoad();
     this.clearDraft();
     this.events.onChanged?.();
     return spent;
@@ -242,10 +245,16 @@ export class ToolController {
 
     const path = this.path;
     if (!path || path.tiles.length === 0) return null;
+    // A line is drawn as a road is: the ink says where it will run, and the
+    // affordable count is what turns red when the money runs out.
+    const affordable =
+      this.tool === 'transit'
+        ? Math.min(path.tiles.length, Math.floor(this.state.money / TRANSIT_COST_PER_TILE))
+        : (this.roadEstimate?.affordable ?? 0);
     return {
       polyline: path.polyline,
       tiles: path.tiles,
-      affordableTiles: this.roadEstimate?.affordable ?? 0,
+      affordableTiles: affordable,
       kind: this.roadKind,
       mode: 'road',
       zone: null,
@@ -277,6 +286,16 @@ export class ToolController {
 
     const path = this.path;
     if (!path || path.tiles.length === 0) return null;
+    if (this.tool === 'transit') {
+      const cost = path.tiles.length * TRANSIT_COST_PER_TILE;
+      return {
+        mode: 'build',
+        cost,
+        tiles: path.tiles.length,
+        truncated: cost > this.state.money,
+        ...label,
+      };
+    }
     return {
       mode: 'build',
       cost: this.roadEstimate?.affordableCost ?? 0,
@@ -312,6 +331,37 @@ export class ToolController {
       this.events.onFacilitiesChanged?.();
     }
     return result.spent;
+  }
+
+  /**
+   * Lays a bus line along the stroke.
+   *
+   * Shares the road tool's whole path pipeline — the same smoothing, the same
+   * snapping, the same corner detection — because a line is drawn with the same
+   * gesture and should feel identical under the finger. What differs is only what
+   * the tiles become: nothing is paved, no ground is taken, and the stops fall
+   * out of the shape rather than being placed one by one.
+   *
+   * Not undoable through the tile stack, for the same reason a fire station is
+   * not: nothing here is a tile edit. It comes down with the eraser, at the same
+   * refund every other facility gets.
+   */
+  private commitTransit(): number {
+    const path = this.path;
+    if (!path || path.tiles.length === 0) return 0;
+    if (!transitUnlocked(this.state)) return 0;
+
+    const cost = path.tiles.length * TRANSIT_COST_PER_TILE;
+    if (cost > this.state.money) return 0;
+    const line = layTransit(this.state, path.tiles);
+    if (!line) return 0;
+
+    this.state.money -= cost;
+    // A line changes what the roads have to carry, so the traffic field is stale
+    // the moment it is laid — the same invalidation a new road triggers.
+    this.events.onRoadsChanged?.();
+    this.events.onBuilt?.(line.stops.map((stop) => ({ x: stop.x, y: stop.y })));
+    return cost;
   }
 
   private commitRoad(): number {

@@ -38,6 +38,8 @@ export interface DockDeps {
   tools: ToolController;
   era: () => Era;
   onUndo: () => void;
+  /** Whether the city is big enough to run a bus line yet (sim/transit.ts). */
+  transitUnlocked: () => boolean;
   /** Research points in hand, and what they will buy. */
   research: () => number;
   /**
@@ -80,6 +82,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   const zoneButton = toolButton();
   const serviceButton = toolButton();
   const eraseButton = toolButton(STR.tools.erase);
+  const transitButton = toolButton(STR.tools.transit);
   const techButton = toolButton(STR.tools.tech);
   const undoButton = toolButton(STR.tools.undo);
   dock.append(
@@ -87,6 +90,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     roadButton,
     zoneButton,
     serviceButton,
+    transitButton,
     eraseButton,
     techButton,
     spacer(),
@@ -108,6 +112,13 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     zoneButton.dataset['active'] = String(tool === 'zone');
     serviceButton.dataset['active'] = String(tool === 'service');
     eraseButton.dataset['active'] = String(tool === 'erase');
+    // Locked until the city is big enough for a line to be worth the fares
+    // (sim/transit.ts). Shown rather than hidden, with what opens it, like every
+    // other lock in the game.
+    const canRide = deps.transitUnlocked();
+    transitButton.dataset['active'] = String(tool === 'transit');
+    transitButton.dataset['locked'] = String(!canRide);
+    transitButton.disabled = !canRide;
     setButtonLabel(roadButton, STR.tools.road, STR.road[deps.tools.activeRoadKind]);
     setButtonLabel(zoneButton, STR.tools.zone, STR.zone[deps.tools.activeZoneKind]);
     setButtonLabel(serviceButton, STR.tools.service, facilityName(deps.tools.activeFacility));
@@ -395,6 +406,8 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   zoneButton.addEventListener('click', () => selectTool('zone', true));
   serviceButton.addEventListener('click', () => selectTool('service', true));
   eraseButton.addEventListener('click', () => selectTool('erase', true));
+  // No sheet: a line has no options to pick, only a shape to draw.
+  transitButton.addEventListener('click', () => selectTool('transit', false));
   techButton.addEventListener('click', () => {
     haptics.tap();
     if (openSheetFor === 'tech') {

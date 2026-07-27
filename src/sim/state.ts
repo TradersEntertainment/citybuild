@@ -11,6 +11,7 @@ import { legacyEndowment } from './legacy';
 import type { ServiceBuilding } from './services';
 import type { ProgrammeId } from '../data/investments';
 import type { Port } from './ports';
+import type { TransitLine } from './transit';
 import type { UtilityPlant } from './utilities';
 import type { Ledger } from './economy';
 import type { Era } from './tiles';
@@ -70,6 +71,14 @@ export interface GameState {
    * facility whose worth comes from the terrain rather than from the city.
    */
   ports: Map<number, Port>;
+  /**
+   * Bus and tram lines the player drew (sim/transit.ts).
+   *
+   * Saved, because the player drew them and paid for them — unlike the fires and
+   * the crimes, a line is a decision rather than a moment.
+   */
+  transit: Map<number, TransitLine>;
+  nextTransitId: number;
   /** Painted farmland, recounted by the building pass; farms employ people. */
   farmTiles: number;
   /**
@@ -176,6 +185,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     services: new Map(),
     utilities: new Map(),
     ports: new Map(),
+    transit: new Map(),
+    nextTransitId: 1,
     farmTiles: 0,
     fires: new Map(),
     nextFireId: 1,
@@ -209,6 +220,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
       portUpkeep: 0,
       programmeUpkeep: 0,
       visitorIncome: 0,
+      fareIncome: 0,
+      transitUpkeep: 0,
     },
     lastSeen: now,
   };

@@ -28,6 +28,7 @@ import { Clock } from './sim/clock';
 import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
 import { rubbishStrain } from './sim/rubbish';
+import { transitUnlocked } from './sim/transit';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
 import { dayFraction, nightAmount } from './sim/daytime';
 import { borrow, loanOffer } from './sim/credit';
@@ -218,6 +219,7 @@ const dock = mountToolDock(ui, {
     sfx.play('erase');
     renderer.invalidateRoads();
   },
+  transitUnlocked: () => transitUnlocked(game),
   research: () => game.research,
   schooling: () => {
     const coverage = educationCoverage(game);
@@ -1268,6 +1270,8 @@ function syncUi(): void {
       seaIncome: game.ledger.seaIncome,
       visitorIncome: game.ledger.visitorIncome,
       programmeUpkeep: game.ledger.programmeUpkeep,
+      fareIncome: game.ledger.fareIncome,
+      transitUpkeep: game.ledger.transitUpkeep,
     },
     investments: {
       lighting: { level: game.investments.lighting },

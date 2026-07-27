@@ -18,6 +18,7 @@ import { farmSeasonMultiplier } from './seasons';
 import { serviceUpkeep } from './services';
 import { skillFactor } from './cohorts';
 import { resourceFactor } from './resources';
+import { fareIncome, transitUpkeep } from './transit';
 import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
 import { utilityUpkeep } from './utilities';
@@ -60,6 +61,10 @@ export interface Ledger {
   portUpkeep: number;
   /** What the civic programmes cost to run (data/investments.ts). */
   programmeUpkeep: number;
+  /** Fares off the bus and tram lines (sim/transit.ts). */
+  fareIncome: number;
+  /** …and what running the stops costs, which is usually more at first. */
+  transitUpkeep: number;
 }
 
 /**
@@ -90,6 +95,7 @@ export function computeLedger(
   state: GameState,
   fields: Fields,
   visitors?: VisitorField,
+  riders = 0,
 ): Ledger {
   let taxIncome = 0;
   let visitorTrade = 0;
@@ -172,6 +178,13 @@ export function computeLedger(
   // The programmes bill like everything else standing, and the administration
   // tech discounts them the same way.
   const programmes = investmentUpkeep(state) * admin;
+  // Fares are counted from the ridership the traffic pass already measured
+  // rather than recomputed here: the trips taken off the road and the trips that
+  // paid a fare are the same trips, and working them out twice is how the two
+  // would quietly drift apart.
+  const fares = fareIncome(riders);
+  const lines = transitUpkeep(state);
+
   return {
     taxIncome,
     roadUpkeep: roads,
@@ -182,12 +195,14 @@ export function computeLedger(
       taxIncome +
       farmIncome +
       transit +
-      sea -
+      sea +
+      fares -
       roads -
       stations -
       plants -
       berths -
       programmes -
+      lines -
       debt,
     farmYield,
     farmIncome,
@@ -196,6 +211,8 @@ export function computeLedger(
     portUpkeep: berths,
     programmeUpkeep: programmes,
     visitorIncome: visiting,
+    fareIncome: fares,
+    transitUpkeep: lines,
   };
 }
 
@@ -228,8 +245,9 @@ export function stepEconomy(
   fields: Fields,
   dt: number,
   visitors?: VisitorField,
+  riders = 0,
 ): Ledger {
-  const ledger = computeLedger(state, fields, visitors);
+  const ledger = computeLedger(state, fields, visitors, riders);
   // Income and running costs first, then the bank. A loan taken to cover a
   // shortfall would otherwise be repaid out of money the city has not earned
   // yet, and the instalment is already counted in `net`.

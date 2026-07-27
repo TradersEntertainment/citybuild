@@ -1,4 +1,4 @@
-import { DEMOLITION_REFUND } from '../data/balance';
+import { DEMOLITION_REFUND, TRANSIT_COST_PER_TILE } from '../data/balance';
 import { PORT_SPECS } from '../data/ports';
 import { SERVICE_SPECS } from '../data/services';
 import { UTILITY_SPECS } from '../data/utilities';
@@ -6,6 +6,7 @@ import type { TilePoint } from '../input/pathGeometry';
 import type { Building } from './buildings';
 import { isNationalHighway } from './highway';
 import type { Port } from './ports';
+import type { TransitLine } from './transit';
 import type { ServiceBuilding } from './services';
 import type { GameState } from './state';
 import { NONE } from './tiles';
@@ -34,6 +35,8 @@ export interface RemovedEntities {
   ports: Port[];
   /** Grown buildings, kept whole so undo restores their level rather than a hut. */
   buildings: Building[];
+  /** Bus lines the brush swept a stop of (sim/transit.ts). */
+  transit: TransitLine[];
 }
 
 export interface DemolishResult {
@@ -44,7 +47,7 @@ export interface DemolishResult {
 }
 
 export function createRemoved(): RemovedEntities {
-  return { services: [], utilities: [], ports: [], buildings: [] };
+  return { services: [], utilities: [], ports: [], buildings: [], transit: [] };
 }
 
 export function isEmptyRemoval(removed: RemovedEntities | undefined): boolean {
@@ -53,7 +56,8 @@ export function isEmptyRemoval(removed: RemovedEntities | undefined): boolean {
     removed.services.length === 0 &&
     removed.utilities.length === 0 &&
     removed.ports.length === 0 &&
-    removed.buildings.length === 0
+    removed.buildings.length === 0 &&
+    removed.transit.length === 0
   );
 }
 
@@ -146,6 +150,20 @@ export function demolishArea(state: GameState, tiles: readonly TilePoint[]): Dem
     spent -= refundOf(PORT_SPECS[port.kind].cost);
   }
 
+  // A line comes down whole when the brush catches any one of its stops.
+  //
+  // Whole rather than stop-by-stop because half a bus route is not a thing a
+  // player means to own: they either want the line or they do not, and taking
+  // out one stop in the middle would leave a route that still costs money and
+  // still says it runs. The refund is the same share every facility gets, on
+  // what the line cost to lay.
+  for (const line of [...state.transit.values()]) {
+    if (!line.stops.some((stop) => cleared.has(index(world, stop.x, stop.y)))) continue;
+    state.transit.delete(line.id);
+    removed.transit.push(line);
+    spent -= refundOf(line.path.length * TRANSIT_COST_PER_TILE);
+  }
+
   return { changes, removed, spent };
 }
 
@@ -160,6 +178,7 @@ export function restoreRemoved(state: GameState, removed: RemovedEntities): void
   for (const service of removed.services) state.services.set(service.id, service);
   for (const plant of removed.utilities) state.utilities.set(plant.id, plant);
   for (const port of removed.ports) state.ports.set(port.id, port);
+  for (const line of removed.transit) state.transit.set(line.id, line);
   for (const building of removed.buildings) {
     state.buildings.set(building.id, building);
     state.world.building[index(state.world, building.x, building.y)] = building.id;

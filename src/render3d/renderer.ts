@@ -4,6 +4,7 @@ import type { GameState } from '../sim/state';
 import { createBuildings, type BuildingMeshes } from './buildings';
 import type { CameraRig } from './cameraRig';
 import { createHazards, type HazardLayer } from './hazards';
+import { createTransit, type TransitLayer } from './transit';
 import { createIssues, type IssueLayer } from './issues';
 import { createOverlay, type OverlayLayer } from './overlay';
 import { createPedestrians, type PedestrianLayer } from './pedestrians';
@@ -66,6 +67,7 @@ export class Renderer {
   private readonly pedestrians: PedestrianLayer;
   private readonly issues: IssueLayer;
   private readonly hazards: HazardLayer;
+  private readonly transit: TransitLayer;
   private readonly stations: StationLayer;
   private readonly ships: ShipLayer;
   private readonly construction: ConstructionLayer;
@@ -118,6 +120,7 @@ export class Renderer {
     this.pedestrians = createPedestrians(state.world);
     this.issues = createIssues();
     this.hazards = createHazards();
+    this.transit = createTransit();
     this.stations = createStations();
     this.stations.rebuild(state);
     // Ships share the stations' dirty flag: they exist because berths do, and
@@ -141,6 +144,7 @@ export class Renderer {
       this.pedestrians.group,
       this.issues.group,
       this.hazards.group,
+      this.transit.group,
       this.stations.group,
       this.ships.group,
       this.construction.group,
@@ -243,6 +247,7 @@ export class Renderer {
     );
     this.issues.sync(frame.state, this.camera.distance, frame.now);
     this.hazards.sync(frame.state, this.camera.distance, frame.now);
+    this.transit.sync(frame.state, this.camera.distance, frame.now);
 
     // One clock for the whole frame: the sky, the lit windows and the streets
     // all read the same fraction, so nothing can disagree about what time it is.
@@ -319,6 +324,7 @@ export class Renderer {
     this.issues.dispose();
     this.stations.dispose();
     this.ships.dispose();
+    this.transit.dispose();
     this.construction.dispose();
     this.wildlife.dispose();
     this.buildings.dispose();

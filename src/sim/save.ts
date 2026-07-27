@@ -6,6 +6,7 @@ import { totalDebt } from './credit';
 import { ensureSections, refreshHighwayDamage } from './highwayWear';
 import { pruneOneWay } from './oneWay';
 import { refreshSeaGates } from './ports';
+import { stopsAlong } from './transit';
 import { PROGRAMME_ORDER, tiersOf } from '../data/investments';
 import { investmentLevels } from './investments';
 import { PORT_ORDER } from '../data/ports';
@@ -88,6 +89,15 @@ export interface SaveData {
   /** Berths on the coast, flattened the same way. */
   ports: number[];
   nextPortId: number;
+  /**
+   * Bus and tram lines, flattened: id, path length, then the path's x,y pairs.
+   *
+   * The stops are not stored — they are derived from the path by the same rule
+   * that placed them (sim/transit.ts, stopsAlong), so a file cannot hold a line
+   * whose stops disagree with its shape.
+   */
+  transit: number[];
+  nextTransitId: number;
 }
 
 /** Fields packed per building, in order. Zone is stored as an index. */
@@ -125,6 +135,12 @@ export function serialize(state: GameState): SaveData {
   const ports: number[] = [];
   for (const port of state.ports.values()) {
     ports.push(port.id, PORT_ORDER.indexOf(port.kind), port.x, port.y);
+  }
+
+  const transit: number[] = [];
+  for (const line of state.transit.values()) {
+    transit.push(line.id, line.path.length);
+    for (const point of line.path) transit.push(point.x, point.y);
   }
 
   const utilities: number[] = [];
@@ -172,6 +188,8 @@ export function serialize(state: GameState): SaveData {
     nextUtilityId: state.nextUtilityId,
     ports,
     nextPortId: state.nextPortId,
+    transit,
+    nextTransitId: state.nextTransitId,
   };
 }
 
@@ -326,6 +344,30 @@ export function deserialize(data: unknown): GameState | null {
     state.ports.set(id, { id, kind, x, y });
   }
   state.nextPortId = Math.max(1, data.nextPortId ?? 1);
+
+  // Lines arrived after the roads did, so a file without them is a city that
+  // never ran a bus — not a corrupt one. A malformed run is dropped rather than
+  // failing the load: half a route is worse than none.
+  const lines = Array.isArray(data.transit) ? data.transit : [];
+  for (let i = 0; i + 1 < lines.length; ) {
+    const id = lines[i] ?? 0;
+    const length = lines[i + 1] ?? 0;
+    i += 2;
+    if (length <= 0 || i + length * 2 > lines.length) break;
+    const path: { x: number; y: number }[] = [];
+    for (let n = 0; n < length; n++) {
+      const x = lines[i + n * 2] ?? 0;
+      const y = lines[i + n * 2 + 1] ?? 0;
+      if (x < 0 || y < 0 || x >= state.world.size || y >= state.world.size) break;
+      path.push({ x, y });
+    }
+    i += length * 2;
+    if (path.length !== length) continue;
+    const stops = stopsAlong(path);
+    if (stops.length < 2) continue;
+    state.transit.set(id, { id, path, stops });
+  }
+  state.nextTransitId = Math.max(1, data.nextTransitId ?? 1);
   // The gate column is derived, and the connectivity pass runs before anything
   // else touches it — but a loaded city is asked about its harbour by the UI
   // long before the first tick.

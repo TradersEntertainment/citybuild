@@ -540,6 +540,32 @@ export const CONGESTION_SLOWDOWN = 1.5;
  */
 export const TRIPS_PER_RESIDENT = 0.5;
 export const TRIPS_PER_JOB = 0.35;
+
+// --- Public transport (§18) ----------------------------------------------------
+/** Tiles between stops on a drawn line. Close enough to walk to, far enough
+ *  that a line across a district is a handful of stops rather than fifty. */
+export const TRANSIT_STOP_SPACING = 7;
+/** How far somebody will walk to a stop. Wider than the walk to a road: people
+ *  will cross a street for a bus they would not cross it for a parking space. */
+export const TRANSIT_STOP_WALK = 6;
+/**
+ * The most trips a stop can take off the road, as a share of what the buildings
+ * around it generate.
+ *
+ * Not one. A line that took every trip would make the road network irrelevant,
+ * and the road is the game's whole instrument — transit relieves a corridor, it
+ * does not replace it.
+ */
+export const TRANSIT_MAX_SHARE = 0.55;
+/** Riders one line carries per minute before it is standing room only. */
+export const TRANSIT_LINE_CAPACITY = 900;
+/** What a rider pays. */
+export const TRANSIT_FARE = 0.85;
+/** Cost per tile to lay a line, and what a stop costs to run per minute. */
+export const TRANSIT_COST_PER_TILE = 240;
+export const TRANSIT_STOP_UPKEEP = 9;
+/** Era from which the city may run a line at all. */
+export const TRANSIT_UNLOCK_POPULATION = 1_500;
 /** Passes of the spread that pushes district traffic onto its arterial. */
 export const TRAFFIC_SPREAD_PASSES = 6;
 /** Load above this puts a warning mark on the buildings it strands. */

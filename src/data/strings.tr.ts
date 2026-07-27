@@ -118,6 +118,7 @@ export const STR = {
     erase: 'sil',
     undo: 'geri al',
     service: 'hizmet',
+    transit: 'hat',
     tech: 'ar-ge',
     roadSheetTitle: 'Yol tipi',
     zoneSheetTitle: 'Bölge',
@@ -146,6 +147,18 @@ export const STR = {
     police: 'Karakol',
     cemetery: 'Mezarlık',
     depot: 'Çöp toplama',
+  },
+
+  /** Bus and tram lines (sim/transit.ts): the second thing the player draws. */
+  transit: {
+    locked: (people: string): string => `Toplu taşıma ${people} kişide açılır.`,
+    hint: 'Parmağınla bir hat çiz — duraklar kendiliğinden dizilir, çevresindeki trafiği alır.',
+    laid: 'Hat açıldı.',
+    tooDear: 'Bakiye hattı çekmeye yetmiyor.',
+    tooShort: 'Hat çok kısa — en az iki durak lazım.',
+    riders: 'Yolcu',
+    fares: 'Bilet geliri',
+    upkeep: 'Hat gideri',
   },
 
   /** The bins (sim/rubbish.ts): the service nobody builds a city for. */

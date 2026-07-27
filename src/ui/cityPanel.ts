@@ -108,10 +108,12 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const transit = row(STR.panel.transit);
   const farmIncome = row(STR.panel.farmIncome);
   const sea = row(STR.seaIncome);
+  const fares = row(STR.transit.fares);
   const visiting = row(STR.visitorIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
+  const lines = row(STR.transit.upkeep);
   const programmes = row(STR.invest.upkeep);
   const debt = row(STR.panel.debt);
   const net = row(STR.panel.net, true);
@@ -120,10 +122,12 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     transit.el,
     visiting.el,
     sea.el,
+    fares.el,
     farmIncome.el,
     roads.el,
     stations.el,
     plants.el,
+    lines.el,
     programmes.el,
     debt.el,
     net.el,
@@ -290,6 +294,12 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     // Hidden until a programme is running, like every other conditional row.
     programmes.el.hidden = s.ledger.programmeUpkeep <= 0;
     programmes.set(`−${money(s.ledger.programmeUpkeep)}`);
+    // Both hidden until the city runs a line, like every other row about a
+    // system it has not met.
+    fares.el.hidden = s.ledger.fareIncome <= 0;
+    fares.set(`+${money(s.ledger.fareIncome)}`);
+    lines.el.hidden = s.ledger.transitUpkeep <= 0;
+    lines.set(`−${money(s.ledger.transitUpkeep)}`);
     sea.el.hidden = s.ledger.seaIncome <= 0;
     sea.set(`+${money(s.ledger.seaIncome)}`);
     farmIncome.el.hidden = s.ledger.farmIncome <= 0;

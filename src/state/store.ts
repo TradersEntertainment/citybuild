@@ -79,6 +79,9 @@ export interface LedgerView {
   visitorIncome: number;
   /** What the civic programmes cost to run. */
   programmeUpkeep: number;
+  /** Fares in and stops out (sim/transit.ts). */
+  fareIncome: number;
+  transitUpkeep: number;
 }
 
 /** One civic programme, as the panel needs it. */
@@ -192,6 +195,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     seaIncome: 0,
     visitorIncome: 0,
     programmeUpkeep: 0,
+    fareIncome: 0,
+    transitUpkeep: 0,
   },
   investments: { lighting: { level: 0 }, greening: { level: 0 }, festivals: { level: 0 } },
   totals: {
