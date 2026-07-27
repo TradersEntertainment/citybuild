@@ -1357,6 +1357,38 @@ body {
   color: var(--sis);
 }
 
+/* The factions (§23): a name, its share of the electorate, its verdict, and a
+   thin bar so seven readings scan as a shape rather than a table. */
+.panel-group {
+  padding: 6px 0 8px;
+  border-top: 1px solid color-mix(in srgb, var(--parsomen) 8%, transparent);
+}
+
+.panel-group-share {
+  margin-left: auto;
+  margin-right: 10px;
+  color: var(--sis);
+  font-size: 12px;
+}
+
+.panel-group[data-alarm='true'] .panel-value {
+  color: var(--kiremit);
+}
+
+.panel-group-track {
+  margin-top: 4px;
+  height: 3px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--parsomen) 12%, transparent);
+  overflow: hidden;
+}
+
+.panel-group-bar {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--pirinc);
+}
+
 .panel-programme .panel-action {
   margin-top: 6px;
 }

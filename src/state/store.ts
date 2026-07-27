@@ -43,6 +43,8 @@ export interface UiState {
   budgets: Record<string, number>;
   /** How the city would vote today, 0..1 (sim/elections.ts). */
   approval: number;
+  /** The factions and how each would vote (sim/groups.ts, §23). */
+  groups: GroupView[];
   /** Riders a minute the bus lines are carrying (sim/transit.ts). */
   riders: number;
   /** Seconds until the next vote is counted (sim/elections.ts). */
@@ -63,6 +65,15 @@ export interface UiState {
   missions: MissionView[];
   missionsDone: number;
   missionsTotal: number;
+}
+
+/** One faction as the panel draws it (sim/groups.ts). */
+export interface GroupView {
+  id: string;
+  /** Share of the electorate, 0..1. */
+  weight: number;
+  /** How the faction would vote today, 0..1. */
+  approval: number;
 }
 
 /** One goal as the panel draws it — already measured, so the UI does no sums. */
@@ -175,6 +186,7 @@ export interface SimSnapshot {
   stations: Record<string, number>;
   budgets: Record<string, number>;
   approval: number;
+  groups: GroupView[];
   riders: number;
   secondsToElection: number;
   grid: GridView;
@@ -243,6 +255,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   stations: {},
   budgets: {},
   approval: 0,
+  groups: [],
   riders: 0,
   secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
@@ -308,6 +321,17 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       // the panel repaints twice a second and a stale budget row would be the one
       // thing on it the player just changed.
       Math.round(current.approval * 100) === Math.round(snapshot.approval * 100) &&
+      // Compared by what is drawn: a faction's row shows whole percentages.
+      current.groups.length === snapshot.groups.length &&
+      current.groups.every((row, i) => {
+        const next = snapshot.groups[i];
+        return (
+          next !== undefined &&
+          row.id === next.id &&
+          Math.round(row.approval * 100) === Math.round(next.approval * 100) &&
+          Math.round(row.weight * 100) === Math.round(next.weight * 100)
+        );
+      }) &&
       Math.round(current.riders) === Math.round(snapshot.riders) &&
       Math.ceil(current.secondsToElection) === Math.ceil(snapshot.secondsToElection) &&
       SERVICE_KEYS.every(

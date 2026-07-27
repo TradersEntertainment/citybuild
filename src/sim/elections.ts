@@ -3,14 +3,11 @@ import {
   MANDATE_HAPPINESS,
   MANDATE_PER_CITIZEN,
   REBUKE_HAPPINESS,
-  TAX_RATE_MAX,
   TERM_YEARS,
   VERDICT_MEMORY_S,
 } from '../data/balance';
 import { SECONDS_PER_YEAR } from '../data/timeline';
-import { burialHappiness } from './cohorts';
-import { crimeHappiness } from './crime';
-import { rubbishStrain } from './rubbish';
+import { electorateApproval } from './groups';
 import type { GameState } from './state';
 
 /**
@@ -56,29 +53,16 @@ export function secondsToElection(playedMs: number): number {
 /**
  * How the city would vote today, 0..1.
  *
- * Every term in it is something the player can see on a panel and change with a
- * tool. A defeat has to be a warning that was ignored, never a die that came up
- * badly — which is also why there are no dice in this file.
+ * Since §23 this is the weighted sum of the factions (sim/groups.ts) rather
+ * than one civic checklist: the retired, the shopkeepers and the greens each
+ * cast their own reading of systems the player can already see, weighted by
+ * how many of them there are. The old checklist did not disappear — its terms
+ * became the civic base every faction shares and the pet issues they don't.
+ * Still no dice anywhere: a defeat is a warning that was ignored, and now the
+ * panel says which faction gave it.
  */
 export function approval(state: GameState): number {
-  // The mood is most of it. It is the number the whole game already funnels into.
-  let score = (state.happiness / 100) * 0.62;
-
-  // Tax: the one thing a mayor is unambiguously judged on. Full marks at nothing,
-  // nothing at the ceiling.
-  score += (1 - state.taxRate / TAX_RATE_MAX) * 0.14;
-
-  // A city that is going backwards is a city that is about to stop. Read as a
-  // sign rather than a size, because the size is already in the mood.
-  score += state.ledger.net >= 0 ? 0.08 : 0;
-
-  // And the three visible failures, each with its own tool and its own row in the
-  // panel. Counted here as well as in the mood because a voter minds them twice.
-  score += 0.08 * (1 - rubbishStrain(state));
-  score += 0.04 * (1 + crimeHappiness(state) / 20);
-  score += 0.04 * (1 + burialHappiness(state) / 14);
-
-  return clamp01(score);
+  return electorateApproval(state);
 }
 
 export type Verdict = 'won' | 'lost';
@@ -150,8 +134,4 @@ export function verdictHappiness(state: GameState): number {
   if (state.verdictMemory <= 0) return 0;
   const fade = state.verdictMemory / VERDICT_MEMORY_S;
   return state.lastVerdict === 'won' ? MANDATE_HAPPINESS * fade : -REBUKE_HAPPINESS * fade;
-}
-
-function clamp01(value: number): number {
-  return value < 0 ? 0 : value > 1 ? 1 : value;
 }

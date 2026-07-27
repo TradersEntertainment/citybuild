@@ -173,6 +173,125 @@ export const STR = {
   },
 
   /**
+   * The electorate (sim/groups.ts, §23): one mood number becomes seven
+   * factions. Names are banners, not demographics — "sürücüler" is anybody
+   * who minds the traffic, not a licence count.
+   */
+  groups: {
+    title: 'Kamuoyu',
+    note:
+      'Tek bir mutluluk yok — kesimler var. Her karar birilerini sevindirir, ' +
+      'birilerini kızdırır; sandıkta hepsi ağırlığınca sayılır.',
+    name: {
+      young: 'Gençler',
+      elders: 'Emekliler',
+      families: 'Aileler',
+      shopkeepers: 'Esnaf',
+      industrialists: 'Sanayiciler',
+      greens: 'Çevreciler',
+      drivers: 'Sürücüler',
+    } as Record<string, string>,
+    share: (weight: number): string => `%${Math.round(weight * 100)}`,
+    empty: 'Kamuoyu henüz yok — kimse taşınmadı.',
+  },
+
+  /**
+   * The papers (§23). Two voices, one event: the Post reads everything as
+   * business, the Gazette reads everything as neighbourhood. Neither lies —
+   * the game only ever prints true things — they pick different truths.
+   */
+  media: {
+    postName: 'Şehir Postası',
+    gazetteName: 'Körfez Gazetesi',
+    policyOn: {
+      freeTransit: {
+        post: 'Bilet kasası kapandı: ulaşım artık vergiden.',
+        gazette: 'Otobüs bedava — mahalle sandığa gülerek gider.',
+      },
+      nightShift: {
+        post: 'Atölyeler gece de çalışacak: üretim rekora koşuyor.',
+        gazette: 'Gece vardiyası: sanayi mahallelerinde uyku bitti.',
+      },
+      schoolBuses: {
+        post: 'Okul servisi bütçeye dakika başı yazıyor.',
+        gazette: 'Servisler kalktı: en uzak sokak da okula ulaşıyor.',
+      },
+      recycling: {
+        post: 'Geri dönüşüm üretimi yavaşlatıyor, sanayi homurdanıyor.',
+        gazette: 'Çöpün beşte biri artık tesise hiç gitmiyor.',
+      },
+      smokeBan: {
+        post: 'Sigara yasağı dükkân cirosunu kıstı.',
+        gazette: 'Kapalı mekânlar nefes aldı; salgınlar hafif geçecek.',
+      },
+      touristTax: {
+        post: 'Turist vergisi otel kasasını doldurdu.',
+        gazette: 'Vergiyi duyan yabancı şehre hiç sapmıyor.',
+      },
+    } as Record<string, { post: string; gazette: string }>,
+    policyOff: {
+      freeTransit: {
+        post: 'Bilet kasası yeniden açıldı: hat kendi parasını kazanacak.',
+        gazette: 'Bedava otobüs bitti — kalabalık yine cebinden ödüyor.',
+      },
+      nightShift: {
+        post: 'Gece vardiyası kalktı: üretim gündüze sıkıştı.',
+        gazette: 'Geceler yine sessiz — sanayi mahallesi uyuyor.',
+      },
+      schoolBuses: {
+        post: 'Servis bütçeden çıktı: kasaya nefes.',
+        gazette: 'Servis kalktı; uzak sokaklar okula yine yürüyor.',
+      },
+      recycling: {
+        post: 'Ayrıştırma bitti: bant tam hızda.',
+        gazette: 'Geri dönüşüm kaldırıldı — çöp yine tesise akıyor.',
+      },
+      smokeBan: {
+        post: 'Yasak kalktı: tezgâh yine kalabalık.',
+        gazette: 'Kapalı mekânlarda hava eskisine döndü.',
+      },
+      touristTax: {
+        post: 'Turist vergisi kalktı: otelci payına küstü.',
+        gazette: 'Vergi bitti — yabancı yine sapıyor.',
+      },
+    } as Record<string, { post: string; gazette: string }>,
+    attractionBuilt: {
+      hotel: {
+        post: 'Yeni otel açıldı: geceleyen ziyaretçi kasaya yazıyor.',
+        gazette: 'Otelin sokağı artık hiç boşalmıyor.',
+      },
+      clockTower: {
+        post: 'Saat kulesi açıldı: meydanın değeri arttı.',
+        gazette: 'Şehrin artık bir silueti var.',
+      },
+      opera: {
+        post: 'Opera binası: bakımı ağır, prestiji ağırdır.',
+        gazette: 'Perde açıldı — şehir bir akşamlığına başka bir yer.',
+      },
+      stadium: {
+        post: 'Stadyum açıldı: maç günü esnafın günü.',
+        gazette: 'Maç günü sokaklar tek renk.',
+      },
+      tvTower: {
+        post: 'TV kulesi: şehir artık uzaktan görünüyor.',
+        gazette: 'Kule mahallenin üstünde — kimine gurur, kimine gölge.',
+      },
+      airport: {
+        post: 'Havalimanı açıldı: ihracatın üçüncü kapısı.',
+        gazette: 'Pistin altındaki mahalle uçak sayıyor.',
+      },
+    } as Record<string, { post: string; gazette: string }>,
+    electionWon: {
+      post: 'Sandık kapandı: piyasalar istikrardan memnun.',
+      gazette: 'Mahalle sandıkta evet dedi — şimdi sözlerin takvimi işliyor.',
+    },
+    electionLost: {
+      post: 'Seçim kaybedildi: ödenek yok, kemerler sıkılacak.',
+      gazette: 'Sandık uyarıydı — kesimler dinlenmediğini söylüyor.',
+    },
+  },
+
+  /**
    * Department budgets (sim/budgets.ts): the lever between "build one" and
    * "knock one down".
    */

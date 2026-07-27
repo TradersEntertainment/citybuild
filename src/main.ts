@@ -33,6 +33,7 @@ import { nudgeBudget } from './sim/budgets';
 import { policyActive, togglePolicy } from './sim/policies';
 import { isPolicyUnlocked, POLICY_SPECS } from './data/policies';
 import { approval, secondsToElection } from './sim/elections';
+import { readGroups } from './sim/groups';
 import { buildingAt, inspectBuilding } from './sim/inspect';
 import { LENS_ORDER, type LensKind } from './sim/lens';
 import { rubbishStrain } from './sim/rubbish';
@@ -261,6 +262,7 @@ mountCityPanel(ui, {
         ? STR.policy.applied(STR.policy.name[id])
         : STR.policy.repealed(STR.policy.name[id]),
     );
+    pressRun(outcome === 'on' ? STR.media.policyOn[id] : STR.media.policyOff[id]);
     autosave.flush(game);
     syncUi();
   },
@@ -276,6 +278,19 @@ mountCityPanel(ui, {
 mountHint(ui);
 const toast = mountToast(ui);
 const eventFeed = mountEventFeed(ui);
+
+/**
+ * The papers weigh in (§23). Two entries per story, always both: the Post
+ * reads the same true event as business, the Gazette as neighbourhood. One
+ * voice would be a narrator; two are a city arguing with itself.
+ */
+function pressRun(spin: { post: string; gazette: string } | undefined): void {
+  if (!spin) return;
+  eventFeed.pushCustom([
+    { icon: '📰', tone: 'calm', text: `${STR.media.postName}: ${spin.post}` },
+    { icon: '🗞️', tone: 'calm', text: `${STR.media.gazetteName}: ${spin.gazette}` },
+  ]);
+}
 
 const inspector = mountInspector(ui);
 const parcelPrompt = mountParcelPrompt(ui, {
@@ -882,6 +897,8 @@ function buildStation(tileX: number, tileY: number): void {
   syncUi();
   autosave.flush(game);
   toast.show(placedHeadline(facility), name);
+  // An attraction is news; a pumping station is not.
+  if (facility.type === 'attraction') pressRun(STR.media.attractionBuilt[facility.kind]);
 }
 
 /**
@@ -1175,6 +1192,7 @@ function announceElection(): void {
     const text = won ? STR.election.won(share, STR.format.money(event.grant)) : STR.election.lost(share);
     toast.show(text);
     eventFeed.pushCustom([{ icon: won ? '🗳️' : '📉', tone: won ? 'calm' : 'warn', text }]);
+    pressRun(won ? STR.media.electionWon : STR.media.electionLost);
     if (won) sfx.play('goal');
     appendHistory([
       { year: yearOf(game.playedMs), icon: '🗳️', title: text, detail: undefined },
@@ -1527,6 +1545,7 @@ function syncUi(): void {
     stations: countStations(game),
     budgets: { ...game.budgets },
     approval: approval(game),
+    groups: readGroups(game),
     riders: systems.traffic.riders,
     secondsToElection: secondsToElection(game.playedMs),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },

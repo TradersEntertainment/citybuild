@@ -258,6 +258,50 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   inner.append(invest.el);
 
   /**
+   * The electorate (sim/groups.ts, §23): the factions and how each would
+   * vote. It sits directly above the ordinances that swing them, so cause
+   * and constituency share a screen — toggle the night shift and watch the
+   * industrialists' bar and the pensioners' bar move apart.
+   */
+  const opinion = section(STR.groups.title);
+  const opinionNote = document.createElement('p');
+  opinionNote.className = 'mission-empty';
+  opinionNote.textContent = STR.groups.note;
+  opinion.body.append(opinionNote);
+  const groupRows = new Map<
+    string,
+    { el: HTMLDivElement; share: HTMLSpanElement; value: HTMLSpanElement; bar: HTMLDivElement }
+  >();
+  const groupList = document.createElement('div');
+  opinion.body.append(groupList);
+  inner.append(opinion.el);
+
+  /** A faction's row is built on first sight and reused; only text and width move. */
+  const groupRow = (id: string) => {
+    const el = document.createElement('div');
+    el.className = 'panel-group';
+    const head = document.createElement('div');
+    head.className = 'panel-row';
+    const name = document.createElement('span');
+    name.textContent = STR.groups.name[id] ?? id;
+    const share = document.createElement('span');
+    share.className = 'panel-group-share mono';
+    const value = document.createElement('span');
+    value.className = 'panel-value mono';
+    head.append(name, share, value);
+    const track = document.createElement('div');
+    track.className = 'panel-group-track';
+    const bar = document.createElement('div');
+    bar.className = 'panel-group-bar';
+    track.append(bar);
+    el.append(head, track);
+    const row = { el, share, value, bar };
+    groupRows.set(id, row);
+    groupList.append(el);
+    return row;
+  };
+
+  /**
    * The ordinances (sim/policies.ts): the levers a council pulls without
    * building anything. Each row is the toggle itself — a separate button per
    * row would double the section to say the same thing — and every row shows
@@ -422,6 +466,21 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     // for a system the player has not touched is furniture.
     tourism.el.hidden = s.ledger.tourismIncome <= 0;
     tourism.set(`+${money(s.ledger.tourismIncome)}`);
+    // The factions, weight and verdict each (§23). Hidden until anybody lives
+    // here — an opinion section about nobody is furniture. Rows with no real
+    // constituency (a village with no industry has no industrialists) stay
+    // hidden too, the same rule as the budget sliders.
+    opinion.el.hidden = s.population <= 0;
+    for (const view of s.groups) {
+      const row = groupRows.get(view.id) ?? groupRow(view.id);
+      const present = view.weight >= 0.005;
+      row.el.hidden = !present;
+      if (!present) continue;
+      row.share.textContent = STR.groups.share(view.weight);
+      row.value.textContent = STR.format.percent(view.approval);
+      row.el.dataset['alarm'] = String(view.approval < 0.4);
+      row.bar.style.width = `${Math.round(view.approval * 100)}%`;
+    }
     // The ordinance rows carry their own state: in force, available, or what
     // era opens them — a lock always shows what opens it (§1).
     for (const [id, button] of policyRows) {

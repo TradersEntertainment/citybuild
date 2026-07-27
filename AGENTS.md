@@ -383,6 +383,43 @@ Bu turda bilinçli atlananlar: **tramvay/metro** (ayrı taşıt modu — mevcut
 **üniversite** (okul zincirinin üçüncü halkası; kohort modelinde genç bandının
 ayrışmasını ister).
 
+### Kamuoyu, sandık ve iki gazete (§23): tek mutluluk sayısının ölümü
+
+Oyuncunun master prompt'u ("Urban Governance Simulator" — §3'ün başına bak)
+buradan itibaren projenin anayasası. İlk taksit üç parça:
+
+- **Kesimler** (`sim/groups.ts`): yedi grup — gençler, emekliler, aileler,
+  esnaf, sanayiciler, çevreciler, sürücüler. `GROUP_ORDER` sona-ekle. Hepsi
+  **türetilir, asla kaydedilmez**: ağırlık gerçek saylardan (kohort bantları,
+  ticaret/sanayi iş sayısı, okumuşluk), öfke ise binaların üstündeki `ISSUE`
+  bitlerinden okunur — oyuncunun çatıların üstünde gördüğü şikâyet ikonlarının
+  kesim bazında toplamı. Kimsesi olmayan kesimin ağırlığı 0 (köyde sanayici
+  yok). Her kesim aynı **sivil tabandan** başlar (mutluluk 0.50 + vergi 0.14 +
+  bütçe işareti 0.06) ve kendi dertleriyle ayrışır (`GROUP_ISSUE_WEIGHT=0.3`).
+  İmzalı politikalar adı geçen kesimi `GROUP_POLICY_SWAY` kadar sallar: gece
+  vardiyası sanayiciyi sevindirir, emekliyi ve çevreciyi kızdırır; turist
+  vergisi esnafı üzer, meydanı tenhalaşan emekliyi hoşnut eder. Emeklinin
+  huzur terimleri bilerek 0.94'te durur — tam mutlu kesim politikanın
+  iyiliğini yutmasın diye (clamp tuzağı, testte yakalandı).
+- **Sandık** (`sim/elections.ts`): `approval()` artık kesimlerin **ağırlıklı
+  toplamı**. Zar hâlâ yok; yenilgi hâlâ görmezden gelinmiş bir uyarı — ama
+  artık paneli açan, uyarıyı *hangi kesimin* verdiğini görüyor. Kesimsiz şehir
+  (fixture, kuruluş) tek hane gibi oylar: sivil taban + çöp/suç/defin — §30'un
+  eski sözleşmesi ("çöp her şehirde oy götürür") aynen yaşar, seçim testleri
+  değişmeden geçer.
+- **İki gazete** (feed): Şehir Postası her olayı ticaret, Körfez Gazetesi
+  mahalle gözüyle yazar. İkisi de doğru söyler — farklı doğruları seçerler.
+  Politika aç/kapa, cazibe açılışı ve seçim sonucu iki sesle habere döner
+  (`STR.media`, main.ts `pressRun`). Test her hikâyenin iki sesinin de yazılı
+  olduğunu tarar: tek ses anlatıcıdır, iki ses tartışan şehir.
+
+UI: şehir panelinde **Kamuoyu** bölümü (Politikalar'ın hemen üstünde — sebep
+ile seçmen aynı ekranda): kesim adı, seçmen payı, onay yüzdesi, ince bar;
+%40 altı kiremit. Nüfussuz şehirde bölüm gizli. Store karşılaştırması çizilen
+şeyle (yüzde yuvarlaması) yapılır, her tick repaint yok.
+Testler: `tests/groups.test.ts` (ağırlık dağılımı, şikâyet-sahibine-gider,
+her-politika-odayı-böler, sandık=ağırlıklı toplam, iki-ses-tamlığı).
+
 ---
 
 ## 2. Mimari kurallar ve tuzaklar (bozma)
@@ -497,6 +534,29 @@ yavaşlıktır (yanılgıya düşme).
 ---
 
 ## 3. Kalan plan
+
+### ANAYASA — "Urban Governance Simulator" (oyuncunun master prompt'u)
+
+Oyuncu 2026-07-27'de vizyonu yeniden tanımladı ve her yeni sistem buna hizmet
+etmek zorunda: **bu bir şehir kurma oyunu değil, şehir yönetme ve siyasi
+strateji oyunu.** Özü:
+
+- Tek mutluluk puanı yok — kesimler var; her karar birilerini sevindirir,
+  birilerini kızdırır (§23 ile başladı).
+- Amaç güzel şehir değil: planlama + halkı memnun etme + ekonomi + kriz +
+  **seçim kazanmak**. Popülizm bazen iyi planlamadan çok oy getirir — etik
+  ikilem tasarımın kendisi.
+- Medya her olayı farklı seslerle anlatır (§23 iki gazete; sosyal medya /
+  üçüncü ses açık iş).
+- Lobiler teklif getirir: kısa vadeli kazanç, uzun vadeli risk (açık iş —
+  `parcels/petitions` kalıbı üstüne kurulabilir).
+- Görünmeyen motor: onlarca metrik zaten var (trafik, gürültü, kirlilik,
+  kapsama, suç, arazi değeri…) — oyuncu azını görür, kalanını hisseder.
+  Yeni metrik eklerken önce **tüketicisini** yaz (bkz. §2 kural).
+- Yol değerlendirme AI'ı, kişi başı kimlikli vatandaş, Urban DNA: tarayıcı
+  bütçesine sığan yaklaşımları var (alan/kohort/temsilci-agent değil), kişi
+  başı NPC bilinçli reddedildi (§3 sonu) — o karar geçerli kalır.
+- Görev sistemi asıl oyun olmalı (missions.ts var; çok-metrikli karne açık iş).
 
 "Yaşayan Şehir" paketlerinin **hepsi yapıldı** (§1'deki listeye bak). Bu bölüm
 artık bundan sonrası için.

@@ -734,6 +734,30 @@ export const REBUKE_HAPPINESS = 9;
  */
 export const VERDICT_MEMORY_S = 42;
 
+// --- The electorate (§23) -----------------------------------------------------
+/**
+ * The civic base every faction votes from: the mood, the tax bill, solvency.
+ * Together they reach 0.70 of the scale; the last 0.30 is each group's own
+ * grievances (GROUP_ISSUE_WEIGHT), which is what makes the factions factions.
+ */
+export const GROUP_MOOD_WEIGHT = 0.5;
+export const GROUP_TAX_WEIGHT = 0.14;
+export const GROUP_SOLVENT_WEIGHT = 0.06;
+/** How much of a group's vote its own pet issues are worth. */
+export const GROUP_ISSUE_WEIGHT = 0.3;
+/**
+ * How hard a signature ordinance swings the faction it names, inside the pet
+ * score. At 0.15 of a 0..1 pet score (× GROUP_ISSUE_WEIGHT on the ballot) a
+ * policy moves a faction by ~4.5 points of approval — visible in the panel,
+ * decisive in a close election, and never bigger than actually running the
+ * city well.
+ */
+export const GROUP_POLICY_SWAY = 0.15;
+/** One park tile per this many residents reads as a green city. */
+export const GROUP_PARK_PER_RESIDENTS = 25;
+/** One transit stop per this many residents reads as a served city. */
+export const GROUP_STOP_PER_RESIDENTS = 150;
+
 // --- Department budgets (§3, §33) --------------------------------------------
 /**
  * How far a department's funding can be moved, and in how many notches.
