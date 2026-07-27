@@ -146,16 +146,29 @@ describe('ledger', () => {
 
 describe('migration', () => {
   it('is zero without vacant homes', () => {
-    expect(migrationPerMinute(80, 0)).toBe(0);
+    expect(migrationPerMinute(80, 0, 500)).toBe(0);
   });
 
   it('is positive for a content city and negative for a miserable one', () => {
-    expect(migrationPerMinute(80, 100)).toBeGreaterThan(0);
-    expect(migrationPerMinute(20, 100)).toBeLessThan(0);
+    expect(migrationPerMinute(80, 100, 500)).toBeGreaterThan(0);
+    expect(migrationPerMinute(20, 100, 500)).toBeLessThan(0);
+  });
+
+  it('scales an exodus by who is there to leave, not by the empty homes', () => {
+    // Reading the brief's arrivals formula in both directions was a runaway: the
+    // emptier a city got, the faster the rest of it left. Measured on a city of a
+    // hundred and fifty in eight hundred homes, that evacuated two hundred people
+    // a minute and never recovered.
+    const empty = migrationPerMinute(10, 5_000, 150);
+    const full = migrationPerMinute(10, 0, 150);
+    expect(empty).toBe(full);
+    expect(empty).toBeLessThan(0);
+    // And it slows as the city shrinks, which is what makes a collapse survivable.
+    expect(migrationPerMinute(10, 0, 20)).toBeGreaterThan(migrationPerMinute(10, 0, 150));
   });
 
   it('sits at zero exactly at the pivot', () => {
-    expect(migrationPerMinute(40, 100)).toBe(0);
+    expect(migrationPerMinute(40, 100, 500)).toBe(0);
   });
 });
 

@@ -12,6 +12,7 @@ import {
   SCHOOLED_OUTPUT,
 } from '../data/balance';
 import { capacityOf } from '../data/buildings';
+import { isServiceUnlocked } from '../data/services';
 import { budgetOf } from './budgets';
 import { drainPopulation, settlePopulation } from './population';
 import { refreshPopulation } from './hazards';
@@ -243,7 +244,16 @@ function age(state: GameState, cohorts: Cohorts, dt: number, live: boolean): voi
   // It is also what made the two paths disagree. Measured: an hour away came back
   // fourteen per cent smaller, because updateHappiness snaps straight to its
   // target at a two-minute step and the growing burial penalty was in it.
-  if (live) cohorts.awaitingBurial += deaths;
+  if (live) {
+    // Capped where the mood hit already saturates, for the same reason the
+    // rubbish backlog is: past that point another body is not modelling anything
+    // — the penalty cannot get worse — and all it does is put recovery out of
+    // reach. It bites hardest on a city that has already shrunk, because the
+    // tolerance shrinks with the population: measured, a city of twenty-five
+    // people carrying sixty bodies it could never bury.
+    const ceiling = burialTolerance(state) * (1 + BURIAL_SATURATION_SPAN);
+    cohorts.awaitingBurial = Math.min(ceiling, cohorts.awaitingBurial + deaths);
+  }
 
   /**
    * Births and deaths settled as one net figure.
@@ -402,10 +412,23 @@ export function bandCount(state: GameState, band: Band): number {
  * as an event rather than as a slow drift nobody can attribute.
  */
 export function burialHappiness(state: GameState): number {
+  // Nothing is owed before the city can do anything about it. A cemetery opens
+  // at town; a village that has started burying people has no answer to offer,
+  // and marking it down for that is the resentment the rest of this codebase
+  // takes care to avoid — the same rule the lighting programme is held to.
+  if (!isServiceUnlocked('cemetery', state.era)) return 0;
   const waiting = state.cohorts.awaitingBurial;
   if (waiting <= 0) return 0;
-  const tolerated = Math.max(2, (state.population / 1000) * BURIAL_TOLERANCE);
+  const tolerated = burialTolerance(state);
   if (waiting <= tolerated) return 0;
-  const over = Math.min(1, (waiting - tolerated) / Math.max(1, tolerated * 3));
+  const over = Math.min(1, (waiting - tolerated) / Math.max(1, tolerated * BURIAL_SATURATION_SPAN));
   return -BURIAL_HAPPINESS_HIT * over;
 }
+
+/** How many bodies the city takes in its stride, given how big it is. */
+export function burialTolerance(state: GameState): number {
+  return Math.max(2, (state.population / 1000) * BURIAL_TOLERANCE);
+}
+
+/** Multiples of the tolerance between "behind" and "as bad as it gets". */
+const BURIAL_SATURATION_SPAN = 3;

@@ -235,6 +235,13 @@ body {
   opacity: 0.75;
 }
 
+/* A tool the city has not grown into yet. Dimmed but still pressable: §1 says a
+   lock always shows what opens it, and a disabled button says nothing at all. */
+.tool-button[data-locked='true'] {
+  color: var(--sis);
+  border-color: color-mix(in srgb, var(--parsomen) 12%, transparent);
+}
+
 .tool-button[data-active='true'] {
   background: var(--pirinc);
   border-color: var(--pirinc);

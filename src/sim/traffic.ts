@@ -13,7 +13,7 @@ import { canTravel, oneWayCapacity } from './oneWay';
 import { transitFlow } from './highway';
 import type { GameState } from './state';
 import { techFactor } from './tech';
-import { transitLoad, transitShare } from './transit';
+import { servingStops, transitLoad, transitShare } from './transit';
 import { decodeRoad, NONE } from './tiles';
 import { index, type World } from './world';
 
@@ -83,7 +83,8 @@ export function computeTraffic(state: GameState, fields: Fields, traffic: Traffi
   // How full the lines are, measured before anything is taken off the road: an
   // overloaded network stops relieving the corridor it can no longer carry
   // (sim/transit.ts).
-  const network = transitLoad(state, (x, y) => tripsAtTile(state, x, y));
+  const stops = servingStops(world, fields, state);
+  const network = transitLoad(state, stops, (x, y) => tripsAtTile(state, x, y));
   traffic.riders = network.riders;
 
   // Every building pushes its trips onto the nearest road tile it can reach —
@@ -96,7 +97,7 @@ export function computeTraffic(state: GameState, fields: Fields, traffic: Traffi
     if (trips <= 0) continue;
     const road = nearestRoad(world, fields, building.x, building.y);
     if (road < 0) continue;
-    const byRoad = trips * (1 - transitShare(state, building.x, building.y, network.strain));
+    const byRoad = trips * (1 - transitShare(stops, building.x, building.y, network.strain));
     flow[road] = (flow[road] ?? 0) + byRoad;
   }
 

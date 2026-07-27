@@ -61,8 +61,21 @@ export interface ToolEvents {
   onRoadsChanged?(): void;
   /** Fired when a station or plant was removed, so its mesh can go with it. */
   onFacilitiesChanged?(): void;
+  /** A bus line went down; the caller confirms it. */
+  onLaidTransit?(): void;
+  /**
+   * A stroke was refused, and why.
+   *
+   * The controller does not own any copy, so it reports the reason rather than
+   * the sentence. What it must not do is stay quiet: a stroke that vanishes
+   * without a word reads as a broken game, which is the rule the station
+   * placement already keeps and the line drawing did not.
+   */
+  onRefused?(reason: TransitRefusal): void;
   onChanged?(): void;
 }
+
+export type TransitRefusal = 'locked' | 'tooDear' | 'tooShort';
 
 export class ToolController {
   private tool: ToolId = 'road';
@@ -325,6 +338,9 @@ export class ToolController {
     this.undo.push({ changes: result.changes, spent: result.spent, removed: result.removed });
     this.events.onBuilt?.(result.changes.map((c) => ({ x: c.x, y: c.y })));
     if (touchedRoads(result.changes)) this.events.onRoadsChanged?.();
+    // A line coming down changes what the roads have to carry, so the traffic
+    // field is as stale as it is when a station goes.
+    if (result.removed.transit.length > 0) this.events.onRoadsChanged?.();
     if (result.removed.services.length > 0 || result.removed.utilities.length > 0) {
       // Coverage is derived from the facilities that exist, so it is stale the
       // moment one comes down — and the mask is what buildings score against.
@@ -349,18 +365,31 @@ export class ToolController {
   private commitTransit(): number {
     const path = this.path;
     if (!path || path.tiles.length === 0) return 0;
-    if (!transitUnlocked(this.state)) return 0;
+    // Every refusal is spoken. A stroke that vanishes without a word is the
+    // shape of bug the rest of this file is written to avoid — and there were
+    // three of them here: locked, unaffordable, and too short to be a route.
+    if (!transitUnlocked(this.state)) {
+      this.events.onRefused?.('locked');
+      return 0;
+    }
 
     const cost = path.tiles.length * TRANSIT_COST_PER_TILE;
-    if (cost > this.state.money) return 0;
+    if (cost > this.state.money) {
+      this.events.onRefused?.('tooDear');
+      return 0;
+    }
     const line = layTransit(this.state, path.tiles);
-    if (!line) return 0;
+    if (!line) {
+      this.events.onRefused?.('tooShort');
+      return 0;
+    }
 
     this.state.money -= cost;
     // A line changes what the roads have to carry, so the traffic field is stale
     // the moment it is laid — the same invalidation a new road triggers.
     this.events.onRoadsChanged?.();
     this.events.onBuilt?.(line.stops.map((stop) => ({ x: stop.x, y: stop.y })));
+    this.events.onLaidTransit?.();
     return cost;
   }
 

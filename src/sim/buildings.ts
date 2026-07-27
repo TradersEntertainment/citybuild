@@ -16,10 +16,11 @@ import { capacityOf, isBuiltZone, type BuiltZone, type Level } from '../data/bui
 import { UNREACHABLE, type Fields } from './fields';
 import { portJobs } from './ports';
 import { serviceCoverageAt } from './services';
+import { collectionPerMinute } from './rubbish';
 import { techFactor } from './tech';
 import { congestionNear, type TrafficField } from './traffic';
 import type { GameState } from './state';
-import { decodeZone, ISSUE, NONE, type ZoneKind } from './tiles';
+import { decodeZone, ISSUE, NONE, SERVICE, type ZoneKind } from './tiles';
 import { index, isTileOwned, type World } from './world';
 
 /**
@@ -156,6 +157,9 @@ export function evaluateBuildings(
   traffic?: TrafficField,
 ): void {
   const { world } = state;
+  // Whether the city runs any lorries at all — a city-wide fact, read once here
+  // rather than per building inside the diagnosis (sim/rubbish.ts).
+  const collecting = collectionPerMinute(state) > 0;
   // Farmland is counted here rather than in its own sweep: this pass already
   // visits every tile, and the count only has to be as fresh as the buildings.
   let farmTiles = 0;
@@ -179,7 +183,7 @@ export function evaluateBuildings(
           demolish(state, building);
           continue;
         }
-        updateBuilding(state, fields, building, dt, traffic);
+        updateBuilding(state, fields, building, dt, collecting, traffic);
         continue;
       }
 
@@ -225,11 +229,12 @@ function updateBuilding(
   fields: Fields,
   building: Building,
   dt: number,
+  collecting: boolean,
   traffic?: TrafficField,
 ): void {
   const score = suitability(state, fields, building.x, building.y, building.zone);
   building.score = score;
-  building.issues = diagnose(state, fields, building, traffic);
+  building.issues = diagnose(state, fields, building, collecting, traffic);
 
   if (score < BUILDING_DECAY_THRESHOLD) {
     building.decayTimer += dt;
@@ -282,6 +287,7 @@ function diagnose(
   state: GameState,
   fields: Fields,
   building: Building,
+  collecting: boolean,
   traffic?: TrafficField,
 ): number {
   let issues = 0;
@@ -300,6 +306,19 @@ function diagnose(
   if (traffic) {
     const jam = congestionNear(state.world, traffic, building.x, building.y);
     if (jam > CONGESTION_ALARM) issues |= ISSUE.traffic;
+  }
+  // The bins, decided here with everything else rather than in a pass of their
+  // own. This function assigns `building.issues` wholesale, so a flag written
+  // anywhere but inside it survives at most one building pass — which is exactly
+  // what happened to the rubbish mark until now: written by the coverage pass and
+  // wiped three seconds later, every time, before anybody could see it.
+  //
+  // `collecting` is passed in rather than read here because it is a city-wide
+  // fact and this runs once per building. And no depot anywhere is not any one
+  // building's fault: a mark on every roof says less than the backlog already
+  // does, so the flag only means "there are lorries, and none of them come here".
+  if (collecting && ((state.world.serviceMask[i] ?? 0) & SERVICE.depot) === 0) {
+    issues |= ISSUE.noRubbish;
   }
   return issues;
 }

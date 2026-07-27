@@ -43,6 +43,10 @@ export interface UiState {
   budgets: Record<string, number>;
   /** How the city would vote today, 0..1 (sim/elections.ts). */
   approval: number;
+  /** Riders a minute the bus lines are carrying (sim/transit.ts). */
+  riders: number;
+  /** Seconds until the next vote is counted (sim/elections.ts). */
+  secondsToElection: number;
   grid: GridView;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
@@ -168,6 +172,8 @@ export interface SimSnapshot {
   stations: Record<string, number>;
   budgets: Record<string, number>;
   approval: number;
+  riders: number;
+  secondsToElection: number;
   grid: GridView;
 }
 
@@ -233,6 +239,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   stations: {},
   budgets: {},
   approval: 0,
+  riders: 0,
+  secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
   hintVisible: true,
@@ -294,6 +302,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       // the panel repaints twice a second and a stale budget row would be the one
       // thing on it the player just changed.
       Math.round(current.approval * 100) === Math.round(snapshot.approval * 100) &&
+      Math.round(current.riders) === Math.round(snapshot.riders) &&
+      Math.ceil(current.secondsToElection) === Math.ceil(snapshot.secondsToElection) &&
       SERVICE_KEYS.every(
         (kind) =>
           current.stations[kind] === snapshot.stations[kind] &&

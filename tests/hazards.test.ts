@@ -4,6 +4,7 @@ import {
   EPIDEMIC_MIN_POP,
   FIRE_BURNOUT_S,
   FIRE_RESPONSE_S,
+  FIRE_SPREAD_CHANCE,
   FIRE_SPREAD_S,
   FIRE_TRUCK_DWELL_S,
   FIRE_TRUCK_SPEED,
@@ -144,7 +145,17 @@ describe('fire', () => {
       truck: null,
     });
     const events: HazardEvent[] = [];
-    for (let s = 0; s < FIRE_SPREAD_S; s++) events.push(...stepHazards(game, 1, scripted([], 0.1)));
+    // Derived from the constant rather than written down: the spread chance was
+    // cut to bring the branching factor below one, and a hard-coded 0.1 that used
+    // to be under it silently stopped being a spread at all.
+    //
+    // A fifth of it, not a half: rain multiplies the chance by 0.4 and a storm by
+    // 0.5, so a half lands exactly on the boundary in wet weather and the roll
+    // comes out a coin toss on the seed.
+    const spreads = FIRE_SPREAD_CHANCE * 0.2;
+    for (let s = 0; s < FIRE_SPREAD_S; s++) {
+      events.push(...stepHazards(game, 1, scripted([], spreads)));
+    }
 
     expect(game.fires.size).toBe(2);
     expect(kinds(events).filter((kind) => kind === 'fireStart')).toHaveLength(1);

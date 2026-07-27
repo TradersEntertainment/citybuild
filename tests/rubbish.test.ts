@@ -8,10 +8,11 @@ import {
 } from '../src/data/balance';
 import type { Level } from '../src/data/buildings';
 import type { Building } from '../src/sim/buildings';
+import { evaluateBuildings } from '../src/sim/buildings';
+import { computeRoadDistance, createFields } from '../src/sim/fields';
 import { stepHazards } from '../src/sim/hazards';
 import {
   collectionPerMinute,
-  markUncollected,
   rubbishEpidemicFactor,
   rubbishHappiness,
   rubbishPerMinute,
@@ -22,8 +23,8 @@ import {
 } from '../src/sim/rubbish';
 import { hashSeed } from '../src/sim/rng';
 import { createGameState, type GameState } from '../src/sim/state';
-import { ISSUE, SERVICE } from '../src/sim/tiles';
-import { index } from '../src/sim/world';
+import { encodeZone, ISSUE, SERVICE } from '../src/sim/tiles';
+import { index, startingCentre } from '../src/sim/world';
 
 /**
  * The bins (§15).
@@ -68,11 +69,27 @@ function add(
   return building;
 }
 
-/** A town of `homes` houses, each holding twenty people. */
+/**
+ * A town of `homes` houses, each holding twenty people.
+ *
+ * On owned, zoned ground inside the starting parcel — not anywhere convenient.
+ * `evaluateBuildings` demolishes anything standing on a tile that is not zoned
+ * for it or not owned, so a fixture that drops houses on bare land has them
+ * removed by the first pass, and every assertion after that runs over an empty
+ * map and passes for the wrong reason. Two of the tests below did exactly that.
+ */
 function town(homes = 20): GameState {
   const game = createGameState(hashSeed('rubbish'), 0);
   game.era = 'town';
-  for (let i = 0; i < homes; i++) add(game, 140 + i, 150, 'res', 20, 0);
+  const centre = startingCentre(game.world);
+  const x0 = Math.floor(centre.x) - Math.floor(homes / 2);
+  const y = Math.floor(centre.y);
+  for (let i = 0; i < homes; i++) {
+    const x = x0 + i;
+    game.world.height[index(game.world, x, y)] = 0.5;
+    game.world.zone[index(game.world, x, y)] = encodeZone('res');
+    add(game, x, y, 'res', 20, 0);
+  }
   game.population = homes * 20;
   return game;
 }
@@ -242,11 +259,26 @@ describe('rubbish is the cause the epidemic never had', () => {
 });
 
 describe('where the lorry does not go', () => {
+  /**
+   * The mark is written by the building pass, not by a rubbish pass.
+   *
+   * `diagnose` assigns `building.issues` wholesale every three seconds, so a flag
+   * set anywhere else survives at most one pass — which is exactly what happened
+   * to this one until it moved: written by the coverage pass and wiped before
+   * anybody could see it. These read it through evaluateBuildings for that
+   * reason: testing a private helper would have gone on passing after the bug.
+   */
+  const diagnose = (game: GameState): void => {
+    const fields = createFields(game.world.size);
+    computeRoadDistance(game.world, fields.roadDistance);
+    evaluateBuildings(game, fields, 1);
+  };
+
   it('marks nothing when the city has no depot at all', () => {
     // Not this building's fault in particular, and a mark over every roof in the
     // city says nothing the backlog does not say better.
     const game = town(3);
-    markUncollected(game);
+    diagnose(game);
     for (const building of game.buildings.values()) {
       expect(building.issues & ISSUE.noRubbish).toBe(0);
     }
@@ -257,7 +289,7 @@ describe('where the lorry does not go', () => {
     depot(game, 1);
     const covered = [...game.buildings.values()][0]!;
     game.world.serviceMask[index(game.world, covered.x, covered.y)] = SERVICE.depot;
-    markUncollected(game);
+    diagnose(game);
 
     expect(covered.issues & ISSUE.noRubbish).toBe(0);
     for (const building of game.buildings.values()) {
@@ -269,24 +301,24 @@ describe('where the lorry does not go', () => {
   it('clears the mark when a lorry starts coming', () => {
     const game = town(2);
     depot(game, 1);
-    markUncollected(game);
+    diagnose(game);
     const building = [...game.buildings.values()][0]!;
     expect(building.issues & ISSUE.noRubbish).not.toBe(0);
 
     game.world.serviceMask[index(game.world, building.x, building.y)] = SERVICE.depot;
-    markUncollected(game);
+    diagnose(game);
     expect(building.issues & ISSUE.noRubbish).toBe(0);
   });
 
-  it('touches only its own bit', () => {
-    // Every coverage pass owns one flag; a wholesale rebuild here would wipe the
-    // water, the power and the services along with it.
+  it('survives the building pass that used to wipe it', () => {
+    // The bug this block exists for. The flag has to still be there three
+    // seconds later, which means it has to be decided where issues are assigned.
     const game = town(2);
     depot(game, 1);
+    diagnose(game);
+    diagnose(game);
+    diagnose(game);
     const building = [...game.buildings.values()][0]!;
-    building.issues = ISSUE.noWater | ISSUE.traffic;
-    markUncollected(game);
-    expect(building.issues & ISSUE.noWater).not.toBe(0);
-    expect(building.issues & ISSUE.traffic).not.toBe(0);
+    expect(building.issues & ISSUE.noRubbish).not.toBe(0);
   });
 });

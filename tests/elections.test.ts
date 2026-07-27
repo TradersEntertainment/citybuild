@@ -91,6 +91,30 @@ describe('holding one', () => {
     expect(game.lastTermSettled).toBe(4);
   });
 
+  it('settles every term an absence went past, not just the last', () => {
+    // The offline path advances playedMs by the whole absence before it steps, so
+    // several terms arrive here as one jump. Settling only the latest would dock
+    // a player several mandates for having been away — the punishment-for-not-
+    // playing that sim/offline.ts exists to refuse.
+    const game = city();
+    game.happiness = 90;
+    const before = game.money;
+    game.playedMs = TERM_MS * 4 + 100;
+    const [event] = stepElections(game, 1);
+
+    expect(event?.terms).toBe(4);
+    expect(event?.grant).toBe(Math.round(game.population * MANDATE_PER_CITIZEN) * 4);
+    expect(game.money).toBe(before + (event?.grant ?? 0));
+    expect(game.lastTermSettled).toBe(4);
+  });
+
+  it('reports an absence as one line rather than five', () => {
+    // Five toasts at once is not five pieces of news.
+    const game = city();
+    game.playedMs = TERM_MS * 5 + 100;
+    expect(stepElections(game, 1)).toHaveLength(1);
+  });
+
   it('skips a vote a settlement was too small to hold', () => {
     // Losing an election a city had nobody to hold is not a lesson.
     const game = city(0);
@@ -163,6 +187,7 @@ describe('winning and losing', () => {
     const before = game.money;
     const [event] = toTerm(game, 1);
     expect(event?.verdict).toBe('won');
+    expect(event?.terms).toBe(1);
     expect(event?.grant).toBe(Math.round(game.population * MANDATE_PER_CITIZEN));
     expect(game.money).toBe(before + (event?.grant ?? 0));
   });

@@ -34,6 +34,27 @@ export interface ServiceSpec {
 
 export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
   /**
+   * The rubbish depot. Unlike the cemetery it has a real radius as well as a
+   * rate, because both questions matter: how many lorries the city runs, and
+   * whether one of them comes down your street (sim/rubbish.ts).
+   *
+   * `requiredFrom` sits late for the same reason the karakol's does. The backlog
+   * already costs mood, raises the epidemic roll, raises a petition and marks
+   * every uncollected roof — four visible penalties the player can act on. Adding
+   * a fifth through the coverage score would quietly retune the city era on top
+   * of all of them, and a city stalling for a reason it cannot see is the worst
+   * kind of difficulty.
+   */
+  depot: {
+    kind: 'depot',
+    bit: SERVICE.depot,
+    requiredFrom: 'metro',
+    unlockedAt: 'town',
+    cost: 4_800,
+    upkeep: 68,
+    radius: 16,
+  },
+  /**
    * A cemetery is the odd one out: it covers no ground and its radius is
    * meaningless, because the dead are brought to it from wherever they died
    * (sim/cohorts.ts). What it has instead is a rate — so the question a player
@@ -45,25 +66,6 @@ export const SERVICE_SPECS: Readonly<Record<ServiceKind, ServiceSpec>> = {
    * having no cemetery. The backlog does that on its own, and far more
    * legibly than a coverage fraction could.
    */
-  /**
-   * The rubbish depot. Unlike the cemetery it has a real radius as well as a
-   * rate, because both questions matter: how many lorries the city runs, and
-   * whether one of them comes down your street (sim/rubbish.ts).
-   *
-   * Required from town, which is where the first backlog starts to bite — and
-   * unlike the other required services this one announces itself long before the
-   * coverage score notices, because the bins are the loudest thing in a city
-   * that has stopped collecting them.
-   */
-  depot: {
-    kind: 'depot',
-    bit: SERVICE.depot,
-    requiredFrom: 'city',
-    unlockedAt: 'town',
-    cost: 4_800,
-    upkeep: 68,
-    radius: 16,
-  },
   cemetery: {
     kind: 'cemetery',
     bit: SERVICE.cemetery,

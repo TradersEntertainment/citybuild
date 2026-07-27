@@ -8,6 +8,7 @@ import {
   HIGHWAY_BILL_REMINDER_S,
   PARCEL_SIZE,
   researchPerMinute,
+  TRANSIT_UNLOCK_POPULATION,
 } from './data/balance';
 import type { Mission } from './data/missions';
 import { ROAD_SPECS, ROAD_TIERS } from './data/roads';
@@ -28,7 +29,7 @@ import { Clock } from './sim/clock';
 import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
 import { nudgeBudget } from './sim/budgets';
-import { approval } from './sim/elections';
+import { approval, secondsToElection } from './sim/elections';
 import { rubbishStrain } from './sim/rubbish';
 import { transitUnlocked } from './sim/transit';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
@@ -126,6 +127,22 @@ const tools = new ToolController(game, camera, undo, {
     systems.invalidateFields();
     renderer.invalidateServices();
     autosave.flush(game);
+  },
+  // Every refusal is spoken; the controller reports the reason, the shell owns
+  // the sentence (sim/transit.ts).
+  onLaidTransit: () => {
+    toast.show(STR.transit.laid, STR.transit.hint);
+    sfx.play('build');
+  },
+  onRefused: (reason) => {
+    sfx.play('blocked');
+    toast.show(
+      reason === 'locked'
+        ? STR.transit.locked(STR.format.count(TRANSIT_UNLOCK_POPULATION))
+        : reason === 'tooDear'
+          ? STR.transit.tooDear
+          : STR.transit.tooShort,
+    );
   },
   onChanged: () => syncUi(),
 });
@@ -234,6 +251,13 @@ const dock = mountToolDock(ui, {
     renderer.invalidateRoads();
   },
   transitUnlocked: () => transitUnlocked(game),
+  onPickTransit: () => {
+    toast.show(
+      transitUnlocked(game)
+        ? STR.transit.hint
+        : STR.transit.locked(STR.format.count(TRANSIT_UNLOCK_POPULATION)),
+    );
+  },
   research: () => game.research,
   schooling: () => {
     const coverage = educationCoverage(game);
@@ -1347,6 +1371,8 @@ function syncUi(): void {
     stations: countStations(game),
     budgets: { ...game.budgets },
     approval: approval(game),
+    riders: systems.traffic.riders,
+    secondsToElection: secondsToElection(game.playedMs),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });
   store.setMissions(

@@ -7,7 +7,10 @@ import {
   TRANSIT_STOP_WALK,
   TRANSIT_UNLOCK_POPULATION,
 } from '../data/balance';
+import type { Fields } from './fields';
 import type { GameState } from './state';
+import { nearestRoad } from './traffic';
+import type { World } from './world';
 
 /**
  * Public transport (§18): the second thing the player draws.
@@ -84,10 +87,28 @@ export function stopsAlong(path: readonly TransitStop[]): TransitStop[] {
   return stops;
 }
 
-/** Every stop the city runs, across every line. */
-export function allStops(state: GameState): TransitStop[] {
+/**
+ * Every stop a bus can actually pull into: on or beside a street.
+ *
+ * The check is here rather than at the moment the line is drawn, and that
+ * matters in both directions. A player can draw a line straight across the bay —
+ * the stroke pipeline is the road tool's and it does not care about water — and
+ * without this every building within a walk of the open sea would be served for
+ * nothing. And a street that is bulldozed later has to take its stop with it,
+ * which a validation at drawing time could never do.
+ *
+ * Gathered once per traffic pass rather than asked per building: the share is
+ * read for every building in the city, and walking every line's every stop
+ * inside that loop is the same work multiplied by the number of buildings.
+ */
+export function servingStops(world: World, fields: Fields, state: GameState): TransitStop[] {
   const stops: TransitStop[] = [];
-  for (const line of state.transit.values()) stops.push(...line.stops);
+  for (const line of state.transit.values()) {
+    for (const stop of line.stops) {
+      if (nearestRoad(world, fields, stop.x, stop.y) < 0) continue;
+      stops.push(stop);
+    }
+  }
   return stops;
 }
 
@@ -109,13 +130,16 @@ export function transitUpkeep(state: GameState): number {
  * network already is. Zero for a building nobody's line reaches, which is most
  * of a city and should be.
  */
-export function transitShare(state: GameState, x: number, y: number, strain = 1): number {
+export function transitShare(
+  stops: readonly TransitStop[],
+  x: number,
+  y: number,
+  strain = 1,
+): number {
   let nearest = Infinity;
-  for (const line of state.transit.values()) {
-    for (const stop of line.stops) {
-      const distance = Math.hypot(stop.x - x, stop.y - y);
-      if (distance < nearest) nearest = distance;
-    }
+  for (const stop of stops) {
+    const distance = Math.hypot(stop.x - x, stop.y - y);
+    if (distance < nearest) nearest = distance;
   }
   if (nearest > TRANSIT_STOP_WALK) return 0;
   // Linear in the walk: on the doorstep is the full share, at the edge of the
@@ -139,14 +163,18 @@ export interface TransitLoad {
   strain: number;
 }
 
-export function transitLoad(state: GameState, tripsAt: TripsAt): TransitLoad {
+export function transitLoad(
+  state: GameState,
+  stops: readonly TransitStop[],
+  tripsAt: TripsAt,
+): TransitLoad {
   const lines = state.transit.size;
-  if (lines === 0) return { riders: 0, strain: 1 };
+  if (lines === 0 || stops.length === 0) return { riders: 0, strain: 1 };
 
   // First pass at full share, to find out what the network is being asked for.
   let wanted = 0;
   for (const building of state.buildings.values()) {
-    const share = transitShare(state, building.x, building.y);
+    const share = transitShare(stops, building.x, building.y);
     if (share <= 0) continue;
     wanted += tripsAt(building.x, building.y) * share;
   }
@@ -166,16 +194,6 @@ export type TripsAt = (x: number, y: number) => number;
 /** Fares, ₺ per minute. */
 export function fareIncome(riders: number): number {
   return riders * TRANSIT_FARE;
-}
-
-/** The line a tile belongs to, for the eraser to take down. */
-export function lineAtStop(state: GameState, x: number, y: number): TransitLine | null {
-  for (const line of state.transit.values()) {
-    for (const stop of line.stops) {
-      if (stop.x === x && stop.y === y) return line;
-    }
-  }
-  return null;
 }
 
 /**

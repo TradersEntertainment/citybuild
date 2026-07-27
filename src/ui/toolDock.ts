@@ -40,6 +40,8 @@ export interface DockDeps {
   onUndo: () => void;
   /** Whether the city is big enough to run a bus line yet (sim/transit.ts). */
   transitUnlocked: () => boolean;
+  /** The line tool was picked; it has no sheet, so the shell says what to do. */
+  onPickTransit: () => void;
   /** Research points in hand, and what they will buy. */
   research: () => number;
   /**
@@ -115,10 +117,11 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     // Locked until the city is big enough for a line to be worth the fares
     // (sim/transit.ts). Shown rather than hidden, with what opens it, like every
     // other lock in the game.
-    const canRide = deps.transitUnlocked();
+    // Left enabled on purpose. Disabling it means a tap does nothing and says
+    // nothing, and §1 of the brief is that a lock always shows what opens it —
+    // so the press is allowed through and the tool controller speaks the reason.
     transitButton.dataset['active'] = String(tool === 'transit');
-    transitButton.dataset['locked'] = String(!canRide);
-    transitButton.disabled = !canRide;
+    transitButton.dataset['locked'] = String(!deps.transitUnlocked());
     setButtonLabel(roadButton, STR.tools.road, STR.road[deps.tools.activeRoadKind]);
     setButtonLabel(zoneButton, STR.tools.zone, STR.zone[deps.tools.activeZoneKind]);
     setButtonLabel(serviceButton, STR.tools.service, facilityName(deps.tools.activeFacility));
@@ -406,8 +409,12 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
   zoneButton.addEventListener('click', () => selectTool('zone', true));
   serviceButton.addEventListener('click', () => selectTool('service', true));
   eraseButton.addEventListener('click', () => selectTool('erase', true));
-  // No sheet: a line has no options to pick, only a shape to draw.
-  transitButton.addEventListener('click', () => selectTool('transit', false));
+  // No sheet: a line has no options to pick, only a shape to draw. The hint goes
+  // out on selection instead, because there is nowhere else it could live.
+  transitButton.addEventListener('click', () => {
+    selectTool('transit', false);
+    deps.onPickTransit();
+  });
   techButton.addEventListener('click', () => {
     haptics.tap();
     if (openSheetFor === 'tech') {

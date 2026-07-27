@@ -6,10 +6,9 @@ import {
   RUBBISH_PER_RESIDENT_MIN,
   RUBBISH_TOLERANCE_MIN,
 } from '../data/balance';
+import { isServiceUnlocked } from '../data/services';
 import { budgetOf } from './budgets';
 import type { GameState } from './state';
-import { ISSUE, SERVICE } from './tiles';
-import { index } from './world';
 
 /**
  * What the city throws away (§15).
@@ -82,7 +81,13 @@ export function stepRubbish(state: GameState, dt: number, live = true): readonly
   // the punishment-for-being-away that sim/offline.ts refuses. The bins still
   // fill and empty; what does not happen is the pile-up nobody could answer.
   const net = live ? produced - collected : Math.min(0, produced - collected);
-  state.rubbish = Math.max(0, state.rubbish + net);
+  // Capped where the mood hit already saturates. Past that point another crate is
+  // not modelling anything — the penalty cannot get worse — and all it does is
+  // make catching up take longer than any player will wait. Measured on a city
+  // that ignored it for an hour: a backlog of twenty-four thousand against a
+  // tolerance of thirty, which no number of depots clears inside a session.
+  const ceiling = rubbishTolerance(state) * (1 + SATURATION_SPAN);
+  state.rubbish = Math.min(ceiling, Math.max(0, state.rubbish + net));
 
   const overflowing = state.rubbish > rubbishTolerance(state);
   if (overflowing === before) return NO_EVENTS;
@@ -107,10 +112,16 @@ const NO_EVENTS: readonly RubbishEvent[] = [];
  * minute, or the scale stops meaning anything.
  */
 export function rubbishStrain(state: GameState): number {
+  // Same rule as the burials: a depot opens at town, so a village putting its
+  // bins out has no answer to offer and is not marked down for it.
+  if (!isServiceUnlocked('depot', state.era)) return 0;
   const tolerated = rubbishTolerance(state);
   if (state.rubbish <= tolerated) return 0;
-  return Math.min(1, (state.rubbish - tolerated) / (tolerated * 3));
+  return Math.min(1, (state.rubbish - tolerated) / (tolerated * SATURATION_SPAN));
 }
+
+/** Multiples of the tolerance between "just over" and "as bad as it gets". */
+const SATURATION_SPAN = 3;
 
 /** Mood cost of the bins going uncollected. A pure penalty, and capped. */
 export function rubbishHappiness(state: GameState): number {
@@ -123,23 +134,3 @@ export function rubbishEpidemicFactor(state: GameState): number {
   return 1 + (RUBBISH_EPIDEMIC_MULT - 1) * rubbishStrain(state);
 }
 
-/**
- * Flags every building no depot reaches.
- *
- * Run with the rest of the coverage pass, and it only ever touches its own bit —
- * the civic services and the utilities each own theirs, and a wholesale rebuild
- * here would wipe them.
- */
-export function markUncollected(state: GameState): void {
-  const world = state.world;
-  const anyDepot = collectionPerMinute(state) > 0;
-  for (const building of state.buildings.values()) {
-    const mask = world.serviceMask[index(world, building.x, building.y)] ?? 0;
-    // No depot anywhere is not this building's fault in particular; the backlog
-    // says that far more clearly than a mark over every roof in the city would.
-    const missed = anyDepot && (mask & SERVICE.depot) === 0;
-    building.issues = missed
-      ? building.issues | ISSUE.noRubbish
-      : building.issues & ~ISSUE.noRubbish;
-  }
-}

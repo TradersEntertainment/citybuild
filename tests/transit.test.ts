@@ -27,6 +27,7 @@ import {
   stopsAlong,
   transitLoad,
   transitShare,
+  servingStops,
   transitUnlocked,
   transitUpkeep,
 } from '../src/sim/transit';
@@ -188,26 +189,58 @@ describe('what a line is for', () => {
     const traffic = createTrafficField(game.world.size);
     computeTraffic(game, fields, traffic);
     expect(Math.max(...traffic.load)).toBeGreaterThan(0);
-    expect(transitShare(game, origin.x, origin.y)).toBeLessThanOrEqual(TRANSIT_MAX_SHARE);
+    const stops = servingStops(game.world, fields, game);
+    expect(transitShare(stops, origin.x, origin.y)).toBeLessThanOrEqual(TRANSIT_MAX_SHARE);
   });
 
   it('serves a doorstep better than the edge of the catchment', () => {
-    const { game } = street();
+    const { game, fields } = street();
     layTransit(game, alongStreet(22));
-    const near = transitShare(game, origin.x, origin.y);
-    const far = transitShare(game, origin.x, origin.y + TRANSIT_STOP_WALK);
-    const outside = transitShare(game, origin.x, origin.y + TRANSIT_STOP_WALK + 2);
+    const stops = servingStops(game.world, fields, game);
+    const near = transitShare(stops, origin.x, origin.y);
+    const far = transitShare(stops, origin.x, origin.y + TRANSIT_STOP_WALK);
+    const outside = transitShare(stops, origin.x, origin.y + TRANSIT_STOP_WALK + 2);
     expect(near).toBeGreaterThan(far);
     expect(far).toBeGreaterThan(0);
     expect(outside).toBe(0);
   });
 });
 
+describe('a stop needs a street', () => {
+  it('serves nobody from a line drawn across open country', () => {
+    // The stroke pipeline is the road tool's and it does not care about water or
+    // bare ground, so without this a player could draw a line along the bay and
+    // serve the whole waterfront for nothing.
+    const { game, fields } = street();
+    const away = Array.from({ length: 22 }, (_, i) => ({ x: origin.x + i, y: origin.y + 30 }));
+    layTransit(game, away);
+    expect(game.transit.size).toBe(1);
+    expect(servingStops(game.world, fields, game)).toHaveLength(0);
+
+    const traffic = createTrafficField(game.world.size);
+    computeTraffic(game, fields, traffic);
+    expect(traffic.riders).toBe(0);
+  });
+
+  it('stops serving when the street under it is bulldozed', () => {
+    // Which is why the check lives at reading time rather than at drawing time:
+    // a validation when the line was laid could never notice this.
+    const { game, fields } = street();
+    layTransit(game, alongStreet(22));
+    expect(servingStops(game.world, fields, game).length).toBeGreaterThan(0);
+
+    for (let i = 0; i < 40; i++) game.world.road[index(game.world, origin.x + i, origin.y)] = NONE;
+    computeConnectivity(game.world);
+    computeRoadDistance(game.world, fields.roadDistance);
+    expect(servingStops(game.world, fields, game)).toHaveLength(0);
+  });
+});
+
 describe('capacity', () => {
   it('carries what it is asked for while there is room', () => {
-    const { game } = street(4);
+    const { game, fields } = street(4);
     layTransit(game, alongStreet(10));
-    const load = transitLoad(game, () => 10);
+    const load = transitLoad(game, servingStops(game.world, fields, game), () => 10);
     expect(load.strain).toBe(1);
     expect(load.riders).toBeGreaterThan(0);
     expect(load.riders).toBeLessThan(TRANSIT_LINE_CAPACITY);
@@ -217,25 +250,25 @@ describe('capacity', () => {
     // Not the last stop drawn: a full bus is full everywhere on the route, and
     // "which of my stops is the unlucky one" is not a decision anybody could act
     // on.
-    const { game } = street();
+    const { game, fields } = street();
     layTransit(game, alongStreet(22));
-    const load = transitLoad(game, () => 10_000);
+    const load = transitLoad(game, servingStops(game.world, fields, game), () => 10_000);
     expect(load.riders).toBeCloseTo(TRANSIT_LINE_CAPACITY, 6);
     expect(load.strain).toBeLessThan(1);
   });
 
   it('answers a full line with another line rather than a longer one', () => {
-    const { game } = street();
+    const { game, fields } = street();
     layTransit(game, alongStreet(22));
-    const one = transitLoad(game, () => 10_000);
+    const one = transitLoad(game, servingStops(game.world, fields, game), () => 10_000);
     layTransit(game, alongStreet(22).map((p) => ({ x: p.x, y: p.y + 2 })));
-    const two = transitLoad(game, () => 10_000);
+    const two = transitLoad(game, servingStops(game.world, fields, game), () => 10_000);
     expect(two.riders).toBeGreaterThan(one.riders);
   });
 
   it('carries nobody with no line at all', () => {
-    const { game } = street();
-    const load = transitLoad(game, () => 10_000);
+    const { game, fields } = street();
+    const load = transitLoad(game, servingStops(game.world, fields, game), () => 10_000);
     expect(load.riders).toBe(0);
     expect(load.strain).toBe(1);
   });

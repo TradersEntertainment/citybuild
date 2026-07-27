@@ -194,16 +194,20 @@ describe('ageing', () => {
     game.cohorts.people = [5_000, 0, 0, 0];
     game.cohorts.schooled = [0, 0, 0, 0];
 
-    const buried: number[] = [];
-    let last = 0;
+    // Measured as the population lost per slice rather than as the backlog, which
+    // is capped where its mood hit saturates and so cannot show a wave at all.
+    // The fixture's homes are over capacity, so there are no births to muddy it:
+    // every person who leaves, leaves feet first.
+    const lost: number[] = [];
+    let last = game.population;
     const slice = COHORT_BAND_S / 2;
     for (let n = 0; n < 10; n++) {
       run(game, slice);
-      buried.push(game.cohorts.awaitingBurial - last);
-      last = game.cohorts.awaitingBurial;
+      lost.push(last - game.population);
+      last = game.population;
     }
     // Nearly nothing for the first band and a half, then the wave lands.
-    expect(Math.max(...buried)).toBeGreaterThan((buried[0] ?? 0) * 20);
+    expect(Math.max(...lost)).toBeGreaterThan((lost[0] ?? 0) * 20);
   });
 });
 
@@ -361,12 +365,13 @@ describe('burials', () => {
   it('is not cleared by a fire station', () => {
     const game = city(4_000);
     stepCohorts(game, 1);
-    game.cohorts.awaitingBurial = 300;
+    // Started below the ceiling: the backlog is capped where its mood hit
+    // saturates, so a figure above that is pulled down by the cap rather than by
+    // anything a fire station did, and the assertion would prove nothing.
+    game.cohorts.awaitingBurial = 1;
     game.services.set(1, { id: 1, kind: 'fire', x: 150, y: 160 });
-    const before = game.cohorts.awaitingBurial;
     run(game, 30);
-    // Deaths keep arriving, so this can only go up without a cemetery.
-    expect(game.cohorts.awaitingBurial).toBeGreaterThanOrEqual(before);
+    expect(game.cohorts.awaitingBurial).toBeGreaterThan(1);
   });
 
   it('announces falling behind, and catching up again', () => {

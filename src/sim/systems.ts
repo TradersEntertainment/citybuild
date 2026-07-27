@@ -15,7 +15,7 @@ import {
 import { stepCohorts, type CohortEvent } from './cohorts';
 import { stepCrime, type CrimeEvent } from './crime';
 import { stepResources, type ResourceEvent } from './resources';
-import { markUncollected, stepRubbish, type RubbishEvent } from './rubbish';
+import { stepRubbish, type RubbishEvent } from './rubbish';
 import { stepHazards, type HazardEvent } from './hazards';
 import { stepHighwayWear, type HighwayWearEvent } from './highwayWear';
 import type { Mission } from '../data/missions';
@@ -145,8 +145,6 @@ export class Systems {
       // After the civic services, because it clears only the two bits it owns
       // and would otherwise be wiped by the wholesale rebuild above.
       computeUtilityCoverage(state, this.fields);
-      // Reads the depot bit the civic pass just wrote, so it runs after it.
-      markUncollected(state);
       this.fieldsDirty = false;
     }
 

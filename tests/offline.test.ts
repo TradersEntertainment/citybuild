@@ -155,6 +155,11 @@ describe('what the city does while nobody is watching', () => {
     // comparison that rolled dice would be measuring luck, not honesty.
     freshCity(300);
     for (let s = 0; s < 3600; s++) {
+      // The frame loop advances the clock; systems.step does not own it. Without
+      // this the live run sits at played time zero forever, so every system that
+      // reads the calendar — the timeline, the day cycle, the elections — is
+      // frozen on one side of a comparison that claims the two paths agree.
+      game.playedMs += 1000;
       systems.step(game, 1, false);
       systems.stepEconomy(game, 1);
     }

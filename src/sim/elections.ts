@@ -88,8 +88,10 @@ export interface ElectionEvent {
   verdict: Verdict;
   /** The share that voted for the mayor, for the announcement to quote. */
   approval: number;
-  /** Money granted, on a win. */
+  /** Money granted, on a win — across every term settled at once. */
   grant: number;
+  /** How many terms this settles. More than one only after an absence. */
+  terms: number;
 }
 
 const NO_EVENTS: readonly ElectionEvent[] = [];
@@ -108,6 +110,7 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
   const term = termOf(state.playedMs);
   // Term zero is the founding: nobody elected anybody to build a village.
   if (term <= state.lastTermSettled) return NO_EVENTS;
+  const missed = term - state.lastTermSettled;
   state.lastTermSettled = term;
   // A settlement with nobody in it has nobody to vote. Skipped rather than lost,
   // because losing an election a city was too small to hold is not a lesson.
@@ -118,9 +121,22 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
   state.verdictMemory = VERDICT_MEMORY_S;
   state.lastVerdict = won ? 'won' : 'lost';
 
-  const grant = won ? Math.round(state.population * MANDATE_PER_CITIZEN) : 0;
+  /**
+   * Every term that went past is settled, not only the latest.
+   *
+   * The offline path advances `playedMs` by the whole absence *before* it starts
+   * stepping, so an hour away arrives here as one jump across several terms. The
+   * first version settled only the term it landed in and silently swallowed the
+   * grants for the rest — a player docked several mandates for having been away,
+   * which is precisely the punishment-for-not-playing sim/offline.ts refuses.
+   *
+   * They are settled at today's approval because there is no record of what it
+   * was at the time, and reported as one line rather than several: five toasts
+   * at once is not five pieces of news.
+   */
+  const grant = won ? Math.round(state.population * MANDATE_PER_CITIZEN) * missed : 0;
   if (grant > 0) state.money += grant;
-  return [{ kind: 'election', verdict: state.lastVerdict, approval: share, grant }];
+  return [{ kind: 'election', verdict: state.lastVerdict, approval: share, grant, terms: missed }];
 }
 
 /**

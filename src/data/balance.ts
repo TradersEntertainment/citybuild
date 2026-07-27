@@ -424,8 +424,24 @@ export const FIRE_TRUCK_DWELL_S = 3;
 export const FIRE_BURNOUT_S = 80;
 /** Seconds between spread rolls on an unfought fire. */
 export const FIRE_SPREAD_S = 12;
-/** Chance each spread roll ignites a neighbour… */
-export const FIRE_SPREAD_CHANCE = 0.3;
+/**
+ * Chance each spread roll ignites a neighbour…
+ *
+ * Set by the branching factor, not by feel. An unfought fire lives eighty
+ * seconds and rolls to spread every twelve, so it gets six attempts — and six
+ * times the old 0.3 is a reproduction number of 1.8. Above one means the first
+ * fire in a district with no brigade never stops: measured over a sixty-minute
+ * run, a city with no fire station reached three hundred simultaneous fires out
+ * of four hundred buildings and stayed there, with its population pinned at zero
+ * because ignition empties a building. Reloading fixed it, which is the clearest
+ * possible sign of a runaway rather than a difficulty.
+ *
+ * At 0.13 the reproduction number is 0.78, so one ignition costs a district about
+ * four or five buildings and then burns itself out. That is the drama the system
+ * was for — you lose a corner of a district and go and build the station — rather
+ * than a city that is permanently alight.
+ */
+export const FIRE_SPREAD_CHANCE = 0.13;
 /** …within this many tiles (manhattan). */
 export const FIRE_SPREAD_RADIUS = 2;
 /** Mood cost of each burning building, capped so the scale stays readable. */
@@ -505,8 +521,18 @@ export const CRIME_ESCAPE_MEMORY_S = 90;
  */
 export const RUBBISH_PER_RESIDENT_MIN = 0.05;
 export const RUBBISH_PER_JOB_MIN = 0.08;
-/** What one depot clears per minute. Two hundred residents' worth. */
-export const RUBBISH_DEPOT_RATE = 10;
+/**
+ * What one depot clears per minute.
+ *
+ * Calibrated against the fire brigade rather than guessed, because the number a
+ * player actually feels is *how many buildings this service wants*. At the first
+ * pass's rate of 10 a city of eleven thousand needed ninety-nine depots against
+ * eight fire stations — which is not a decision, it is a chore, and a player who
+ * builds five and sees no change concludes the system is broken. At 120 the count
+ * tracks the brigade across the whole range: two against one for a town, nine
+ * against eight for a city, thirty against twenty-six for a metropolis.
+ */
+export const RUBBISH_DEPOT_RATE = 120;
 /**
  * Days of uncollected rubbish the city tolerates before it starts to mind.
  *
@@ -563,8 +589,15 @@ export const MANDATE_PER_CITIZEN = 9;
 /** Mood the city carries for a while after a win, and after a defeat. */
 export const MANDATE_HAPPINESS = 6;
 export const REBUKE_HAPPINESS = 9;
-/** How long either lasts, in seconds. About two-thirds of a term. */
-export const VERDICT_MEMORY_S = 140;
+/**
+ * How long either lasts, in seconds.
+ *
+ * A fifth of a term, not two-thirds. At 140 against a two-hundred-second term the
+ * verdict was being felt seven-tenths of the time — which is not the memory of an
+ * event, it is a permanent adjustment with a flag on it, and it is the same trap
+ * the holiday window fell into earlier.
+ */
+export const VERDICT_MEMORY_S = 42;
 
 // --- Department budgets (§3, §33) --------------------------------------------
 /**

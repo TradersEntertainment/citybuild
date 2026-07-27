@@ -124,10 +124,6 @@ export function applyOfflineProgress(
   const populationBefore = state.population;
   const buildingsBefore = state.buildings.size;
 
-  // Charged against played time whether or not it is reported: the clock the
-  // save writes down has to agree with the city it is written beside.
-  state.playedMs += away.effectiveMs;
-
   const seconds = away.effectiveMs / 1000;
   const steps = Math.min(OFFLINE_STEPS, Math.max(1, Math.ceil(seconds / OFFLINE_STEP_MIN_S)));
   const step = seconds / steps;
@@ -135,6 +131,16 @@ export function applyOfflineProgress(
     // Hazards off: a city that burned down or lay plague-struck while nobody
     // was watching punishes the player for being away — the one thing an idle
     // game must never do. Away time earns; it does not destroy.
+    // The clock advances *with* the steps, not before them.
+    //
+    // Charged against played time whether or not it is reported: the save's clock
+    // has to agree with the city written beside it. But adding the whole absence
+    // up front meant every step then read the same hour — so the day cycle sat
+    // still through an entire night of trading, and the elections that went past
+    // all landed on the first step at the population the city had when the player
+    // left. Measured: an hour away came back a quarter poorer than the same hour
+    // lived. Advancing per step costs nothing and makes the two agree.
+    state.playedMs += step * 1000;
     const era = systems.step(state, step, false);
     if (era) report.eraReached = era;
     systems.stepEconomy(state, step);

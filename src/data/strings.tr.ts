@@ -92,7 +92,6 @@ export const STR = {
     cleared: 'Defin işleri yeniden yetişiyor.',
     title: 'Nüfus yapısı',
     band: { child: 'Çocuk', young: 'Genç', adult: 'Yetişkin', elder: 'Yaşlı' },
-    working: (share: number): string => `Çalışma çağı %${Math.round(share * 100)}`,
     schooled: (share: number): string => `Okumuş iş gücü %${Math.round(share * 100)}`,
     waiting: (n: number): string => `${plain.format(Math.round(n))} defin bekliyor`,
     /** The age structure as one line: "412 · 486 · 520 · 498". */
@@ -162,7 +161,8 @@ export const STR = {
     lost: (share: string): string =>
       `Seçimi kaybettin — ${share} oy. Şehir senin; ödenek yok. Önümüzdeki dönem düzelt.`,
     row: 'Onay oranı',
-    next: (seconds: number): string => `${Math.ceil(seconds)} sn sonra seçim`,
+    countdown: 'Sonraki seçim',
+    next: (seconds: number): string => `${Math.ceil(seconds)} sn`,
   },
 
   /**
@@ -196,7 +196,6 @@ export const STR = {
     piling: 'Çöp toplanmıyor. Çöp toplama tesisi kur.',
     cleared: 'Çöpler yeniden toplanıyor.',
     row: 'Bekleyen çöp',
-    issue: 'Çöp alınmıyor',
   },
 
   /** The waterfront (denize yatırım): the coast, finally worth something. */

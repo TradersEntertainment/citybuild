@@ -112,6 +112,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const transit = row(STR.panel.transit);
   const farmIncome = row(STR.panel.farmIncome);
   const sea = row(STR.seaIncome);
+  const riders = row(STR.transit.riders);
   const fares = row(STR.transit.fares);
   const visiting = row(STR.visitorIncome);
   const roads = row(STR.panel.roads);
@@ -126,6 +127,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     transit.el,
     visiting.el,
     sea.el,
+    riders.el,
     fares.el,
     farmIncome.el,
     roads.el,
@@ -152,7 +154,8 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   // warning that was ignored rather than a die that came up badly, and that only
   // works if the number is on the screen the whole time.
   const approvalRow = row(STR.election.row);
-  budgets.body.append(approvalRow.el);
+  const electionRow = row(STR.election.countdown);
+  budgets.body.append(approvalRow.el, electionRow.el);
   const budgetRows = new Map<ServiceKind, { el: HTMLElement; set: (text: string) => void }>();
   for (const kind of SERVICE_ORDER) {
     const built = budgetRow(kind);
@@ -321,6 +324,11 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     unemployment.el.dataset['alarm'] = String(idle > 0.35 && s.population > 30);
     approvalRow.set(STR.format.percent(s.approval));
     approvalRow.el.dataset['alarm'] = String(s.approval < 0.5 && s.population > 0);
+    // And when it will be counted. An approval figure with no date attached is a
+    // number; with a date it is a deadline, which is the whole point of holding
+    // the vote on the calendar rather than continuously.
+    electionRow.el.hidden = s.population <= 0;
+    electionRow.set(STR.election.next(s.secondsToElection));
     // Only the departments the city has actually built. Six sliders for services
     // a village has never met is a settings screen, not a decision.
     for (const [kind, built] of budgetRows) {
@@ -361,6 +369,10 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     programmes.set(`−${money(s.ledger.programmeUpkeep)}`);
     // Both hidden until the city runs a line, like every other row about a
     // system it has not met.
+    // The ridership beside the fares it earned: without it a player who lays a
+    // line has a bill and no way to tell whether anybody is on the bus.
+    riders.el.hidden = s.riders <= 0;
+    riders.set(count(s.riders));
     fares.el.hidden = s.ledger.fareIncome <= 0;
     fares.set(`+${money(s.ledger.fareIncome)}`);
     lines.el.hidden = s.ledger.transitUpkeep <= 0;

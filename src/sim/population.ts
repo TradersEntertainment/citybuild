@@ -153,17 +153,37 @@ function ratioDemand(wanted: number, have: number): number {
   return clamp((wanted - have) / wanted, 0, 1);
 }
 
-/** GÖÇ_KATSAYISI = 0.02 * (mutluluk-40)/60 * boşKonut, per minute (§20). */
-export function migrationPerMinute(happiness: number, vacancy: number): number {
-  return (
-    MIGRATION_COEFFICIENT *
-    ((happiness - MIGRATION_HAPPINESS_PIVOT) / MIGRATION_HAPPINESS_SPAN) *
-    Math.max(0, vacancy)
-  );
+/**
+ * GÖÇ_KATSAYISI = 0.02 * (mutluluk-40)/60 * boşKonut, per minute (§20) — coming
+ * in. Going out is scaled by the people who are there to leave, not by the empty
+ * homes.
+ *
+ * The brief's formula only ever described arrivals, and reading it in both
+ * directions was a genuine runaway. Departures scaled by vacancy means the emptier
+ * a city already is, the faster the rest of it leaves: measured on a city of a
+ * hundred and fifty people in eight hundred homes, an unhappy moment evacuated
+ * two hundred people a minute and the city never came back, because the exodus
+ * fed on the emptiness it was creating.
+ *
+ * Scaled by population instead, an exodus is exponential decay rather than a
+ * cliff — it slows as the city shrinks, which is both obviously right and what
+ * lets a player who fixes the cause get their city back.
+ */
+export function migrationPerMinute(
+  happiness: number,
+  vacancy: number,
+  /** Required, not defaulted: a caller who forgets it would silently get a city
+   *  that can never lose anybody, which is the quietest possible way to break
+   *  the only thing holding the growth loop in check. */
+  population: number,
+): number {
+  const pull = (happiness - MIGRATION_HAPPINESS_PIVOT) / MIGRATION_HAPPINESS_SPAN;
+  const scale = pull >= 0 ? Math.max(0, vacancy) : Math.max(0, population);
+  return MIGRATION_COEFFICIENT * pull * scale;
 }
 
 function migrate(state: GameState, vacancy: number, dt: number): void {
-  let perMinute = migrationPerMinute(state.happiness, vacancy);
+  let perMinute = migrationPerMinute(state.happiness, vacancy, state.population);
   // Nobody takes the motorway *into* a plague town: the sicker the outbreak,
   // the thinner the stream of new arrivals, until it stops entirely.
   if (state.epidemic && perMinute > 0) perMinute *= 1 - state.epidemic.severity * 0.9;

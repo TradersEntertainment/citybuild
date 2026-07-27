@@ -73,7 +73,7 @@ export function dispatchFrom(
  * per station, and the nearest as the crow flies is very nearly always the
  * nearest to drive from.
  */
-export function nearestStation(
+function nearestStation(
   state: GameState,
   kind: ServiceKind,
   x: number,
@@ -93,7 +93,7 @@ export function nearestStation(
 }
 
 /** Nearest road tile within a few tiles' walk, or null. */
-export function nearestRoadTile(
+function nearestRoadTile(
   world: World,
   x: number,
   y: number,
@@ -113,7 +113,7 @@ export function nearestRoadTile(
 }
 
 /** BFS over road tiles; the path from `from` to `to`, both ends included. */
-export function roadPath(
+function roadPath(
   world: World,
   from: { x: number; y: number },
   to: { x: number; y: number },
