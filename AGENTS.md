@@ -229,6 +229,34 @@ elverdiği kadar yükselmişti; kuralı geriye dönük uygulamak, güncellemeden
 sonraki ilk tick'te oyuncunun diktiği her kuleden kat sökmeye başlardı.
 `deserialize` üçüncü kademenin üstündeki her binanın altını yoğun işaretliyor.
 
+### Donma avı: nerede olmadığı (ölçüldü)
+
+Oyuncu: *"sekme dondu, hiç yanıt vermedi, sonra ekran kapandı; yenileyince
+devam tuşuna basamadım."* Donma + ölüm, OOM sayfasından farklı bir imza.
+Aşama aşama elenen yerler, hepsi ölçümle:
+
+1. **Sim değil.** 12 şeritlik şehirde 1 800 simüle saniye, her saniye ayrı
+   ölçüldü: en kötü adım **121 ms** (o da alanları ilk kuran adım), heap 18–25
+   MB'da düz, offline telafi (14 saat) **801 ms**, hiçbir yerde NaN yok.
+2. **Bizim renderer JS'imiz değil.** Tarayıcıda 5 742 binalık şehir: kare
+   **1 594 ms** ama `render()` içindeki JavaScript **11,7 ms**. Geri kalanı
+   rasterizasyon. Bu ayrım kritik — sandbox'ta GPU yok, swiftshader yazılımla
+   çiziyor, yani buradaki çöküş oyuncunun gerçek GPU'sunda olmaz.
+3. **Üçgen bütçesi gerçek bir sorundu.** Aynı sahnede **1 624 508 üçgen**, ve
+   çoğu ağaç: orman karosu başına üçe kadar, tavan yok, 65 536 karolu haritada
+   — üstelik hepsi gölge atıyor, yani bütün orman ikinci kez çiziliyor.
+   Ağaçlar 9 000'e sınırlandı (baştan kesmeyip *eşit seyreltilerek*, yoksa
+   haritanın üstü ormanlık altı çıplak kalır) ve gölge atmayı bıraktı.
+   Ölçüm: **1 624 508 → 803 668 üçgen**, kare 1 594 → 1 066 ms.
+
+**Oyuncunun donmasını hâlâ üretemedim** ve bunu iddia etmiyorum. Muhtemel:
+entegre GPU'lu bir makinede 1,6 milyon üçgen + 2048² gölge haritası tam bu
+davranışı verir, ki üçgen bütçesi artık yarıya indi.
+
+Bir daha olursa tek sayı yeter: üst bardaki **`ms cpu`** (8 ms'yi geçince
+görünüyor). Küçükse makine çizmekte zorlanıyor, bizim kodda sorun yok; büyükse
+bizde. Bu ayrımı dışarıdan kurmak bir öğleden sonra aldı.
+
 ### Kurtarılamayan çöküş: güvenli açılış (`state/bootHealth.ts`)
 
 İkinci çöküş raporu: *"10. dakikada çöktü ve sayfayı ne kadar yenilersem

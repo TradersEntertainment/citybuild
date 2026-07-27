@@ -98,7 +98,22 @@ export function mountTopBar(root: HTMLElement): () => void {
     // Kept on screen deliberately: this is a realistic 3D city on a phone, and
     // the frame budget is the constraint most likely to be broken by a change
     // nobody thought was expensive.
-    write(fpsElement, last, 'fps', state.fps > 0 ? STR.hud.fps(state.fps) : '');
+    // The CPU figure rides along with the frame rate, and only once it is worth
+    // reading. A player reporting a frozen tab can be asked for one number
+    // instead of a guess: if this is small while the frame rate is on the floor,
+    // the machine is struggling to draw and nothing in our code is at fault; if
+    // it is large, it is ours. That distinction cost a whole afternoon to
+    // establish once, from the outside.
+    write(
+      fpsElement,
+      last,
+      'fps',
+      state.fps > 0
+        ? state.cpuMs >= 8
+          ? `${STR.hud.fps(state.fps)} · ${STR.hud.cpu(state.cpuMs)}`
+          : STR.hud.fps(state.fps)
+        : '',
+    );
     fpsElement.dataset['low'] = String(state.fps > 0 && state.fps < 30);
   };
 

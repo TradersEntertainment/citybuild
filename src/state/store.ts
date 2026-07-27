@@ -49,6 +49,8 @@ export interface UiState {
   secondsToElection: number;
   grid: GridView;
   fps: number;
+  /** JS milliseconds in the worst frame of the last half-second (render3d/renderer.ts). */
+  cpuMs: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
   hintVisible: boolean;
   /** What the game wants to say, or null when the city needs no advice. */
@@ -183,7 +185,7 @@ export interface UiActions {
   setEra(era: Era): void;
   setTool(tool: ToolId): void;
   setOverlay(overlay: OverlayId): void;
-  setFps(fps: number): void;
+  setFps(fps: number, cpuMs: number): void;
   setGuidance(text: string | null): void;
   setMissions(missions: MissionView[], done: number, total: number): void;
   hideHint(): void;
@@ -243,6 +245,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
+  cpuMs: 0,
   hintVisible: true,
   guidance: null,
   legacy: 0,
@@ -316,7 +319,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   setEra: (era) => set({ era }),
   setTool: (activeTool) => set({ activeTool }),
   setOverlay: (overlay) => set({ overlay }),
-  setFps: (fps) => set({ fps }),
+  setFps: (fps, cpuMs) => set({ fps, cpuMs }),
   setGuidance: (guidance) =>
     set((current) => (current.guidance === guidance ? current : { ...current, guidance })),
   // Compared by what is drawn rather than by reference: this is rebuilt twice a

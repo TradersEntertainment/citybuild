@@ -1490,7 +1490,7 @@ function publishReadout(): void {
     music.setScene({ year: yearOf(game.playedMs), night });
   }
   syncUi();
-  uiStore.getState().setFps(renderer.stats.fps);
+  uiStore.getState().setFps(renderer.stats.fps, renderer.stats.cpuMs);
 
   // Clustering walks every building, so it runs on this timer rather than per
   // frame; only the positions are refreshed with the camera.
@@ -1517,6 +1517,7 @@ syncUi();
    * have named the culprit are exported rather than left behind a breakpoint.
    */
   resources: () => renderer.resources,
+  stats: () => renderer.stats,
 };
 // Named on the first frame rather than on the sweep timer: a returning player
 // opens a city that already has neighbourhoods, and waiting a beat for them to

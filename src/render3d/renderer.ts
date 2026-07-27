@@ -46,13 +46,24 @@ export interface RenderStats {
   fps: number;
   drawCalls: number;
   triangles: number;
+  /**
+   * Milliseconds of JavaScript inside one `render()`, rolling worst-of-the-last-second.
+   *
+   * Separate from fps on purpose, because the two answer different questions and
+   * only this one is portable. A frame can take two seconds because the machine
+   * is rasterising in software — which says nothing about anybody else's machine
+   * — or because our own per-building work has grown too big, which says
+   * everything. When a player reports a frozen tab, this is the number that
+   * decides which of those it was.
+   */
+  cpuMs: number;
 }
 
 /** Zoning changes on every building spawn; rebuilding that layer is a grid scan. */
 const ZONE_REBUILD_INTERVAL_MS = 220;
 
 export class Renderer {
-  readonly stats: RenderStats = { fps: 0, drawCalls: 0, triangles: 0 };
+  readonly stats: RenderStats = { fps: 0, drawCalls: 0, triangles: 0, cpuMs: 0 };
 
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
@@ -87,6 +98,7 @@ export class Renderer {
   private lastZoneRebuild = 0;
   private fpsAccumulator = 0;
   private fpsFrames = 0;
+  private cpuPeak = 0;
 
   constructor(
     canvas: HTMLCanvasElement,
@@ -218,6 +230,7 @@ export class Renderer {
   }
 
   render(frame: FrameInput, deltaMs: number): void {
+    const cpuStart = performance.now();
     if (!this.externalCameraControl) this.camera.update();
 
     if (this.zonesDirty && frame.now - this.lastZoneRebuild > ZONE_REBUILD_INTERVAL_MS) {
@@ -307,6 +320,10 @@ export class Renderer {
     );
 
     this.renderer.render(this.scene, this.camera.camera);
+    // Before `measure`, and excluding nothing: every layer sync, every grid
+    // rebuild and the draw submission itself. The GPU's own time is not in here,
+    // which is the point.
+    this.cpuPeak = Math.max(this.cpuPeak, performance.now() - cpuStart);
     this.measure(deltaMs);
   }
 
@@ -319,6 +336,8 @@ export class Renderer {
     this.fpsAccumulator += deltaMs;
     this.fpsFrames++;
     if (this.fpsAccumulator >= 500) {
+      this.stats.cpuMs = Math.round(this.cpuPeak * 10) / 10;
+      this.cpuPeak = 0;
       this.stats.fps = Math.round((this.fpsFrames * 1000) / this.fpsAccumulator);
       this.fpsAccumulator = 0;
       this.fpsFrames = 0;

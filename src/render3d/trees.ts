@@ -31,6 +31,22 @@ export interface TreeLayer {
   dispose(): void;
 }
 
+/**
+ * The most triangles in the game, and the cheapest to give up.
+ *
+ * Measured in a browser on a 30-lane city: 1.6 million triangles in the frame,
+ * and the woods were most of them — three trees per forest tile with no ceiling,
+ * on a map of sixty-five thousand tiles. Our own JavaScript was 11.7 ms of that
+ * frame; the rest was rasterisation, and half of it was foliage drawn twice
+ * because every tree cast a shadow.
+ *
+ * A tree's shadow is a few pixels at the height this game is played at, and the
+ * cap thins the wood evenly by hash rather than cutting it off at a map edge —
+ * so a forest still reads as a forest, and the bill for it stops growing with
+ * the size of the map.
+ */
+const MAX_TREES = 9_000;
+
 export function createTrees(world: World): TreeLayer {
   const group = new THREE.Group();
   group.name = 'trees';
@@ -77,7 +93,7 @@ export function createTrees(world: World): TreeLayer {
 
   const rebuild = (): void => {
     clear();
-    const spots = collectTreeSpots(world);
+    const spots = thin(collectTreeSpots(world));
     if (spots.length === 0) return;
 
     const matrix = new THREE.Matrix4();
@@ -90,7 +106,10 @@ export function createTrees(world: World): TreeLayer {
     const buckets = [spots.slice(0, half), spots.slice(half)];
 
     trunks = new THREE.InstancedMesh(trunkGeometry, trunkMaterial, spots.length);
-    trunks.castShadow = true;
+    // Foliage does not cast. It is the single biggest saving available: the
+    // shadow pass rasterises the whole wood a second time for an effect that is
+    // a few pixels wide from the map camera and invisible from the street.
+    trunks.castShadow = false;
     trunks.receiveShadow = false;
     trunks.frustumCulled = false;
 
@@ -102,7 +121,9 @@ export function createTrees(world: World): TreeLayer {
         crownMaterials[b] as THREE.Material,
         Math.max(1, bucket.length),
       );
-      mesh.castShadow = true;
+      mesh.castShadow = false;
+      // Kept: a wood standing in a tower's shadow should be dark, and that costs
+      // a lookup rather than a whole extra pass over every leaf.
       mesh.receiveShadow = true;
       mesh.frustumCulled = false;
 
@@ -162,6 +183,21 @@ interface TreeSpot {
  * carriageway is the single most obvious way for a generated forest to look
  * generated.
  */
+/**
+ * Thins a wood down to the ceiling, evenly.
+ *
+ * Every nth tree rather than the first N: taking a prefix would leave the top of
+ * the map wooded and the bottom bare, because the spots are collected in row
+ * order. Deterministic, so the same map always grows the same wood.
+ */
+function thin(spots: TreeSpot[]): TreeSpot[] {
+  if (spots.length <= MAX_TREES) return spots;
+  const keep: TreeSpot[] = [];
+  const stride = spots.length / MAX_TREES;
+  for (let i = 0; i < MAX_TREES; i++) keep.push(spots[Math.floor(i * stride)] as TreeSpot);
+  return keep;
+}
+
 function collectTreeSpots(world: World): TreeSpot[] {
   const spots: TreeSpot[] = [];
   for (let ty = 0; ty < world.size; ty++) {

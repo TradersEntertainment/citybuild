@@ -297,6 +297,7 @@ export const STR = {
     population: (value: number): string => `${plain.format(Math.round(value))} kişi`,
     happiness: (value: number): string => `mutluluk ${Math.round(value)}`,
     fps: (value: number): string => `${Math.round(value)} fps`,
+    cpu: (value: number): string => `${value.toFixed(0)}ms cpu`,
     /** The calendar year, the city's clock. */
     year: (value: number): string => `${value}`,
     /** Net income per minute, signed. */
