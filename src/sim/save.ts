@@ -220,9 +220,55 @@ export function serialize(state: GameState): SaveData {
  * corrupt or future-version save must never half-load: a city with the roads of
  * one game and the buildings of another is worse than a fresh start.
  */
+/**
+ * Whether every number in a file is a real number.
+ *
+ * The scalars by name, and the flattened arrays wholesale — a NaN anywhere in
+ * the building rows lands on a building's population or score and is no less
+ * contagious for having arrived in an array.
+ */
+function finiteSave(data: SaveData): boolean {
+  const scalars = [
+    data.seed,
+    data.tick,
+    data.playedMs,
+    data.money,
+    data.debt,
+    data.taxRate,
+    data.happiness,
+    data.research,
+    data.farmTiles,
+    data.lastSeen,
+    data.demand?.res,
+    data.demand?.com,
+    data.demand?.ind,
+  ];
+  for (const value of scalars) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return false;
+  }
+  // `office` arrived after the other three; a file without it is old, not
+  // broken, and gets the fresh state's zero (see below).
+  if (data.demand.office !== undefined && !Number.isFinite(data.demand.office)) return false;
+  for (const row of [data.buildings, data.loans, data.services, data.utilities, data.ports]) {
+    if (!Array.isArray(row)) continue;
+    for (const value of row) if (!Number.isFinite(value)) return false;
+  }
+  return true;
+}
+
 export function deserialize(data: unknown): GameState | null {
   if (!isSaveData(data)) return null;
   if (data.version !== SAVE_VERSION) return null;
+  // A file whose numbers are not numbers is refused rather than loaded.
+  //
+  // NaN is the one kind of corruption that spreads: it survives every
+  // arithmetic operation it touches, so a single poisoned figure works its way
+  // through happiness into migration into demand into every suitability score
+  // in the city, and — because the autosave writes whatever it is handed — back
+  // into the file. The city is then permanently broken and no amount of
+  // reloading helps, which is exactly the failure a player reported. Refusing
+  // the file costs them the city; loading it costs them the game.
+  if (!finiteSave(data)) return null;
 
   // Regenerating from the seed gives back exactly the terrain this city was
   // built on, and claims the starting parcel; the saved ownership overwrites it.

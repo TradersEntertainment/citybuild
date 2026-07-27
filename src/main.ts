@@ -55,7 +55,8 @@ import { NONE, type Era, type ZoneKind } from './sim/tiles';
 import { UndoStack } from './sim/undo';
 import { index, parcelOfTile, startingCentre } from './sim/world';
 import { appendHistory, clearHistory } from './state/history';
-import { Autosave, loadCity, loadLegacy, nextSeed, retireCity } from './state/persistence';
+import { beginBoot, bootSucceeded, quarantineCity } from './state/bootHealth';
+import { Autosave, CITY_KEY, loadCity, loadLegacy, nextSeed, retireCity } from './state/persistence';
 import { uiStore } from './state/store';
 import { mountChronicle } from './ui/chronicle';
 import { mountBankPrompt } from './ui/bankPrompt';
@@ -86,6 +87,20 @@ import { mountWalkHud } from './ui/walkHud';
 const canvas = document.querySelector<HTMLCanvasElement>('#map');
 const ui = document.querySelector<HTMLElement>('#ui');
 if (!canvas || !ui) throw new Error('Game shell missing from index.html');
+
+/**
+ * How the last boot went, decided before anything heavy runs (state/bootHealth.ts).
+ *
+ * A player reported a crash that refreshing never recovered from — whatever
+ * killed the tab was in the saved city, so every load walked into the same
+ * wall. This is the answer to that, and it has to be the first thing that
+ * happens: it is the act of recording the attempt that lets the next one react.
+ */
+const bootPlan = beginBoot();
+// Two dead boots in a row: the save is the suspect. It is set aside rather than
+// deleted — a city is somebody's evening, and a file that reliably kills the
+// game is the most useful thing a player could hand over.
+const quarantined = bootPlan === 'quarantine' ? quarantineCity(CITY_KEY) : false;
 
 // A returning player gets their city back; a new one gets their own map rather
 // than the single hard-coded island everybody used to share — and a blank
@@ -831,6 +846,8 @@ const DISTRICT_SWEEPS = 8;
 let districtSweep = DISTRICT_SWEEPS;
 let previousBuildingCount = game.buildings.size;
 
+let booted = false;
+
 function frame(now: number): void {
   const deltaMs = now - lastFrame;
   lastFrame = now;
@@ -929,6 +946,13 @@ function frame(now: number): void {
   // than cached against coordinates that may have moved.
   coach.reposition();
   publishReadout();
+  // The boot is only a success once a frame has been drawn. Anything that kills
+  // the tab before this line leaves the counter standing, and the next load
+  // reads it (state/bootHealth.ts).
+  if (!booted) {
+    booted = true;
+    bootSucceeded();
+  }
 
   requestAnimationFrame(frame);
 }
@@ -1501,6 +1525,12 @@ districtLabels.setDistricts(findDistricts(game));
 // The other way back in: the app was closed rather than backgrounded, and the
 // gap is whatever the save last wrote down. A new city's lastSeen is now, so
 // this costs it nothing.
-catchUp();
+// Skipped after a boot that died: the offline pass runs the whole simulation
+// thirty times over in one go, which makes it the most expensive thing that
+// happens at start-up and therefore the first suspect. The city still loads;
+// it just does not get paid for the time away.
+if (bootPlan === 'normal') catchUp();
+else toast.show(STR.system.safeMode, STR.system.safeModeHint);
+if (quarantined) toast.show(STR.system.cityShelved, STR.system.cityShelvedHint);
 game.lastSeen = Date.now();
 requestAnimationFrame(frame);

@@ -53,6 +53,22 @@ export function retireCity(earned: number): number {
 export function saveCity(state: GameState): boolean {
   const store = storage();
   if (!store) return false;
+  // A city whose core numbers have gone non-finite is not written down.
+  //
+  // The autosave is what makes a transient bug permanent: whatever the sim is
+  // holding at that moment becomes the file, and a NaN in the file is a city
+  // that can never be loaded again — a player reported exactly that, a crash no
+  // amount of refreshing recovered from. Keeping the previous save is strictly
+  // better than overwriting it with a broken one, and the codec refuses such a
+  // file on the way in as well (sim/save.ts) so both ends are closed.
+  if (
+    !Number.isFinite(state.money) ||
+    !Number.isFinite(state.population) ||
+    !Number.isFinite(state.happiness) ||
+    !Number.isFinite(state.playedMs)
+  ) {
+    return false;
+  }
   try {
     store.setItem(STORAGE_KEY, JSON.stringify(serialize(state)));
     return true;
@@ -74,6 +90,8 @@ export function loadCity(): GameState | null {
     return null;
   }
 }
+
+export const CITY_KEY = STORAGE_KEY;
 
 export function clearCity(): void {
   storage()?.removeItem(STORAGE_KEY);

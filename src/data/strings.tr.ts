@@ -698,5 +698,13 @@ export const STR = {
     offlineReady: 'Oyun çevrimdışı çalışmaya hazır.',
     saveCorrupt: 'Kayıt okunamadı. Temiz bir şehirle başlanabilir.',
     nothingToUndo: 'Geri alınacak bir şey yok.',
+    safeMode: 'Güvenli açılış',
+    safeModeHint:
+      'Oyun geçen sefer açılırken kapandı, bu yüzden uzakta geçen süre bu ' +
+      'seferlik işlenmedi. Şehrin olduğu gibi duruyor.',
+    cityShelved: 'Şehir kenara alındı',
+    cityShelvedHint:
+      'Kayıt üst üste iki açılışta oyunu kapattı, o yüzden yeni bir şehirle ' +
+      'başlandı. Eskisi silinmedi — tarayıcı hafızasında duruyor.',
   },
 } as const;

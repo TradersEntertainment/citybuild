@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ROAD_MARKED, ROAD_SURFACE } from '../data/looks';
 import { decodeRoad, NONE, type RoadKind } from '../sim/tiles';
 import { index, type World } from '../sim/world';
 import { ROAD_LIFT, ROAD_WIDTH } from './constants';
@@ -24,17 +25,9 @@ export interface BuiltRoads {
   deck: RoadDeck;
 }
 
-const SURFACE: Record<RoadKind, string> = {
-  path: '#9A8560',
-  stone: '#8E8A82',
-  asphalt: '#3B3E44',
-  boulevard: '#35383E',
-  highway: '#303339',
-  metro: '#4A4550',
-};
-
-/** Tiers that get painted markings and kerbs; a dirt track has neither. */
-const MARKED: ReadonlySet<RoadKind> = new Set<RoadKind>(['asphalt', 'boulevard', 'highway']);
+/** Both tables live in data/looks.ts: the menu card draws from the same ones. */
+const SURFACE = ROAD_SURFACE;
+const MARKED = ROAD_MARKED;
 
 /** What a chewed-up motorway tends toward: rubble and the earth beneath it. */
 const BROKEN = new THREE.Color('#6B5A45');

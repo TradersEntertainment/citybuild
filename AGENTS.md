@@ -229,6 +229,35 @@ elverdiği kadar yükselmişti; kuralı geriye dönük uygulamak, güncellemeden
 sonraki ilk tick'te oyuncunun diktiği her kuleden kat sökmeye başlardı.
 `deserialize` üçüncü kademenin üstündeki her binanın altını yoğun işaretliyor.
 
+### Kurtarılamayan çöküş: güvenli açılış (`state/bootHealth.ts`)
+
+İkinci çöküş raporu: *"10. dakikada çöktü ve sayfayı ne kadar yenilersem
+yenileyeyim açılmadı."* İkinci yarısı birincisinden **daha kötü**: tabı öldüren
+şey kayıtlı şehirdeyse her açılış aynı duvara giriyor ve oyuncunun elinde
+yapacak hiçbir şey kalmıyor. Bu projede hiçbir şey kurtarılamaz olamaz —
+yanlış çizilmiş yol da, ihmal edilmiş şehir de, bu da.
+
+**Sebep sandbox'ta üretilemedi**: 13 dakikalık koşuda heap düz (26–40 MB),
+doku/geometri sabit, üç yeniden yükleme temiz, sıfır `pageerror`. Dürüst olmak
+gerekirse hâlâ bilmiyorum. O yüzden yapılan şey sebebi değil **sonucu**
+düzeltiyor, ve sebep ne olursa olsun çalışıyor:
+
+- `beginBoot()` her açılışta bir sayaç artırıyor; ilk **çizilen kare**
+  sıfırlıyor. Yani bir açılış, kare çizilmeden ölürse sayılıyor.
+- **1 ölü açılış** → şehir yükleniyor ama *offline telafi atlanıyor*. Açılışta
+  yapılan en pahalı iş o (30 adımda tüm simülasyon), yani ilk şüpheli.
+- **2 ölü açılış** → kayıt şüpheli. `kadastro.city.broken` altına **taşınıyor,
+  silinmiyor** (bir şehir birinin akşamı; üstelik oyunu güvenilir şekilde
+  öldüren bir dosya elde edilebilecek en değerli şey) ve temiz şehirle
+  başlanıyor.
+
+Yanına ikinci bir kapı: **NaN'lı kayıt ne yazılıyor ne okunuyor.** NaN
+bulaşıcıdır — her aritmetik işlemden sağ çıkar, yani tek bir bozuk sayı
+mutluluktan göçe, göçten talebe, talepten şehirdeki her puana yayılır ve
+autosave onu dosyaya geri yazar. Dosya o andan itibaren kalıcı olarak ölüdür.
+`deserialize` sonlu olmayan sayı içeren dosyayı reddediyor, `saveCity` böyle bir
+state'i yazmıyor. Test: `tests/bootHealth.test.ts`.
+
 - Ölçüm aracı kalıcı: `window.__kadastro.resources()` üç sayıyı veriyor
   (geometri, doku, program). Bunların bir şehir oturduktan sonra düz durması
   gerekir; tırmanan biri sızıntıdır. Profiler'ın JS heap'i bunu **göstermez**.

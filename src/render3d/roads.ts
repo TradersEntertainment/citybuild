@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ROAD_MARKING } from '../data/looks';
 import type { World } from '../sim/world';
 import { buildBridgeGeometry } from './bridgeGeometry';
 import { buildRoadGeometry } from './roadGeometry';
@@ -31,7 +32,7 @@ export function createRoads(world: World): RoadMesh {
   // Markings are unlit-ish and never shadowed: worn paint that still reads at
   // dusk, rather than a stripe that vanishes under a tower's shadow.
   const markingMaterial = new THREE.MeshStandardMaterial({
-    color: '#D8D3C4',
+    color: ROAD_MARKING,
     roughness: 1,
     metalness: 0,
     polygonOffset: true,
