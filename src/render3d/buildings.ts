@@ -25,11 +25,51 @@ const INITIAL_CAPACITY = 256;
 /** Storey height in world units, used to scale facade UVs so windows stay put. */
 const STOREY = 0.16;
 
+/**
+ * Everything about an archetype that does not depend on how many of it there
+ * are: the geometry, the two materials, and the two generated canvases behind
+ * them.
+ *
+ * Split out from the bucket because of a leak that killed the tab. A bucket
+ * that fills up is replaced by one of twice the capacity, and the old code
+ * rebuilt the whole archetype to do it — two fresh CanvasTextures, two fresh
+ * materials and a fresh geometry every doubling, with only the InstancedMesh
+ * disposed and the rest appended to arrays that are drained once, at teardown.
+ * WebGL resources are not garbage collected and those arrays held hard
+ * references besides, so every doubling was permanent. Measured in the browser:
+ * a city growing to five hundred buildings took the texture count from 3 to 29
+ * and it never came back down; a long game with several eras and a few thousand
+ * buildings climbs until the tab is killed with "Out of Memory".
+ *
+ * Keyed on the same string as the bucket, built once, reused by every regrow.
+ */
+interface Kit {
+  geometry: THREE.BufferGeometry;
+  materials: [THREE.MeshStandardMaterial, THREE.MeshStandardMaterial];
+}
+
 interface Bucket {
   mesh: THREE.InstancedMesh;
   capacity: number;
   count: number;
+  kit: Kit;
 }
+
+/**
+ * How the two generated facade canvases are made — injected so a test can run
+ * this file at all. `createFacadeTexture` needs a `<canvas>`, which a node test
+ * runner does not have, and the leak above is exactly the kind of bug that has
+ * to be held down by a test rather than by a comment.
+ */
+export interface FacadeSkins {
+  facade(options: Archetype['facade'], salt: number): THREE.Texture;
+  emissive(options: Archetype['facade'], salt: number): THREE.Texture;
+}
+
+const CANVAS_SKINS: FacadeSkins = {
+  facade: createFacadeTexture,
+  emissive: createEmissiveTexture,
+};
 
 export interface BuildingMeshes {
   readonly group: THREE.Group;
@@ -40,27 +80,26 @@ export interface BuildingMeshes {
   dispose(): void;
 }
 
-export function createBuildings(): BuildingMeshes {
+export function createBuildings(skins: FacadeSkins = CANVAS_SKINS): BuildingMeshes {
   const group = new THREE.Group();
   group.name = 'buildings';
 
   const buckets = new Map<string, Bucket>();
+  const kits = new Map<string, Kit>();
   const materials: THREE.MeshStandardMaterial[] = [];
   const geometries: THREE.BufferGeometry[] = [];
   const textures: THREE.Texture[] = [];
   let nightFactor = 0;
 
-  const makeBucket = (
-    period: Period,
-    zone: BuiltZone,
-    level: number,
-    capacity: number,
-  ): Bucket => {
+  const kitFor = (key: string, period: Period, zone: BuiltZone, level: number): Kit => {
+    const found = kits.get(key);
+    if (found) return found;
+
     const spec = archetypeFor(period, zone, level);
     const salt = PERIOD_SALT[period] + ZONES.indexOf(zone) * 11 + level;
 
-    const facadeMap = createFacadeTexture(spec.facade, salt);
-    const emissiveMap = createEmissiveTexture(spec.facade, salt);
+    const facadeMap = skins.facade(spec.facade, salt);
+    const emissiveMap = skins.emissive(spec.facade, salt);
     textures.push(facadeMap, emissiveMap);
 
     const facadeMaterial = new THREE.MeshStandardMaterial({
@@ -83,17 +122,23 @@ export function createBuildings(): BuildingMeshes {
     const geometry = buildArchetypeGeometry(spec);
     geometries.push(geometry);
 
+    const kit: Kit = { geometry, materials: [facadeMaterial, roofMaterial] };
+    kits.set(key, kit);
+    return kit;
+  };
+
+  const makeBucket = (kit: Kit, capacity: number): Bucket => {
     // Two material groups let one instanced mesh carry a facade on the walls and
     // tile or asphalt on the roof, which is most of the difference between a
     // building and a textured cube.
-    const mesh = new THREE.InstancedMesh(geometry, [facadeMaterial, roofMaterial], capacity);
+    const mesh = new THREE.InstancedMesh(kit.geometry, kit.materials, capacity);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     mesh.frustumCulled = false; // instances span the map; the bounds would be the map
     mesh.count = 0;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     group.add(mesh);
-    return { mesh, capacity, count: 0 };
+    return { mesh, capacity, count: 0, kit };
   };
 
   const matrix = new THREE.Matrix4();
@@ -116,13 +161,12 @@ export function createBuildings(): BuildingMeshes {
       const key = `${period}:${building.zone}:${building.level}`;
       let bucket = buckets.get(key);
       if (!bucket) {
-        bucket = makeBucket(period, building.zone, building.level, INITIAL_CAPACITY);
+        const kit = kitFor(key, period, building.zone, building.level);
+        bucket = makeBucket(kit, INITIAL_CAPACITY);
         buckets.set(key, bucket);
       }
       if (bucket.count >= bucket.capacity) {
-        bucket = growBucket(group, bucket, () =>
-          makeBucket(period, building.zone, building.level, bucket!.capacity * 2),
-        );
+        bucket = growBucket(group, bucket, makeBucket(bucket.kit, bucket.capacity * 2));
         buckets.set(key, bucket);
       }
 
@@ -194,14 +238,38 @@ export function createBuildings(): BuildingMeshes {
 }
 
 /**
- * Grows a bucket that filled up. Districts arrive in bursts, so the capacity
- * doubles rather than creeping — a linear grow would rebuild the mesh on almost
- * every spawn wave.
+ * Swaps a filled bucket for a bigger one, carrying this frame's instances over.
+ *
+ * The carry is the point. `sync` walks the city once and writes each building
+ * into the bucket as it goes, so a bucket that fills up halfway through the walk
+ * already holds a district's worth of matrices — and the replacement used to
+ * start at zero, which threw all of them away and left `mesh.count` at however
+ * many buildings happened to come *after* the doubling. Measured: a thousand
+ * houses crossing three capacity boundaries drew 232 of themselves. It came
+ * back on the next frame, because by then the bucket was big enough from the
+ * start, so what the player saw was three quarters of a district blinking out
+ * for a frame every time it grew past a power of two.
+ *
+ * Districts arrive in bursts, so the capacity doubles rather than creeping — a
+ * linear grow would rebuild the mesh on almost every spawn wave.
  */
-function growBucket(group: THREE.Group, old: Bucket, make: () => Bucket): Bucket {
+function growBucket(group: THREE.Group, old: Bucket, grown: Bucket): Bucket {
+  grown.mesh.instanceMatrix.array.set(old.mesh.instanceMatrix.array);
+  const colours = old.mesh.instanceColor;
+  if (colours) {
+    // setColorAt allocates this lazily, and the instances already written are
+    // past the point where it would be called for them: without this they come
+    // back white while their neighbours keep their tint.
+    grown.mesh.instanceColor ??= new THREE.InstancedBufferAttribute(
+      new Float32Array(grown.capacity * 3).fill(1),
+      3,
+    );
+    grown.mesh.instanceColor.array.set(colours.array);
+  }
+  grown.count = old.count;
   group.remove(old.mesh);
   old.mesh.dispose();
-  return make();
+  return grown;
 }
 
 /**

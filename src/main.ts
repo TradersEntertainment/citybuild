@@ -1478,6 +1478,13 @@ syncUi();
   walk,
   enterWalk,
   exitWalk,
+  /**
+   * What the GPU is holding. A leaked geometry or texture never shows up in a
+   * profiler's JS heap, and a browser tab that dies of "Out of Memory" says
+   * nothing about which of the two it ran out of — so the counters that would
+   * have named the culprit are exported rather than left behind a breakpoint.
+   */
+  resources: () => renderer.resources,
 };
 // Named on the first frame rather than on the sweep timer: a returning player
 // opens a city that already has neighbourhoods, and waiting a beat for them to

@@ -183,6 +183,23 @@ export class Renderer {
     return this.forSaleDirty;
   }
 
+  /**
+   * What the GPU is currently holding, straight from three.js.
+   *
+   * Both numbers are supposed to be flat once a city has settled. Either one
+   * climbing with the clock is a leak, and a leak here is the one class of bug
+   * that kills the tab outright rather than making it slow — WebGL resources
+   * are not garbage collected, so a geometry replaced without `.dispose()`
+   * lives until the context does.
+   */
+  get resources(): { geometries: number; textures: number; programs: number } {
+    return {
+      geometries: this.renderer.info.memory.geometries,
+      textures: this.renderer.info.memory.textures,
+      programs: this.renderer.info.programs?.length ?? 0,
+    };
+  }
+
   /** A station was built or removed. */
   invalidateServices(): void {
     this.stationsDirty = true;

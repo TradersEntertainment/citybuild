@@ -149,8 +149,6 @@ function grow(
 ): THREE.InstancedMesh {
   const capacity = (capacities[band] ?? INITIAL_CAPACITY) * 2;
   capacities[band] = capacity;
-  group.remove(old);
-  old.dispose();
 
   const mesh = new THREE.InstancedMesh(geometry, material, capacity);
   mesh.castShadow = false;
@@ -158,6 +156,15 @@ function grow(
   mesh.frustumCulled = false;
   mesh.count = 0;
   mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  // This frame's markers, carried over. `sync` is partway through its walk when
+  // a band fills up and it does not rewind — it keeps counting from where it
+  // was, so without the carry every marker written before the doubling is left
+  // at the identity matrix: unscaled and sitting on tile zero. A cluster of
+  // oversized diamonds in the corner of the map, for one frame, every time a
+  // band crosses a power of two.
+  mesh.instanceMatrix.array.set(old.instanceMatrix.array);
+  group.remove(old);
+  old.dispose();
   group.add(mesh);
   return mesh;
 }

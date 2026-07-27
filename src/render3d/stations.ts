@@ -68,10 +68,28 @@ const FACILITY_ORDER: readonly FacilityKind[] = [
 
 const INITIAL_CAPACITY = 32;
 
+/**
+ * The look of one facility kind: two geometries and the two materials on them.
+ *
+ * Separate from the bucket for the same reason as in render3d/buildings.ts, and
+ * because of the same bug. A bucket that outgrows its capacity is replaced by a
+ * bigger one, and rebuilding the shape to do it leaked both geometries and both
+ * materials every time — disposed of nothing, and appended to arrays drained
+ * only at teardown, so neither the GPU nor the collector could take them back.
+ * A kind's shape does not depend on how many of it the player has built.
+ */
+interface Kit {
+  bodyGeometry: THREE.BufferGeometry;
+  bodyMaterial: THREE.MeshStandardMaterial;
+  mastGeometry: THREE.BufferGeometry;
+  mastMaterial: THREE.MeshStandardMaterial;
+}
+
 interface Bucket {
   body: THREE.InstancedMesh;
   mast: THREE.InstancedMesh;
   capacity: number;
+  kit: Kit;
 }
 
 export interface StationLayer {
@@ -89,7 +107,7 @@ export function createStations(): StationLayer {
   const materials: THREE.Material[] = [];
   const buckets = new Map<FacilityKind, Bucket>();
 
-  const makeBucket = (kind: FacilityKind, capacity: number): Bucket => {
+  const makeKit = (kind: FacilityKind): Kit => {
     const look = LOOKS[kind];
 
     const bodyGeometry = new THREE.BoxGeometry(look.width, look.height, look.width);
@@ -113,9 +131,12 @@ export function createStations(): StationLayer {
 
     geometries.push(bodyGeometry, mastGeometry);
     materials.push(bodyMaterial, mastMaterial);
+    return { bodyGeometry, bodyMaterial, mastGeometry, mastMaterial };
+  };
 
-    const body = new THREE.InstancedMesh(bodyGeometry, bodyMaterial, capacity);
-    const mast = new THREE.InstancedMesh(mastGeometry, mastMaterial, capacity);
+  const makeBucket = (kit: Kit, capacity: number): Bucket => {
+    const body = new THREE.InstancedMesh(kit.bodyGeometry, kit.bodyMaterial, capacity);
+    const mast = new THREE.InstancedMesh(kit.mastGeometry, kit.mastMaterial, capacity);
     for (const mesh of [body, mast]) {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
@@ -123,10 +144,10 @@ export function createStations(): StationLayer {
       mesh.count = 0;
       group.add(mesh);
     }
-    return { body, mast, capacity };
+    return { body, mast, capacity, kit };
   };
 
-  for (const kind of FACILITY_ORDER) buckets.set(kind, makeBucket(kind, INITIAL_CAPACITY));
+  for (const kind of FACILITY_ORDER) buckets.set(kind, makeBucket(makeKit(kind), INITIAL_CAPACITY));
 
   const matrix = new THREE.Matrix4();
   const position = new THREE.Vector3();
@@ -148,10 +169,17 @@ export function createStations(): StationLayer {
       if (!bucket) continue;
       const used = counts.get(station.kind) ?? 0;
       if (used >= bucket.capacity) {
+        const grown = makeBucket(bucket.kit, bucket.capacity * 2);
+        // The stations already placed this pass, carried over. `used` keeps
+        // counting from where it was, so without this the ones written before
+        // the doubling stay at the identity matrix and the whole set of them
+        // stacks up on tile zero until the next rebuild.
+        grown.body.instanceMatrix.array.set(bucket.body.instanceMatrix.array);
+        grown.mast.instanceMatrix.array.set(bucket.mast.instanceMatrix.array);
         group.remove(bucket.body, bucket.mast);
         bucket.body.dispose();
         bucket.mast.dispose();
-        bucket = makeBucket(station.kind, bucket.capacity * 2);
+        bucket = grown;
         buckets.set(station.kind, bucket);
       }
 

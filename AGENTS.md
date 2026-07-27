@@ -124,6 +124,59 @@ Aşağıdaki §3'te plan olarak duran maddelerin hepsi yapıldı. Kısaca:
   rahat şehirde kaybettiriyor (2678→2386), ters yönde felaket (ziyaretçi 0).
   Yani gerçek bir karar, bedava yükseltme değil.
 
+### Oyuncu geri bildirimi — 1. tur
+
+Sandbox'ın göremediği iki şey oyuncudan geldi. İkisi de gerçekti ve ikisi de
+**ölçülünce tahminden çok daha kötü** çıktı. Ders: bir sayı "makul görünüyor"
+diye doğru değil; çarpan yığınıyla birlikte ölçülmediyse ölçülmemiştir.
+
+- **"Gecede ekran hiç gözükmüyormuş."** Ölçüldü: gece, öğlenin **%0.4'ü**.
+  `sun.intensity = SUN_INTENSITY * daylight` güneş ufka değer değmez sıfır
+  oluyordu, geriye lacivert boyalı tek bir 0.34 hemisphere ışığı kalıyordu —
+  yön ışığı yok, yani gölge yok, aydınlık yüz yok, siluet yok. Tek çare olan
+  aydınlatma programı **kasabada** açılıyor, yani her oyunun açılışı ışıksız
+  oynanıyordu. Düzeltme: ay (anti-güneş yönünde bir yön ışığı, gölge de
+  atıyor), yükseltilmiş gece ambient'ı, açılmış gece renkleri ve ufuk
+  geçişindeki çukuru dolduran bir alacakaranlık takviyesi. Gece artık öğlenin
+  **%24'ü**; en karanlık an (şafak öncesi) %19.
+  **Aydınlatma programı artık "görmek" ile "görmemek" arasındaki fark değil,
+  gecenin *satın alınmış* görünmesi.** Okunabilirlik ödül değil, taban.
+- **"Hırsızlık çok fazla, güçlenemiyorum."** Ölçüldü: karakolsuz bir kasaba
+  (273 bina) dakikada 4.6 suç ve 1 382 ₺ kayıp yaşıyordu; şehrin **tüm geliri**
+  625 ₺/dk. Yani suç kazancın **%221'ini** alıyor, bakiye hep düşüyor ve onu
+  durduracak 5 400 ₺'lik karakol asla alınamıyordu — tanımı gereği tuzak.
+  Yarısı kaplı şehirde bile %119. Eski `CRIME_PER_SEC` yalnız taban oran
+  düşünülerek yazılmıştı; üstündeki gece × sefalet × kasa çarpanları (sağlıklı
+  şehirde ~1.8×, mutsuzda ~2.4×) hiç hesaba katılmamıştı. Yeni değerlerle
+  ölçüm: köy %8, karakolsuz kasaba %31, tek karakollu kasaba %18, üç karakollu
+  şehir %7 — ve fixtureların nüfusu 158→337, 13→54, 10→264, 0→351.
+- Her ikisi de artık regresyon testi: `tests/night.test.ts` (ışık eğrisi) ve
+  `tests/runaway.test.ts` → "crime is a bill the city can pay". İkisinin de
+  eski sayılarla **düştüğü doğrulandı**; düşmeyen test testi değildir.
+- **"Out of Memory" ile sekme ölüyor.** Sunucuyla ilgisi yok — Vercel statik
+  dosya sunuyor, ölen tarayıcı sekmesi. Bulunan sızıntı `render3d/buildings.ts`
+  ve `render3d/stations.ts`'te aynı şekilde duruyordu: kapasitesi dolan bir
+  `InstancedMesh` iki katına çıkarılırken **arketipin tamamı yeniden
+  üretiliyordu** — iki CanvasTexture, iki materyal, bir geometri — ve yalnızca
+  mesh `dispose` ediliyordu. WebGL kaynakları çöp toplanmaz, üstelik eskiler
+  yalnızca teardown'da boşaltılan dizilere ekleniyordu: yani her ikiye katlama
+  kalıcıydı. Çözüm: şekil (`Kit`) kapasiteden ayrıldı; büyütmek artık sadece
+  yeni bir mesh yapıp eskisini atıyor.
+  **Aynı yerde ikinci bir hata:** büyüyen kova sayacı sıfırlıyordu, yani o kare
+  boyunca daha önce yazılmış her instance kayboluyordu — ölçüldü, 1 000 evden
+  **232'si** çiziliyordu. `issues.ts` ve `stations.ts`'te aynı hata identity
+  matrisle kalıyordu, yani markerlar bir kare boyunca **(0,0) karesinde** üst
+  üste yığılıyordu. Üçünde de instance tamponu artık taşınıyor.
+  Test: `tests/meshLeaks.test.ts`. Facade dokuları `<canvas>` istediği için
+  üretici enjekte edildi — o dikiş sırf bu test için var.
+  **Dürüstlük notu:** sızıntı gerçek ve düzeltildi, ama oyuncunun çökmesinin
+  *tam olarak bu* olduğu kanıtlanmadı; sandbox'ta swiftshader zaten düzeltmeden
+  önce de sonra da ara ara çöküyor. Düzeltmeden sonra 220 saniyelik ölçümde
+  Chromium RSS ~1.5 GB'da **düz**, geometri/doku sayıları sabit.
+- Ölçüm aracı kalıcı: `window.__kadastro.resources()` üç sayıyı veriyor
+  (geometri, doku, program). Bunların bir şehir oturduktan sonra düz durması
+  gerekir; tırmanan biri sızıntıdır. Profiler'ın JS heap'i bunu **göstermez**.
+
 ---
 
 ## 2. Mimari kurallar ve tuzaklar (bozma)

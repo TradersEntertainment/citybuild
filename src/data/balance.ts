@@ -465,13 +465,27 @@ export const EPIDEMIC_HAPPINESS_HIT = 26;
 /**
  * Per-building chance of a crime starting, per second.
  *
- * Deliberately about six times a fire. A fire is a disaster and has to stay
- * rare; a crime is an errand, and an errand that turns up twice an hour is not
- * a mechanic, it is a rumour. At this rate a town of a hundred buildings sees
- * one every minute or so, which is often enough that the player learns the verb
- * and buys the station that automates it.
+ * A crime is an errand, not a disaster: one that turns up twice an hour is a
+ * rumour, and one that turns up every ten seconds is a chore with a bill
+ * attached. This number is the whole difference between the two.
+ *
+ * **Retuned from playtest.** The report was "there is too much theft, I cannot
+ * get anywhere", and measuring it said the same thing far more bluntly: an
+ * uncovered town of 273 buildings was seeing 4.6 crimes a minute and losing
+ * 1 382₺ a minute to them, against a gross income of 625₺ — crime was taking
+ * **221% of everything the city earned**. A city in that state cannot save for
+ * the karakol that would fix it, which is the definition of a trap. With one
+ * karakol covering half the map it was still 119%.
+ *
+ * The old figure was set by reasoning about the base rate alone and never
+ * measured against the multiplier stack on top of it — night, misery and tills
+ * multiply out to roughly 1.8× in a healthy city and 2.4× in a miserable one.
+ * The target now is about one crime a minute in an uncovered town of ~270
+ * buildings, and about the same in an uncovered city three times that size once
+ * coverage is paid for. A village sees one every few minutes, which is what a
+ * village is supposed to see.
  */
-export const CRIME_PER_SEC = 0.00012;
+export const CRIME_PER_SEC = 0.000035;
 /** Tills are worth robbing; a shop is this many times likelier than a home. */
 export const CRIME_COMMERCIAL_MULT = 2.2;
 /**
@@ -499,12 +513,29 @@ export const CRIME_ARREST_S = 2.5;
  * cost inside the same minute.
  */
 export const CRIME_ESCAPE_S = 45;
-/** Loot as a share of the building's monthly worth, per level. */
-export const CRIME_LOOT_BASE = 140;
-export const CRIME_LOOT_PER_LEVEL = 90;
-/** Mood cost of each unresolved crime, capped so the scale stays readable. */
+/**
+ * What a robbery costs the treasury, by the level of what was robbed.
+ *
+ * Also retuned from the same playtest. A single escape used to take 140–512₺
+ * out of a city earning around 625₺ a minute: one theft was half a minute of
+ * the entire city's income, so a handful of them a minute simply inverted the
+ * economy. The rate cut above does most of the work, but the per-incident
+ * figure was wrong on its own terms — losing a tenth of a minute's income to
+ * one burglary is a sting the player can feel and absorb, and that is the job.
+ */
+export const CRIME_LOOT_BASE = 60;
+export const CRIME_LOOT_PER_LEVEL = 40;
+/**
+ * Mood cost of each unresolved crime, capped so the scale stays readable.
+ *
+ * The cap is also what bounds the feedback loop — crime lowers mood and low
+ * mood raises crime (CRIME_MISERY_MULT). At a cap of 12 plus the escape sting,
+ * crime can raise its own rate by at most about 12%, which is a slope rather
+ * than a spiral. At the old cap of 20 it was still stable on paper, but it let
+ * one system own a fifth of the happiness scale on its own.
+ */
 export const CRIME_HAPPINESS_HIT = 4;
-export const CRIME_HAPPINESS_CAP = 20;
+export const CRIME_HAPPINESS_CAP = 12;
 /** Mood cost of a crime that got away, on top of the money. */
 export const CRIME_ESCAPE_HAPPINESS = 3;
 /** How long that sting lasts, in seconds. */

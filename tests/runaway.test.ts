@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { FIRE_BURNOUT_S, FIRE_SPREAD_CHANCE, FIRE_SPREAD_S } from '../src/data/balance';
+import {
+  CRIME_ESCAPE_HAPPINESS,
+  CRIME_HAPPINESS_CAP,
+  FIRE_BURNOUT_S,
+  FIRE_SPREAD_CHANCE,
+  FIRE_SPREAD_S,
+} from '../src/data/balance';
 import { burialHappiness, burialTolerance } from '../src/sim/cohorts';
+import { crimeHappiness } from '../src/sim/crime';
+import { placeService } from '../src/sim/services';
 import { migrationPerMinute } from '../src/sim/population';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
@@ -187,6 +195,116 @@ describe('nothing is charged for before it can be answered', () => {
 
     game.era = 'town';
     expect(burialHappiness(game)).toBeLessThan(0);
+  });
+});
+
+/**
+ * A grid rather than the parallel lanes above: crime needs cars to be able to
+ * drive from a karakol to the scene, and lanes that never meet make every
+ * dispatch fail for a reason the fixture invented rather than the game.
+ */
+function griddedCity(seed: string): { game: GameState; systems: Systems; origin: Origin } {
+  const game = createGameState(hashSeed(seed), 0);
+  const origin = flatten(game, 24);
+  game.money = 5_000_000;
+  const systems = new Systems(game.world.size);
+  for (let k = 0; k < 6; k++) {
+    const lane = Array.from({ length: 40 }, (_, i) => ({ x: origin.x + i, y: origin.y + k * 5 }));
+    buildRoad(game.world, lane, 'asphalt', 1e9);
+    paintZone(game.world, lane.map((t) => ({ ...t, y: t.y + 1 })), k % 3 === 0 ? 'com' : 'res', 1e9);
+    paintZone(game.world, lane.map((t) => ({ ...t, y: t.y - 1 })), k % 4 === 0 ? 'ind' : 'res', 1e9);
+  }
+  for (let x = 0; x < 40; x += 6) {
+    const cross = Array.from({ length: 26 }, (_, i) => ({ x: origin.x + x, y: origin.y + i }));
+    buildRoad(game.world, cross, 'asphalt', 1e9);
+  }
+  systems.invalidateFields();
+  return { game, systems, origin };
+}
+
+type Origin = { x: number; y: number };
+
+/** Runs the city and totals what crime took out of it. */
+function measureCrime(
+  game: GameState,
+  systems: Systems,
+  seconds: number,
+): { loot: number; started: number; net: number } {
+  const before = game.money;
+  let loot = 0;
+  let started = 0;
+  for (let s = 0; s < seconds; s++) {
+    game.playedMs += 1000;
+    systems.step(game, 1);
+    systems.stepEconomy(game, 1);
+    for (const event of systems.drainCrimeEvents()) {
+      if (event.kind === 'crimeStart') started++;
+      if (event.kind === 'crimeEscaped') loot += event.loot ?? 0;
+    }
+  }
+  const mins = seconds / 60;
+  return { loot: loot / mins, started: started / mins, net: (game.money - before) / mins };
+}
+
+describe('crime is a bill the city can pay', () => {
+  it('takes a slice of the income rather than more than all of it', () => {
+    // The playtest report was "there is too much theft, I cannot get anywhere",
+    // and the measurement agreed: an uncovered town of 273 buildings lost
+    // 1 382₺ a minute to robberies against 625₺ of income — 221% of everything
+    // it earned, so its balance only ever went down and the 5 400₺ karakol that
+    // would have stopped it was permanently out of reach. That is the shape of
+    // every bug in this file: a rule that is reasonable until it is measured.
+    const { game, systems } = griddedCity('crime-drain');
+    measureCrime(game, systems, 900);
+    const m = measureCrime(game, systems, 600);
+    const gross = m.net + m.loot;
+    expect(gross).toBeGreaterThan(0);
+    // Half is a ceiling, not a target — measured at 31% in a city with no
+    // services of any kind, which is the worst case a player can construct.
+    expect(m.loot).toBeLessThan(gross * 0.5);
+    // And the city has to actually be accumulating money, or it cannot buy the
+    // answer to its own problem.
+    expect(m.net).toBeGreaterThan(0);
+  }, 120_000);
+
+  it('stays an errand rather than becoming a chore', () => {
+    // A marker every ten seconds is not a mechanic the player performs, it is
+    // a queue. Measured at 4.6/min before the retune, ~1.4/min after.
+    const { game, systems } = griddedCity('crime-rate');
+    measureCrime(game, systems, 900);
+    const m = measureCrime(game, systems, 600);
+    expect(game.buildings.size).toBeGreaterThan(150);
+    expect(m.started).toBeLessThan(2.5);
+  }, 120_000);
+
+  it('pays the player back for building a karakol', () => {
+    // The other half: cutting the rate is only correct if coverage still
+    // visibly buys something. It has to be measured on the same city, because
+    // the crime rate depends on the mood, which depends on everything.
+    const { game, systems, origin } = griddedCity('crime-karakol');
+    measureCrime(game, systems, 900);
+    const before = measureCrime(game, systems, 900);
+    for (const dx of [7, 25]) {
+      placeService(game, systems.fields, 'police', origin.x + dx, origin.y + 23);
+    }
+    systems.invalidateFields();
+    const after = measureCrime(game, systems, 900);
+    expect(after.loot).toBeLessThan(before.loot);
+  }, 180_000);
+
+  it('cannot let crime alone own a fifth of the mood', () => {
+    const game = createGameState(hashSeed('crime-mood'), 0);
+    for (let i = 0; i < 200; i++) {
+      game.crimes.set(i, { id: i, x: 10, y: 10, buildingId: i, age: 0, car: null, automatic: false });
+    }
+    game.crimeSting = 60;
+    // Capped, and the cap is what bounds the loop between crime and misery:
+    // crime lowers the mood, a low mood raises crime, and this is the number
+    // that decides whether that is a slope or a spiral. Exact rather than a
+    // bound, because a magic slack figure here would hide the cap moving.
+    expect(crimeHappiness(game)).toBe(-(CRIME_HAPPINESS_CAP + CRIME_ESCAPE_HAPPINESS));
+    // A fifth of the whole happiness scale is more than one hazard may own.
+    expect(CRIME_HAPPINESS_CAP).toBeLessThan(20);
   });
 });
 

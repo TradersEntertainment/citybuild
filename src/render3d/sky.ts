@@ -10,39 +10,82 @@ import { HEIGHT_SCALE, WORLD_SIZE } from './constants';
 const DAY_TOP = new THREE.Color('#3574B4');
 const DAY_HORIZON = new THREE.Color('#D8E4EC');
 const DAY_GROUND = new THREE.Color('#8A8578');
-const NIGHT_TOP = new THREE.Color('#050A17');
-const NIGHT_HORIZON = new THREE.Color('#16203A');
-const NIGHT_GROUND = new THREE.Color('#0A0E16');
+const NIGHT_TOP = new THREE.Color('#0A1330');
+const NIGHT_HORIZON = new THREE.Color('#2A3A63');
+const NIGHT_GROUND = new THREE.Color('#151C2C');
 /** Dusk, which is where the low sun and the first lit windows overlap. */
 const DUSK_HORIZON = new THREE.Color('#E09A5A');
 const DAY_SUN = new THREE.Color('#FFEDC4');
 const DUSK_SUN = new THREE.Color('#FF9A4E');
+const MOON = new THREE.Color('#C4D2F0');
 const DAY_BOUNCE = new THREE.Color('#BFD8EE');
-const NIGHT_BOUNCE = new THREE.Color('#2A3550');
+const NIGHT_BOUNCE = new THREE.Color('#8792B8');
 const SUN_INTENSITY = 2.75;
 const AMBIENT_DAY = 1.15;
-/** Never zero: a city lit by nothing is a city the player cannot read. */
-const AMBIENT_NIGHT = 0.34;
+
+/**
+ * The night, and why it is lit the way it is.
+ *
+ * A playtester reported the screen was simply not visible after dark, and they
+ * were right: the whole night was one 0.34 hemisphere light tinted near-navy,
+ * about a twelfth of the daytime total, with the directional light switched off
+ * entirely — so no shadows, no lit faces, no silhouettes, nothing to read a
+ * street by. The only remedy was the lighting programme, which unlocks at town.
+ * That made the first hour of every game a game with the lights off.
+ *
+ * Legibility is a baseline, not a reward. The night is now about 40% of noon's
+ * total light, and what the lighting programme buys is a night that looks
+ * *bought* — brighter, warmer, obviously funded — rather than the difference
+ * between seeing the city and not.
+ */
+/** Sky bounce at the bottom of the night, before anything is paid for. */
+const AMBIENT_NIGHT = 0.72;
+/** The moon, so there is still a key light — and therefore shape — after dark. */
+const MOON_INTENSITY = 0.85;
+/** How far the sun has to sink before the moon is at full strength. */
+const MOON_RISE = 0.25;
+/**
+ * Extra sky bounce around the horizon crossing.
+ *
+ * The sun gives nothing below the horizon and the moon nothing above it, so the
+ * two horizon crossings are the darkest moments of the whole cycle — darker
+ * than midnight, which reads as the lights failing rather than as the day
+ * ending. Measured: without this, dawn sits at 12% of noon against midnight's
+ * 24%; with it, 19%. It softens the trough rather than removing it, and the
+ * remaining dip is what the hour before sunrise is supposed to feel like.
+ *
+ * Real twilight is bright for the same reason this exists: the lit sky is an
+ * enormous soft source even with the sun itself out of sight.
+ */
+const TWILIGHT_LIFT = 0.5;
+/** How far either side of the horizon the twilight lift reaches. */
+const TWILIGHT_SPAN = 0.3;
 /**
  * How much a fully funded lighting programme lifts the night's sky bounce.
  *
  * The answer to "the night lasts too long and is boring": a dark third of every
- * year the player can spend their way out of. Doubling it is deliberate — the
- * purchase has to be visible from the map height the game is played at, not a
- * subtlety only a screenshot comparison would catch.
+ * year the player can spend their way out of. It used to double the bounce,
+ * back when the unfunded night was too dark to play in and doubling it was the
+ * only way out. Now that the baseline is legible on its own, a 60% lift is the
+ * right size: still unmistakable from the map height the game is played at,
+ * without making midnight brighter than noon.
  */
-const LIGHTING_BOUNCE = 1.0;
+const LIGHTING_BOUNCE = 0.6;
 
 /**
  * Sky, sun and atmosphere. Everything here is generated — a gradient shader for
  * the dome and analytic lights for the sun — so the project keeps its "no asset
  * files" rule while still reading as a real sky rather than a flat clear colour.
  *
- * The sun is the only shadow caster. One directional light with a tight
+ * The key light is the only shadow caster. One directional light with a tight
  * orthographic frustum around the play area buys the whole city contact shadows
  * for a single depth pass, which is the difference between "boxes floating on a
  * texture" and "buildings standing on ground".
  */
+
+function clamp01(value: number): number {
+  return value < 0 ? 0 : value > 1 ? 1 : value;
+}
 const SKY_VERTEX = /* glsl */ `
   varying vec3 vWorldDirection;
   void main() {
@@ -58,6 +101,9 @@ const SKY_FRAGMENT = /* glsl */ `
   uniform vec3 groundColor;
   uniform vec3 sunDirection;
   uniform vec3 sunColor;
+  uniform vec3 moonDirection;
+  uniform vec3 moonColor;
+  uniform float moon;
   uniform float time;
   uniform float night;
   varying vec3 vWorldDirection;
@@ -103,6 +149,16 @@ const SKY_FRAGMENT = /* glsl */ `
     float glow = pow(clamp(cosAngle, 0.0, 1.0), 220.0);
     float halo = pow(clamp(cosAngle, 0.0, 1.0), 6.0) * 0.22;
     vec3 colour = base + sunColor * (glow + halo);
+
+    // The moon, on the same maths as the sun disc — it rides the anti-sun
+    // direction, so it rises as the sun sets without a second clock to keep in
+    // step. A wider, weaker halo than the sun's: it is a source you can look at.
+    if (moon > 0.001) {
+      float moonAngle = dot(dir, normalize(moonDirection));
+      float disc = pow(clamp(moonAngle, 0.0, 1.0), 420.0);
+      float moonHalo = pow(clamp(moonAngle, 0.0, 1.0), 14.0) * 0.16;
+      colour += moonColor * (disc + moonHalo) * moon;
+    }
 
     // Clouds: the dome direction projected onto a plane overhead, drifting
     // slowly. A clear sky is a screensaver; moving weather is a place.
@@ -152,8 +208,23 @@ const SKY_FRAGMENT = /* glsl */ `
 
 export interface SkyRig {
   readonly dome: THREE.Mesh;
-  readonly sun: THREE.DirectionalLight;
+  /**
+   * The key light — the sun while it is up, the moon once it is not.
+   *
+   * One light rather than two because only one of them is ever above the
+   * horizon, and a scene with two shadow-casting directionals pays for both
+   * depth passes to get one set of doubled shadows. It is called `key` and not
+   * `sun` for the same reason: it is the moon for a third of every day, and a
+   * field named for the wrong half of its life is a trap for whoever reads it
+   * next.
+   */
+  readonly key: THREE.DirectionalLight;
   readonly ambient: THREE.HemisphereLight;
+  /**
+   * Where the key light is coming from, as a unit vector. Written by
+   * `setDayFraction`, read by `updateSky` to place the light around the camera.
+   */
+  readonly keyDirection: THREE.Vector3;
   /**
    * Sets the time of day, 0..1 from the sim's clock. Moves the sun, dims it,
    * and swings the dome, the fog and the sky bounce from daylight to night.
@@ -178,6 +249,7 @@ export interface SkyRig {
 
 export function createSky(scene: THREE.Scene): SkyRig {
   const sunDirection = new THREE.Vector3(0.6, 0.75, 0.3).normalize();
+  const moonDirection = sunDirection.clone().negate();
 
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -186,6 +258,9 @@ export function createSky(scene: THREE.Scene): SkyRig {
       groundColor: { value: new THREE.Color('#8A8578') },
       sunDirection: { value: sunDirection.clone() },
       sunColor: { value: new THREE.Color('#FFEFC9') },
+      moonDirection: { value: new THREE.Vector3(0, -1, 0) },
+      moonColor: { value: MOON.clone() },
+      moon: { value: 0 },
       time: { value: 0 },
       night: { value: 0 },
     },
@@ -206,23 +281,26 @@ export function createSky(scene: THREE.Scene): SkyRig {
   // instead of ending at a hard line.
   scene.fog = new THREE.Fog('#D8E4EC', WORLD_SIZE * 0.5, WORLD_SIZE * 1.9);
 
-  const sun = new THREE.DirectionalLight('#FFEDC4', 2.75);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
-  sun.shadow.bias = -0.0006;
-  sun.shadow.normalBias = 0.5;
+  const key = new THREE.DirectionalLight('#FFEDC4', SUN_INTENSITY);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.bias = -0.0006;
+  key.shadow.normalBias = 0.5;
   // The shadow frustum follows the camera target rather than covering the whole
   // 256² map: a map-wide frustum at this resolution gives shadows a staircase
   // edge, and nobody can see the far side of the city anyway.
   const extent = 140;
-  sun.shadow.camera.left = -extent;
-  sun.shadow.camera.right = extent;
-  sun.shadow.camera.top = extent;
-  sun.shadow.camera.bottom = -extent;
-  sun.shadow.camera.near = 1;
-  sun.shadow.camera.far = HEIGHT_SCALE * 8 + extent * 3;
-  scene.add(sun);
-  scene.add(sun.target);
+  key.shadow.camera.left = -extent;
+  key.shadow.camera.right = extent;
+  key.shadow.camera.top = extent;
+  key.shadow.camera.bottom = -extent;
+  key.shadow.camera.near = 1;
+  key.shadow.camera.far = HEIGHT_SCALE * 8 + extent * 3;
+  scene.add(key);
+  scene.add(key.target);
+
+  /** Where the key light comes from; the anti-sun once the sun is down. */
+  const keyDirection = sunDirection.clone();
 
   // Sky bounce: without it, every north-facing wall is pure black and the city
   // reads as cardboard.
@@ -258,13 +336,26 @@ export function createSky(scene: THREE.Scene): SkyRig {
     sunDirection.set(Math.sin(travel) * 0.85, height, Math.cos(travel) * 0.34).normalize();
     material.uniforms['sunDirection']!.value.copy(sunDirection);
 
+    // The moon is the anti-sun: opposite the sky, so it is exactly as far above
+    // the horizon as the sun is below it and needs no clock of its own. The
+    // shared direction flips through 180° at the crossing, which would be a
+    // visible jump in the shadows if the moon were lit then — it ramps from
+    // zero at the horizon precisely so it is not.
+    const moon = clamp01(-height / MOON_RISE);
+    moonDirection.copy(sunDirection).negate();
+    material.uniforms['moonDirection']!.value.copy(moonDirection);
+    material.uniforms['moon']!.value = moon;
+    keyDirection.copy(height >= 0 ? sunDirection : moonDirection);
+
     // Dusk reddens the light and the horizon: the sun's colour is a function of
     // how much atmosphere it is shining through, which is what low means.
     const low = 1 - Math.min(1, Math.max(0, height / 0.35));
     sunTint.copy(DAY_SUN).lerp(DUSK_SUN, low);
-    rig.sun.color.copy(sunTint);
-    rig.sun.intensity = SUN_INTENSITY * daylight;
     material.uniforms['sunColor']!.value.copy(sunTint);
+    // The key light follows the tint while the sun owns it and cools to
+    // moonlight after — an orange moon would read as a permanent sunset.
+    rig.key.color.copy(sunTint).lerp(MOON, moon);
+    rig.key.intensity = SUN_INTENSITY * daylight + MOON_INTENSITY * moon;
 
     top.copy(DAY_TOP).lerp(NIGHT_TOP, night);
     horizon.copy(DAY_HORIZON).lerp(NIGHT_HORIZON, night);
@@ -281,21 +372,31 @@ export function createSky(scene: THREE.Scene): SkyRig {
     if (scene.fog instanceof THREE.Fog) scene.fog.color.copy(horizon);
 
     // Sky bounce is what keeps a night city from being pure black silhouettes.
-    // A lit city bounces its own light back off the ground. Multiplying the
-    // night term rather than adding a flat floor keeps the day untouched.
+    //
+    // A floor lifted by daylight, not two ramps added together. The old form
+    // was `AMBIENT_DAY * daylight + AMBIENT_NIGHT * night`, and those two ramps
+    // are not complements: daylight is already zero at the horizon while night
+    // is only four tenths of the way in, so their sum had a trough exactly at
+    // sunset. Written this way the fill can only rise with the sun, and the
+    // twilight lift fills the stretch where neither the sun nor the moon is
+    // contributing anything.
+    const twilight = clamp01(1 - Math.abs(height) / TWILIGHT_SPAN);
     ambient.intensity =
-      AMBIENT_DAY * daylight + AMBIENT_NIGHT * night * (1 + lighting * LIGHTING_BOUNCE);
+      AMBIENT_NIGHT * (1 + lighting * LIGHTING_BOUNCE * night) +
+      (AMBIENT_DAY - AMBIENT_NIGHT) * daylight +
+      TWILIGHT_LIFT * twilight;
     ambient.color.copy(DAY_BOUNCE).lerp(NIGHT_BOUNCE, night);
   };
 
   const rig: SkyRig = {
     dome,
     setLighting,
-    sun,
+    key,
+    keyDirection,
     ambient,
     setDayFraction,
     dispose: () => {
-      scene.remove(dome, sun, sun.target, ambient);
+      scene.remove(dome, key, key.target, ambient);
       dome.geometry.dispose();
       material.dispose();
     },
@@ -322,15 +423,19 @@ export function updateSky(
   (rig.dome.material as THREE.ShaderMaterial).uniforms['time']!.value =
     performance.now() / 1000;
 
-  const sunDir = (rig.dome.material as THREE.ShaderMaterial).uniforms['sunDirection']!
-    .value as THREE.Vector3;
+  // The rig's own vector, not the shader's sun uniform: after dark the light
+  // comes from the moon and the uniform still points at the sun, under the map.
+  // Reading the uniform used to be harmless because it was the same direction;
+  // it would now put the key light below the ground and light every roof from
+  // underneath.
+  const dir = rig.keyDirection;
   const reach = HEIGHT_SCALE * 6;
-  rig.sun.target.position.set(targetX, targetY, targetZ);
-  rig.sun.target.updateMatrixWorld();
-  rig.sun.position.set(
-    targetX + sunDir.x * reach,
-    targetY + sunDir.y * reach,
-    targetZ + sunDir.z * reach,
+  rig.key.target.position.set(targetX, targetY, targetZ);
+  rig.key.target.updateMatrixWorld();
+  rig.key.position.set(
+    targetX + dir.x * reach,
+    targetY + dir.y * reach,
+    targetZ + dir.z * reach,
   );
-  rig.sun.updateMatrixWorld();
+  rig.key.updateMatrixWorld();
 }
