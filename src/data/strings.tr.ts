@@ -150,6 +150,22 @@ export const STR = {
   },
 
   /**
+   * The vote (sim/elections.ts).
+   *
+   * Never a game over. A beaten mayor keeps their city, their money and their
+   * map; what they lose is the grant. The copy has to say that, or a defeat reads
+   * as a threat the game is not actually making.
+   */
+  election: {
+    won: (share: string, grant: string): string =>
+      `Seçimi kazandın — ${share} oy. Hazineye ${grant} ödenek geldi.`,
+    lost: (share: string): string =>
+      `Seçimi kaybettin — ${share} oy. Şehir senin; ödenek yok. Önümüzdeki dönem düzelt.`,
+    row: 'Onay oranı',
+    next: (seconds: number): string => `${Math.ceil(seconds)} sn sonra seçim`,
+  },
+
+  /**
    * Department budgets (sim/budgets.ts): the lever between "build one" and
    * "knock one down".
    */

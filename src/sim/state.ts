@@ -4,6 +4,7 @@ import { createBudgets, type Budgets } from './budgets';
 import type { Loan } from './credit';
 import { createCohorts, type Cohorts } from './cohorts';
 import type { Crime } from './crime';
+import type { Verdict } from './elections';
 import type { Epidemic, Fire } from './hazards';
 import { layNationalHighway } from './highway';
 import { sectionCount } from './highwayWear';
@@ -139,6 +140,17 @@ export interface GameState {
    */
   budgets: Budgets;
   /**
+   * The last term whose election has been settled (sim/elections.ts).
+   *
+   * Saved. The term itself is derived from played time, so this is the only
+   * thing that has to be remembered — and without it a reload mid-term would
+   * hold the same vote again.
+   */
+  lastTermSettled: number;
+  /** How the last one went, and how long the city will remember it. */
+  lastVerdict: Verdict;
+  verdictMemory: number;
+  /**
    * Level bought in each civic programme (data/investments.ts). What a rich city
    * spends its money on, and the only purchase whose effect is the whole map.
    */
@@ -210,6 +222,9 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     missionsDone: [],
     techsDone: [],
     budgets: createBudgets(),
+    lastTermSettled: 0,
+    lastVerdict: 'won',
+    verdictMemory: 0,
     investments: { lighting: 0, greening: 0, festivals: 0 },
     nextBuildingId: 1,
     nextServiceId: 1,

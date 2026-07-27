@@ -541,6 +541,31 @@ export const CONGESTION_SLOWDOWN = 1.5;
 export const TRIPS_PER_RESIDENT = 0.5;
 export const TRIPS_PER_JOB = 0.35;
 
+// --- Elections (§30) ---------------------------------------------------------
+/**
+ * Years between elections.
+ *
+ * Five, because a year is forty seconds: that puts a vote roughly every three
+ * and a half minutes of play, which is often enough to be a rhythm and rare
+ * enough that a term is long enough to turn a city round in.
+ */
+export const TERM_YEARS = 5;
+/** Approval at or above this wins. */
+export const ELECTION_THRESHOLD = 0.5;
+/**
+ * What a mandate is worth, per resident.
+ *
+ * A grant rather than a permanent raise: the reward for a good term is capital
+ * to spend on the next one, which is a decision, where a raise would just be a
+ * number going up faster.
+ */
+export const MANDATE_PER_CITIZEN = 9;
+/** Mood the city carries for a while after a win, and after a defeat. */
+export const MANDATE_HAPPINESS = 6;
+export const REBUKE_HAPPINESS = 9;
+/** How long either lasts, in seconds. About two-thirds of a term. */
+export const VERDICT_MEMORY_S = 140;
+
 // --- Department budgets (§3, §33) --------------------------------------------
 /**
  * How far a department's funding can be moved, and in how many notches.

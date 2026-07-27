@@ -17,6 +17,7 @@ import { capacityOf } from '../data/buildings';
 import type { BuildingTotals } from './buildings';
 import { burialHappiness, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
+import { verdictHappiness } from './elections';
 import { rubbishHappiness } from './rubbish';
 import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
@@ -69,6 +70,9 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // And the bins (sim/rubbish.ts). The loudest thing in a city that has stopped
   // collecting them, and the one the player can fix in one tap.
   target += rubbishHappiness(state);
+  // And how the last election went (sim/elections.ts), fading over a couple of
+  // minutes so a bad term is recoverable inside the next one.
+  target += verdictHappiness(state);
   // And history leans on the mood for years at a time: wars and depressions
   // press down, republics and booms lift.
   target += state.timelineEffects.happinessMod;

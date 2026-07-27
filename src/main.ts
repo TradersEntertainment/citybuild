@@ -28,6 +28,7 @@ import { Clock } from './sim/clock';
 import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
 import { nudgeBudget } from './sim/budgets';
+import { approval } from './sim/elections';
 import { rubbishStrain } from './sim/rubbish';
 import { transitUnlocked } from './sim/transit';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
@@ -864,6 +865,7 @@ function frame(now: number): void {
     announceCohorts();
     announceSeams();
     announceRubbish();
+    announceElection();
     announceTimeline();
     announceWeather();
     announcePetitions();
@@ -976,6 +978,31 @@ function countStations(state: typeof game): Record<string, number> {
 
 /** Whether the player has been told what a crime marker is for. */
 let taughtCrime = false;
+
+/**
+ * The vote (sim/elections.ts).
+ *
+ * Toast and blotter both, in either direction. This is the one moment in the game
+ * that arrives on the city's own calendar rather than in answer to something the
+ * player did, so it has to interrupt — a line that scrolled past would leave a
+ * grant appearing in the treasury with no explanation.
+ */
+function announceElection(): void {
+  const events = systems.drainElectionEvents();
+  if (events.length === 0) return;
+  for (const event of events) {
+    const share = STR.format.percent(event.approval);
+    const won = event.verdict === 'won';
+    const text = won ? STR.election.won(share, STR.format.money(event.grant)) : STR.election.lost(share);
+    toast.show(text);
+    eventFeed.pushCustom([{ icon: won ? '🗳️' : '📉', tone: won ? 'calm' : 'warn', text }]);
+    if (won) sfx.play('goal');
+    appendHistory([
+      { year: yearOf(game.playedMs), icon: '🗳️', title: text, detail: undefined },
+    ]);
+  }
+  syncUi();
+}
 
 /**
  * The bins overflowing, and being caught up with (sim/rubbish.ts).
@@ -1319,6 +1346,7 @@ function syncUi(): void {
     rubbish: { waiting: game.rubbish, strain: rubbishStrain(game) },
     stations: countStations(game),
     budgets: { ...game.budgets },
+    approval: approval(game),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },
   });
   store.setMissions(

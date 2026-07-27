@@ -41,6 +41,8 @@ export interface UiState {
   stations: Record<string, number>;
   /** What each is funded at (sim/budgets.ts). */
   budgets: Record<string, number>;
+  /** How the city would vote today, 0..1 (sim/elections.ts). */
+  approval: number;
   grid: GridView;
   fps: number;
   /** Suppressed while the player is drawing, so ink is never under text. */
@@ -165,6 +167,7 @@ export interface SimSnapshot {
   rubbish: RubbishView;
   stations: Record<string, number>;
   budgets: Record<string, number>;
+  approval: number;
   grid: GridView;
 }
 
@@ -229,6 +232,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   rubbish: { waiting: 0, strain: 0 },
   stations: {},
   budgets: {},
+  approval: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
   fps: 0,
   hintVisible: true,
@@ -289,6 +293,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
       // Cheap because both objects are small and rebuilt from the same key set:
       // the panel repaints twice a second and a stale budget row would be the one
       // thing on it the player just changed.
+      Math.round(current.approval * 100) === Math.round(snapshot.approval * 100) &&
       SERVICE_KEYS.every(
         (kind) =>
           current.stations[kind] === snapshot.stations[kind] &&

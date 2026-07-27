@@ -3,6 +3,7 @@ import { evaluateBuildings, totalBuildings } from './buildings';
 import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
+import { stepElections, type ElectionEvent } from './elections';
 import { computeGoods, createGoodsField, type GoodsField } from './goods';
 import {
   computeLandValue,
@@ -41,6 +42,7 @@ const EMPTY_CRIMES: readonly CrimeEvent[] = [];
 const EMPTY_COHORTS: readonly CohortEvent[] = [];
 const EMPTY_RESOURCES: readonly ResourceEvent[] = [];
 const EMPTY_RUBBISH: readonly RubbishEvent[] = [];
+const EMPTY_ELECTIONS: readonly ElectionEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
@@ -84,6 +86,7 @@ export class Systems {
   private readonly cohortEvents: CohortEvent[] = [];
   private readonly resourceEvents: ResourceEvent[] = [];
   private readonly rubbishEvents: RubbishEvent[] = [];
+  private readonly electionEvents: ElectionEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -219,6 +222,10 @@ export class Systems {
     // The bins fill whether or not anybody is watching; only the pile-up waits
     // for a player, which is the same rule the fires and the burials keep.
     this.rubbishEvents.push(...stepRubbish(state, dt, hazardsLive));
+    // Elections run whether or not anybody is watching: the calendar does not
+    // wait, and a player who leaves for an hour should come back to the votes
+    // that happened rather than to one enormous one (sim/elections.ts).
+    this.electionEvents.push(...stepElections(state, dt));
     stepResearch(state, dt);
     const era = stepProgression(state);
 
@@ -257,6 +264,12 @@ export class Systems {
   drainRubbishEvents(): readonly RubbishEvent[] {
     if (this.rubbishEvents.length === 0) return EMPTY_RUBBISH;
     return this.rubbishEvents.splice(0, this.rubbishEvents.length);
+  }
+
+  /** Votes held since the last drain (sim/elections.ts). */
+  drainElectionEvents(): readonly ElectionEvent[] {
+    if (this.electionEvents.length === 0) return EMPTY_ELECTIONS;
+    return this.electionEvents.splice(0, this.electionEvents.length);
   }
 
   /** Seams worked out since the last drain (sim/resources.ts). */

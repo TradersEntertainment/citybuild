@@ -60,6 +60,8 @@ export interface SaveData {
    * forgetting it made.
    */
   budgets: Record<string, number>;
+  /** The last term settled, so a reload cannot re-run a vote (sim/elections.ts). */
+  lastTermSettled: number;
   /** Level bought in each civic programme, by id. */
   investments: Record<string, number>;
   /** Legacy points this city was founded with. */
@@ -180,6 +182,7 @@ export function serialize(state: GameState): SaveData {
     missionsDone: [...state.missionsDone],
     techsDone: [...state.techsDone],
     budgets: { ...state.budgets },
+    lastTermSettled: state.lastTermSettled,
     investments: { ...investmentLevels(state) },
     legacy: state.legacy,
     highwayWear: state.highwayWear.map((wear) => Math.round(wear * 100)),
@@ -255,6 +258,13 @@ export function deserialize(data: unknown): GameState | null {
   // save from a build with a wider range cannot hand a city an effect no slider
   // in this one can explain.
   state.budgets = readBudgets(data.budgets);
+  // A file without it is a city that has never held a vote — which for a save
+  // written before elections existed is exactly right, and for one written after
+  // is only true of a city in its first term.
+  const settled = data.lastTermSettled;
+  state.lastTermSettled = typeof settled === 'number' && Number.isFinite(settled) && settled > 0
+    ? Math.floor(settled)
+    : 0;
 
   // Programmes arrived after the techs, and a file without them is a city that
   // has bought none — the same additive pattern as the loans and the berths.

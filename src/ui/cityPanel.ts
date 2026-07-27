@@ -148,6 +148,11 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
    */
   const budgets = section(STR.budget.title);
   budgets.body.append(noteRow(STR.budget.note));
+  // The standing approval, above the sliders that move it. A defeat has to be a
+  // warning that was ignored rather than a die that came up badly, and that only
+  // works if the number is on the screen the whole time.
+  const approvalRow = row(STR.election.row);
+  budgets.body.append(approvalRow.el);
   const budgetRows = new Map<ServiceKind, { el: HTMLElement; set: (text: string) => void }>();
   for (const kind of SERVICE_ORDER) {
     const built = budgetRow(kind);
@@ -314,6 +319,8 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     unemployment.set(STR.format.percent(idle));
     // Unemployment is the number that quietly stalls a city, so it says so.
     unemployment.el.dataset['alarm'] = String(idle > 0.35 && s.population > 30);
+    approvalRow.set(STR.format.percent(s.approval));
+    approvalRow.el.dataset['alarm'] = String(s.approval < 0.5 && s.population > 0);
     // Only the departments the city has actually built. Six sliders for services
     // a village has never met is a settings screen, not a decision.
     for (const [kind, built] of budgetRows) {
