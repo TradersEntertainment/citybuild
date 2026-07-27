@@ -541,6 +541,38 @@ export const CONGESTION_SLOWDOWN = 1.5;
 export const TRIPS_PER_RESIDENT = 0.5;
 export const TRIPS_PER_JOB = 0.35;
 
+// --- Goods (§16, §17): what the workshops make and the shops sell ------------
+/**
+ * Crates a workshop puts out per job per minute, and what a shop wants per job.
+ *
+ * The ratio is what matters: shops want a little more than the workshops make,
+ * so a city of nothing but retail runs short and a city of nothing but industry
+ * has crates going nowhere. Either way the answer is the same verb — paint the
+ * other zone — which is the loop the demand curves already push and this makes
+ * visible in the ledger.
+ */
+export const GOODS_PER_INDUSTRIAL_JOB = 0.5;
+export const GOODS_PER_COMMERCIAL_JOB = 0.62;
+/** How far a crate travels along the road before the lorry turns back. */
+export const GOODS_REACH = 34;
+/** Share of a crate lost per tile, so distance is a real cost. */
+export const GOODS_DECAY_PER_TILE = 0.94;
+/** …and how much a queue takes off the top, over capacity. */
+export const GOODS_CONGESTION_BITE = 0.7;
+/**
+ * The worst a shortage can make a shop, and the worst a glut can make a
+ * workshop, as output multipliers.
+ *
+ * Floors rather than zeroes. A shop with no deliveries still sells what it has,
+ * and a workshop with nowhere to send crates still makes them for a while — the
+ * point is a slope the player can feel and fix, not a cliff that empties a
+ * district while they are looking somewhere else.
+ */
+export const GOODS_SHORTAGE_FLOOR = 0.55;
+export const GOODS_GLUT_FLOOR = 0.7;
+/** What a crate fetches abroad, per surplus crate per minute, at a working port. */
+export const GOODS_EXPORT_PRICE = 2.4;
+
 // --- Public transport (§18) ----------------------------------------------------
 /** Tiles between stops on a drawn line. Close enough to walk to, far enough
  *  that a line across a district is a handful of stops rather than fifty. */

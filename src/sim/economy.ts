@@ -1,4 +1,5 @@
 import {
+  GOODS_PER_COMMERCIAL_JOB,
   COMMERCIAL_TAX,
   COMMERCIAL_TURNOVER,
   FARM_YIELD,
@@ -19,6 +20,7 @@ import { serviceUpkeep } from './services';
 import { skillFactor } from './cohorts';
 import { resourceFactor } from './resources';
 import { fareIncome, transitUpkeep } from './transit';
+import { exportIncome, marketFactor, stockFactor, type GoodsField } from './goods';
 import { techFactor } from './tech';
 import { weatherAt, weatherEffects } from './weather';
 import { utilityUpkeep } from './utilities';
@@ -96,6 +98,7 @@ export function computeLedger(
   fields: Fields,
   visitors?: VisitorField,
   riders = 0,
+  goods?: GoodsField,
 ): Ledger {
   let taxIncome = 0;
   let visitorTrade = 0;
@@ -108,6 +111,10 @@ export function computeLedger(
   // unschooled city earns exactly what it earned before the bands existed, so a
   // player who has never been shown a school is not marked down for lacking one.
   const skill = skillFactor(state);
+  // What the workshops can shift, city-wide (sim/goods.ts). A crate that cannot
+  // be sold here goes on the next lorry, so which workshop is the unlucky one is
+  // a precision the player could not act on.
+  const market = goods ? marketFactor(state) : 1;
 
   for (const building of state.buildings.values()) {
     const landValue = fields.landValue[index(state.world, building.x, building.y)] ?? 0;
@@ -122,7 +129,19 @@ export function computeLedger(
       // so the player had nothing to aim at. Now it is the flow that actually
       // reaches the street the shop stands on (sim/visitors.ts).
       const corridor = trade(state, fields, visitors, building.x, building.y);
-      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor * hour * skill;
+      // …and what actually reaches the shelves. A shop at the far end of the map
+      // is no longer as good as one beside the factories (sim/goods.ts).
+      const stock = goods
+        ? stockFactor(
+            state.world,
+            fields,
+            goods,
+            building.x,
+            building.y,
+            building.jobs * GOODS_PER_COMMERCIAL_JOB,
+          )
+        : 1;
+      building.output = building.jobs * COMMERCIAL_TURNOVER * corridor * hour * skill * stock;
       // What the visitors themselves spend, kept apart from the city's own
       // custom so the panel can say where the money came from.
       visitorTrade += building.output * (1 - 1 / corridor) * COMMERCIAL_TAX;
@@ -137,7 +156,7 @@ export function computeLedger(
       // worth putting there, until the seam runs out.
       const seam = resourceFactor(state.world, building.x, building.y);
       building.output =
-        building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill * seam;
+        building.jobs * INDUSTRIAL_OUTPUT * (1 + (hour - 1) * 0.5) * skill * seam * market;
       building.output *= corridor;
       visitorTrade += building.output * (1 - 1 / corridor) * INDUSTRIAL_TAX;
       taxIncome += building.output * INDUSTRIAL_TAX;
@@ -184,6 +203,10 @@ export function computeLedger(
   // would quietly drift apart.
   const fares = fareIncome(riders);
   const lines = transitUpkeep(state);
+  // What the harbours ship out, folded into the sea line: it is the same quay,
+  // and a second row for it would tell the player about a distinction they have
+  // no separate lever over.
+  const exports = goods ? exportIncome(state) : 0;
 
   return {
     taxIncome,
@@ -196,6 +219,7 @@ export function computeLedger(
       farmIncome +
       transit +
       sea +
+      exports +
       fares -
       roads -
       stations -
@@ -207,7 +231,7 @@ export function computeLedger(
     farmYield,
     farmIncome,
     transitIncome: transit,
-    seaIncome: sea,
+    seaIncome: sea + exports,
     portUpkeep: berths,
     programmeUpkeep: programmes,
     visitorIncome: visiting,
@@ -246,8 +270,9 @@ export function stepEconomy(
   dt: number,
   visitors?: VisitorField,
   riders = 0,
+  goods?: GoodsField,
 ): Ledger {
-  const ledger = computeLedger(state, fields, visitors, riders);
+  const ledger = computeLedger(state, fields, visitors, riders, goods);
   // Income and running costs first, then the bank. A loan taken to cover a
   // shortfall would otherwise be repaid out of money the city has not earned
   // yet, and the instalment is already counted in `net`.

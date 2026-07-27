@@ -3,6 +3,7 @@ import { evaluateBuildings, totalBuildings } from './buildings';
 import { computeConnectivity } from './connectivity';
 import { createDiffusionScratch, diffuseFields, type DiffusionScratch } from './diffusion';
 import { stepEconomy } from './economy';
+import { computeGoods, createGoodsField, type GoodsField } from './goods';
 import {
   computeLandValue,
   computeParkValue,
@@ -61,6 +62,11 @@ export class Systems {
    * visitor round.
    */
   readonly visitors: VisitorField;
+  /**
+   * Crates on the road (sim/goods.ts). Recomputed with the traffic, because a
+   * queue is what stops a lorry as surely as it stops a visitor.
+   */
+  readonly goods: GoodsField;
   private buildingTimer = 0;
   private diffusionTimer = FIELD_DIFFUSION_S; // solve once on the first step
   private trafficTimer = TRAFFIC_REFRESH_S;
@@ -97,6 +103,7 @@ export class Systems {
     this.diffusion = createDiffusionScratch(size);
     this.traffic = createTrafficField(size);
     this.visitors = createVisitorField(size);
+    this.goods = createGoodsField(size);
   }
 
   /** Called when roads or parcels change; the derived fields must be redone. */
@@ -127,6 +134,7 @@ export class Systems {
       computeParkValue(state.world, this.fields.parkValue);
       computeTraffic(state, this.fields, this.traffic);
       this.refreshVisitors(state);
+      computeGoods(state, this.fields, this.goods, this.traffic.load);
       computeLandValue(state.world, this.fields, this.traffic);
       // Coverage is gated on road access, so it is only valid once the road
       // distance field beside it has been rebuilt.
@@ -145,6 +153,7 @@ export class Systems {
     if (this.trafficTimer >= TRAFFIC_REFRESH_S) {
       computeTraffic(state, this.fields, this.traffic);
       this.refreshVisitors(state);
+      computeGoods(state, this.fields, this.goods, this.traffic.load);
       computeLandValue(state.world, this.fields, this.traffic);
       this.trafficTimer = 0;
     }
@@ -293,7 +302,7 @@ export class Systems {
   stepEconomy(state: GameState, dt: number): void {
     // The ridership comes from the traffic pass, which is the one place it is
     // measured (sim/transit.ts).
-    stepEconomy(state, this.fields, dt, this.visitors, this.traffic.riders);
+    stepEconomy(state, this.fields, dt, this.visitors, this.traffic.riders, this.goods);
   }
 
   /**
