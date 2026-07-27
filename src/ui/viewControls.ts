@@ -29,6 +29,10 @@ export interface ViewControlDeps {
   onWalk(): void;
   /** Opens the city's history log. */
   onHistory(): void;
+  /** Steps to the next data lens; null → value → … → null (sim/lens.ts). */
+  onCycleLens(): void;
+  /** Whether a lens is currently up, for the latch state. */
+  lensActive(): boolean;
 }
 
 export interface ViewControlsHandle {
@@ -115,9 +119,23 @@ export function mountViewControls(
   };
   paintSpeed();
 
+  // The lens button sits with the camera controls because it changes what the
+  // map *shows* rather than what the city *is* — same family as zoom and turn.
+  const lens = make('◧', STR.view.lens, () => {
+    deps.onCycleLens();
+    paintLens();
+  });
+  const paintLens = (): void => {
+    const on = deps.lensActive();
+    lens.dataset['active'] = String(on);
+    lens.setAttribute('aria-pressed', String(on));
+  };
+  paintLens();
+
   column.append(
     speed,
     pan,
+    lens,
     make('+', STR.view.zoomIn, () => deps.onZoom(ZOOM_STEP)),
     make('−', STR.view.zoomOut, () => deps.onZoom(1 / ZOOM_STEP)),
     make('⟲', STR.view.rotate, () => deps.onRotate(ROTATE_STEP)),
@@ -132,6 +150,7 @@ export function mountViewControls(
       paintPan();
       paintSound();
       paintSpeed();
+      paintLens();
     },
     dispose: () => column.remove(),
   };

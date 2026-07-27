@@ -130,6 +130,20 @@ export const industrialJobs = (level: number): number => 5 * Math.pow(level, 1.4
  */
 export const officeJobs = (level: number): number => 4 * Math.pow(level, 1.7);
 
+/**
+ * When the building inspector starts to worry (§14).
+ *
+ * Advice thresholds, not mechanics: nothing in the growth loop reads these.
+ * They sit slightly inside the real limits — the alarm marks, the spawn bar —
+ * so the card names a problem a beat before the warning icon appears, which is
+ * the difference between advice and an autopsy.
+ */
+export const INSPECT_DEMAND_WORRY = 0.25;
+/** Fraction of the pollution/noise alarm at which the card mentions it. */
+export const INSPECT_NUISANCE_EARLY = 0.8;
+/** Service coverage below this is worth naming on a struggling plot. */
+export const INSPECT_COVERAGE_WORRY = 0.5;
+
 /** Zone painting costs per tile (§6.1). */
 export const ZONE_COST = {
   res: 40,

@@ -182,6 +182,26 @@ describe('finding the neighbourhoods', () => {
     expect(districts.every((d) => d.character === 'com')).toBe(true);
   });
 
+  it('calls a block of offices a business district', () => {
+    // The bug this pins: dominantZone gained `office` in its type and kept
+    // ignoring it in the comparisons, so a pure business district was labelled
+    // by whatever came second. Offices win only outright — ties keep their old
+    // answers so no existing city wakes up with its districts renamed.
+    game.era = 'city';
+    buildRoad(game.world, row(20, 0), 'path', 1_000_000);
+    paintZone(game.world, row(20, 1), 'office', 1_000_000);
+    paintZone(game.world, row(20, 2), 'office', 1_000_000);
+    systems.invalidateFields();
+    game.demand.office = 1;
+    // Offices only rise with a schooled workforce, but they *spawn* regardless
+    // — one pass is enough for the district to have a character.
+    grow(120);
+
+    const districts = findDistricts(game);
+    expect(districts.length).toBeGreaterThan(0);
+    expect(districts.every((d) => d.character === 'office')).toBe(true);
+  });
+
   it('forgets a neighbourhood the player erased', () => {
     seedCity();
     expect(findDistricts(game).length).toBeGreaterThan(0);

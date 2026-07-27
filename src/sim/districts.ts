@@ -113,6 +113,14 @@ function uniqueName(key: number, seed: number, taken: Set<string>): string {
 }
 
 function dominantZone(zones: { res: number; com: number; ind: number; office: number }): BuiltZone {
+  // Widened with the office zone and, in the widening, fixed: the first version
+  // gained `office` in its *type* and kept ignoring it in the comparisons, so a
+  // pure business district was labelled by whatever came second. Offices win
+  // only outright — every tie keeps its old answer, so no existing city wakes
+  // up with its districts renamed.
+  if (zones.office > zones.ind && zones.office > zones.com && zones.office > zones.res) {
+    return 'office';
+  }
   if (zones.ind >= zones.res && zones.ind >= zones.com) return 'ind';
   if (zones.com >= zones.res) return 'com';
   return 'res';

@@ -6,6 +6,8 @@ import type { CameraRig } from './cameraRig';
 import { createHazards, type HazardLayer } from './hazards';
 import { createTransit, type TransitLayer } from './transit';
 import { createIssues, type IssueLayer } from './issues';
+import { createLens, LENS_REFRESH_MS, type LensLayer } from './lens';
+import type { LensKind } from '../sim/lens';
 import { createOverlay, type OverlayLayer } from './overlay';
 import { createPedestrians, type PedestrianLayer } from './pedestrians';
 import { createRoads, type RoadMesh } from './roads';
@@ -84,6 +86,9 @@ export class Renderer {
   private readonly construction: ConstructionLayer;
   private readonly wildlife: WildlifeLayer;
   private readonly overlay: OverlayLayer;
+  private readonly lens: LensLayer;
+  private lensRefreshedAt = 0;
+  private lensPlayedMs = -1;
   private readonly weather: WeatherFx;
 
   /**
@@ -143,6 +148,7 @@ export class Renderer {
     this.wildlife = createWildlife();
     this.wildlife.rebuild(state);
     this.overlay = createOverlay(state.world);
+    this.lens = createLens(state.world);
     this.weather = createWeatherFx();
 
     this.scene.add(
@@ -162,6 +168,7 @@ export class Renderer {
       this.construction.group,
       this.wildlife.group,
       this.overlay.group,
+      this.lens.group,
       this.weather.group,
     );
 
@@ -229,6 +236,22 @@ export class Renderer {
     this.zonesDirty = true;
   }
 
+  /**
+   * Raises a data lens over the map, or clears it with null (render3d/lens.ts).
+   *
+   * Takes the state because the mesh is built immediately: a lens that waits
+   * for its refresh timer answers the tap that asked for it three seconds late.
+   */
+  setLens(state: GameState, kind: LensKind | null, traffic?: Float32Array): void {
+    this.lens.set(state, kind, traffic);
+    this.lensRefreshedAt = performance.now();
+  }
+
+  /** The lens currently up, for whoever draws the button state. */
+  get activeLens(): LensKind | null {
+    return this.lens.kind;
+  }
+
   render(frame: FrameInput, deltaMs: number): void {
     const cpuStart = performance.now();
     if (!this.externalCameraControl) this.camera.update();
@@ -278,6 +301,21 @@ export class Renderer {
     this.issues.sync(frame.state, this.camera.distance, frame.now);
     this.hazards.sync(frame.state, this.camera.distance, frame.now);
     this.transit.sync(frame.state, this.camera.distance, frame.now);
+
+    // A raised lens tracks the fields it is drawn from, on its own slow clock:
+    // pollution drifts over minutes, and rebuilding 65k tiles per frame is what
+    // the zone overlay's throttle exists to prevent.
+    // …and never while the city is paused: the fields cannot have moved, so a
+    // rebuild would be pure allocation for an identical picture.
+    if (
+      this.lens.kind &&
+      frame.now - this.lensRefreshedAt > LENS_REFRESH_MS &&
+      frame.state.playedMs !== this.lensPlayedMs
+    ) {
+      this.lens.refresh(frame.state, frame.trafficLoad);
+      this.lensRefreshedAt = frame.now;
+      this.lensPlayedMs = frame.state.playedMs;
+    }
 
     // One clock for the whole frame: the sky, the lit windows and the streets
     // all read the same fraction, so nothing can disagree about what time it is.
@@ -348,6 +386,7 @@ export class Renderer {
   }
 
   dispose(): void {
+    this.lens.dispose();
     this.sky.dispose();
     this.terrain.dispose();
     this.water.geometry.dispose();

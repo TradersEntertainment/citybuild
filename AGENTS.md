@@ -229,6 +229,45 @@ elverdiği kadar yükselmişti; kuralı geriye dönük uygulamak, güncellemeden
 sonraki ilk tick'te oyuncunun diktiği her kuleden kat sökmeye başlardı.
 `deserialize` üçüncü kademenin üstündeki her binanın altını yoğun işaretliyor.
 
+### Görünürlük paketi (§14): mercekler, müfettiş, kartlar
+
+Oyun otuz sistemli ve hepsi görünmezdi; bu paket üçünü birden gösterir yapar.
+
+- **Veri mercekleri** (`sim/lens.ts` saf yarı + `render3d/lens.ts` renk yarısı):
+  sağ kolondaki ◧ butonu haritayı sırayla arazi değeri / kirlilik / gürültü /
+  trafik / hizmet kapsaması / suç riski / yoğunluk katmanına çevirir. Sözleşme:
+  **-1 = "okuma yok, hiç çizme"**, 0..1 = okuma. Sıfır bilgidir (kapsamasız
+  imarlı sokak), sessizlik değildir (dağ "hizmetsiz" değildir) — testler bunu
+  sabitler. Mesh sadece mercek açıkken ve 3 sn'de bir yeniden kurulur; her
+  değişen geometri dispose edilir (sızıntı sınıfı testte).
+- **Bina müfettişi** (`sim/inspect.ts` + `ui/inspector.ts`): gez modunda binaya
+  dokun → kart: tür, Kat x/y, kişi/iş, ₺/dk, ve **neden büyümüyor** tek cümle.
+  Engeller büyüme geçidinin gerçek sırasıyla raporlanır (yoğun imar ister /
+  hizmet yetmiyor / okul yok / talep-kirlilik-gürültü). Dokunma önceliği:
+  suç işareti > bina kartı > parsel teklifi.
+- **Menü kartları** (`ui/cards.ts`): her tesis/imar/yol satırında 44px'lik,
+  haritayla **aynı tariften** çizilmiş canvas portre — renkler `data/looks.ts`
+  ve arketip tablolarından. İmar kartları çağla birlikte değişir; Normal/Yoğun
+  anahtarı kartta üç katlı blok ↔ kule gösterir. Ekran görüntüsüyle doğrulandı
+  (canvas 2D GPU istemiyor — sandbox'ta görülebilen tek görsel katman bu).
+- Mahalle düzeltmesi: `dominantZone` ofisi tipinde kazanıp karşılaştırmada
+  yok sayıyordu; ofis artık yalnızca *açık farkla* kazanır, tüm eski
+  beraberlik cevapları aynı kalır (test sabitliyor).
+
+Paket, diff'in üstünden 3 boyutlu düşman-doğrulamalı inceleme fan-out'uyla
+geçirildi (workflow: bul → çürütmeye çalış). Onaylanan bulguların hepsi
+düzeltildi: suç merceğindeki 0.35 sabiti `CRIME_COVERED_MULT`'a bağlandı;
+müfettişin öğüt eşikleri balance.ts'e taşındı (`INSPECT_*`); çürüyen bina
+kapak kontrolünden *önce* "geriliyor" der (büyüme geçidinin kendi sırası);
+eşiğin altında sebepsiz sıkışan bina "büyüyecek" yalanı yerine "konum zayıf"
+der; bina kartı açılırken parsel teklifi kapanır; yürüme moduna girerken
+mercek ve kart iner (onları kapatacak butonlar sokakta gizli); araç seçmek
+kartı kapatır; kartın ✕'i 44px dokunma kuralına uyar; mercek mesh'i push()
+yerine sayarak önceden ayrılmış Float32Array kurar ve **duraklatılmış oyunda
+hiç yeniden kurulmaz**; tesise dokunmak artık sessiz değil (ad + bakım).
+Kabul edilen tek çakışma: onboarding sırasında koç balonu kartı örtebilir —
+koç kısa ömürlü ve öncelikli, bilinçli bırakıldı.
+
 ### Donma avı: nerede olmadığı (ölçüldü)
 
 Oyuncu: *"sekme dondu, hiç yanıt vermedi, sonra ekran kapandı; yenileyince

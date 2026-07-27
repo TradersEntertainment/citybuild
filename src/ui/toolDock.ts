@@ -1,5 +1,6 @@
 import { BRUSH_SIZES, ZONE_COST } from '../data/balance';
-import { isZoneUnlocked, ZONE_TINTS, ZONE_UNLOCK } from '../data/buildings';
+import { isZoneUnlocked, ZONE_UNLOCK } from '../data/buildings';
+import { facilityCard, roadCard, zoneCard } from './cards';
 import { ROAD_SPECS, ROAD_TIERS, isRoadUnlocked } from '../data/roads';
 import { PORT_ORDER, PORT_SPECS, isPortUnlocked, type PortKind } from '../data/ports';
 import { SERVICE_ORDER, SERVICE_SPECS, isServiceUnlocked, type ServiceKind } from '../data/services';
@@ -312,6 +313,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
         ? STR.serviceCost(spec.cost, spec.upkeep)
         : STR.lockedAt(STR.eraName[spec.unlockedAt]),
     );
+    row.prepend(facilityCard(kind));
     row.dataset['locked'] = String(!unlocked);
     row.disabled = !unlocked;
     const active = deps.tools.activeFacility;
@@ -332,6 +334,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
       STR.utility[kind],
       unlocked ? plantDetail(spec) : STR.lockedAt(STR.eraName[spec.unlockedAt]),
     );
+    row.prepend(facilityCard(kind));
     row.dataset['locked'] = String(!unlocked);
     row.disabled = !unlocked;
     const active = deps.tools.activeFacility;
@@ -356,6 +359,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
         ? STR.serviceCost(spec.cost, spec.upkeep)
         : STR.lockedAt(STR.eraName[spec.unlockedAt]),
     );
+    row.prepend(facilityCard(kind));
     row.dataset['locked'] = String(!unlocked);
     row.disabled = !unlocked;
     const active = deps.tools.activeFacility;
@@ -375,6 +379,7 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     const row = sheetRow(STR.road[kind], unlocked
       ? `${STR.format.money(spec.cost)}/kare`
       : STR.lockedAt(STR.eraName[spec.unlockedAt]));
+    row.prepend(roadCard(kind));
     row.dataset['locked'] = String(!unlocked);
     row.disabled = !unlocked;
     row.dataset['selected'] = String(deps.tools.activeRoadKind === kind);
@@ -398,7 +403,9 @@ export function mountToolDock(root: HTMLElement, deps: DockDeps): DockHandle {
     );
     row.dataset['selected'] = String(deps.tools.activeZoneKind === kind);
     row.dataset['locked'] = String(locked);
-    row.prepend(swatch(ZONE_TINTS[kind]));
+    // The card, not a colour chip: what will actually grow here, in this era,
+    // at the height the density switch is set to (ui/cards.ts).
+    row.prepend(zoneCard(kind, deps.era(), deps.tools.denseArmed));
     row.addEventListener('click', () => {
       if (locked) {
         // The press goes through and is answered, the same as the transit tool:
@@ -548,13 +555,6 @@ function sheetRow(name: string, meta: string): HTMLButtonElement {
 
   row.append(label, detail);
   return row;
-}
-
-function swatch(colour: string): HTMLElement {
-  const element = document.createElement('span');
-  element.className = 'swatch';
-  element.style.background = colour;
-  return element;
 }
 
 function toolButton(label = ''): HTMLButtonElement {

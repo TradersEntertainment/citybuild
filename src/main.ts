@@ -31,6 +31,8 @@ import { bandCount, schooledShare, workingShare } from './sim/cohorts';
 import { crimeNear, dispatchPolice } from './sim/crime';
 import { nudgeBudget } from './sim/budgets';
 import { approval, secondsToElection } from './sim/elections';
+import { buildingAt, inspectBuilding } from './sim/inspect';
+import { LENS_ORDER, type LensKind } from './sim/lens';
 import { rubbishStrain } from './sim/rubbish';
 import { transitUnlocked } from './sim/transit';
 import { isWeatherWorthAnnouncing, weatherAt } from './sim/weather';
@@ -45,7 +47,10 @@ import { activeMissions, missionsCompleted, missionsTotal } from './sim/missions
 import { buyParcel, offerFor, parcelOffers } from './sim/parcels';
 import { buyInvestment } from './sim/investments';
 import { hasSeaGate, placePort } from './sim/ports';
+import { PORT_SPECS } from './data/ports';
 import { placeService, utilitiesExpected } from './sim/services';
+import { SERVICE_SPECS } from './data/services';
+import { UTILITY_SPECS } from './data/utilities';
 import { educationCoverage, research, techOffers } from './sim/tech';
 import { placePlant, utilityBalance } from './sim/utilities';
 import { canRetire, legacyOpeningBalance, legacyValue } from './sim/legacy';
@@ -69,6 +74,7 @@ import { describeGoal } from './ui/missionText';
 import { mountParcelPrompt } from './ui/parcelPrompt';
 import { mountRetirePrompt } from './ui/retirePrompt';
 import { guidanceFor } from './ui/guidance';
+import { mountInspector } from './ui/inspector';
 import { mountIntro } from './ui/intro';
 import * as haptics from './ui/haptics';
 import { mountEventFeed, type CustomEntry } from './ui/eventFeed';
@@ -160,7 +166,12 @@ const tools = new ToolController(game, camera, undo, {
           : STR.transit.tooShort,
     );
   },
-  onChanged: () => syncUi(),
+  onChanged: () => {
+    // Picking a tool means the player is done reading: the building card gets
+    // out from over the sheet the dock is about to raise.
+    inspector.hide();
+    syncUi();
+  },
 });
 
 const districtLabels = mountDistrictLabels(ui, camera);
@@ -241,6 +252,7 @@ mountHint(ui);
 const toast = mountToast(ui);
 const eventFeed = mountEventFeed(ui);
 
+const inspector = mountInspector(ui);
 const parcelPrompt = mountParcelPrompt(ui, {
   onBuy: (offer) => {
     if (!buyParcel(game, offer.px, offer.py)) return false;
@@ -455,6 +467,7 @@ const input = bindPointerInput(canvas, {
       panFrom = { x: sample.x, y: sample.y };
       return;
     }
+    inspector.hide();
     tools.strokeStart(sample.x, sample.y);
   },
   onStrokeMove: (sample) => {
@@ -493,6 +506,9 @@ const input = bindPointerInput(canvas, {
   onTap: (sample) => {
     if (walk.active) return;
     dock.closeSheet();
+    // Whatever the tap lands on decides what opens next; the card from the
+    // last tap must not sit over it.
+    inspector.hide();
     const world = camera.screenToWorld(sample.x, sample.y);
     const tileX = Math.floor(world.x);
     const tileY = Math.floor(world.y);
@@ -509,6 +525,24 @@ const input = bindPointerInput(canvas, {
     // a clock on it, and being asked whether you would like to buy a parcel
     // while a robbery is in progress on it is the wrong answer to a finger.
     if (sendPolice(tileX, tileY)) return;
+    // A building answers before the land under it: tapping your own city asks
+    // "how is this block doing", not "may I buy this parcel again".
+    // A station, plant or berth is not in the building column, but a tap on
+    // one still deserves an answer — the card next door talks now, and a
+    // silent neighbour reads as broken.
+    const facility = facilityAt(tileX, tileY);
+    if (facility) {
+      toast.show(facility.name, STR.inspector.upkeep(facility.upkeep));
+      return;
+    }
+    const building = buildingAt(game, tileX, tileY);
+    if (building) {
+      // The land prompt from the previous tap, if any, comes down: two cards
+      // stacked in the same slot read as a broken screen.
+      parcelPrompt.show(null);
+      inspector.show(building.id, inspectBuilding(game, building));
+      return;
+    }
     const { px, py } = parcelOfTile(tileX, tileY);
     parcelPrompt.show(offerFor(game, px, py));
   },
@@ -635,6 +669,11 @@ function enterWalk(): void {
   if (walk.active) return;
   dock.closeSheet();
   historyPanel.close();
+  // The lens and the building card come down: every control that could clear
+  // them is hidden at street level, and a pollution wash over a street you are
+  // standing in reads as fog with no exit.
+  clearLens();
+  inspector.hide();
   walk.enter();
   renderer.externalCameraControl = true;
   ui!.dataset['walking'] = 'true';
@@ -699,8 +738,34 @@ const viewControls = mountViewControls(ui, {
   },
   onWalk: () => enterWalk(),
   onHistory: () => historyPanel.toggle(),
+  onCycleLens: () => cycleLens(),
+  lensActive: () => renderer.activeLens !== null,
 });
 bindAudioUnlock(canvas);
+
+/**
+ * Steps the map through its data lenses: off, then each in LENS_ORDER, then
+ * off again. One cycling button rather than a picker, same reasoning as the
+ * speed control — and every step is announced, because a map that has quietly
+ * turned into a pollution chart is a bug report waiting to be written.
+ */
+let lensAt = -1; // index into LENS_ORDER; -1 is off
+function cycleLens(): void {
+  haptics.tap();
+  lensAt = lensAt + 1 >= LENS_ORDER.length ? -1 : lensAt + 1;
+  const kind = lensAt === -1 ? null : (LENS_ORDER[lensAt] as LensKind);
+  renderer.setLens(game, kind, systems.traffic.load);
+  if (kind) toast.show(STR.lens.name[kind], STR.lens.hint[kind]);
+  else toast.show(STR.lens.off);
+}
+
+/** Drops the lens without a toast — for the flows that leave the map view. */
+function clearLens(): void {
+  if (lensAt === -1) return;
+  lensAt = -1;
+  renderer.setLens(game, null);
+  viewControls.refresh();
+}
 registerServiceWorker();
 
 /**
@@ -711,6 +776,26 @@ registerServiceWorker();
  * answered because there is no karakol has to say *that*, or the player learns
  * the marker is decoration.
  */
+/** The hand-placed facility on a tile, if any, with what it costs to run. */
+function facilityAt(tileX: number, tileY: number): { name: string; upkeep: number } | null {
+  for (const service of game.services.values()) {
+    if (service.x === tileX && service.y === tileY) {
+      return { name: STR.service[service.kind], upkeep: SERVICE_SPECS[service.kind].upkeep };
+    }
+  }
+  for (const plant of game.utilities.values()) {
+    if (plant.x === tileX && plant.y === tileY) {
+      return { name: STR.utility[plant.kind], upkeep: UTILITY_SPECS[plant.kind].upkeep };
+    }
+  }
+  for (const port of game.ports.values()) {
+    if (port.x === tileX && port.y === tileY) {
+      return { name: STR.port[port.kind], upkeep: PORT_SPECS[port.kind].upkeep };
+    }
+  }
+  return null;
+}
+
 function sendPolice(tileX: number, tileY: number): boolean {
   if (crimeNear(game, tileX, tileY) === null) return false;
   const result = dispatchPolice(game, tileX, tileY);
@@ -1491,6 +1576,13 @@ function publishReadout(): void {
   }
   syncUi();
   uiStore.getState().setFps(renderer.stats.fps, renderer.stats.cpuMs);
+  // The open building card tracks its building on the readout clock — and a
+  // card whose building burned down closes instead of narrating a ghost.
+  if (inspector.openId !== 0) {
+    const watched = game.buildings.get(inspector.openId);
+    if (!watched) inspector.hide();
+    else inspector.show(watched.id, inspectBuilding(game, watched));
+  }
 
   // Clustering walks every building, so it runs on this timer rather than per
   // frame; only the positions are refreshed with the camera.

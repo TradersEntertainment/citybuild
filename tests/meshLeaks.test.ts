@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as THREE from 'three';
 import { createBuildings, type FacadeSkins } from '../src/render3d/buildings';
+import { createLens } from '../src/render3d/lens';
 import { createStations } from '../src/render3d/stations';
 import type { Building } from '../src/sim/buildings';
 import { hashSeed } from '../src/sim/rng';
@@ -203,3 +204,49 @@ function place(game: GameState, count: number): void {
     game.services.set(i, { id: i, kind: 'police', x: 20 + (i % 100), y: 20 + Math.floor(i / 100) });
   }
 }
+
+describe('the lens layer does not leak as the player flips through it', () => {
+  it('replaces its geometry rather than accumulating them', () => {
+    // The same failure class held down three times already in this file's
+    // history: a mesh whose geometry is swapped without disposing the old one
+    // keeps the old buffers on the GPU forever. The lens swaps on every
+    // refresh, which a curious player triggers dozens of times a session.
+    const game = createGameState(hashSeed('lens-leak'), 0);
+    const layer = createLens(game.world);
+    game.world.landValue[100] = 90;
+
+    layer.set(game, 'value');
+    const mesh = layer.group.children[0] as THREE.Mesh;
+    const first = mesh.geometry;
+    expect(first.getAttribute('position').count).toBeGreaterThan(0);
+
+    let disposed = 0;
+    first.addEventListener('dispose', () => disposed++);
+    layer.refresh(game);
+    expect(disposed).toBe(1);
+    expect(mesh.geometry).not.toBe(first);
+
+    // Clearing frees the buffers too — an invisible 65k-tile mesh would hold
+    // its memory for a feature that is switched off.
+    const second = mesh.geometry;
+    let secondDisposed = 0;
+    second.addEventListener('dispose', () => secondDisposed++);
+    layer.set(game, null);
+    expect(secondDisposed).toBe(1);
+    expect(mesh.visible).toBe(false);
+    layer.dispose();
+  });
+
+  it('draws nothing while no lens is up', () => {
+    const game = createGameState(hashSeed('lens-idle'), 0);
+    const layer = createLens(game.world);
+    const mesh = layer.group.children[0] as THREE.Mesh;
+    expect(mesh.visible).toBe(false);
+    // refresh with nothing up must stay a no-op, because the renderer calls it
+    // on a timer and an idle feature has to cost nothing.
+    layer.refresh(game);
+    expect(mesh.visible).toBe(false);
+    expect(mesh.geometry.getAttribute('position')).toBeUndefined();
+    layer.dispose();
+  });
+});

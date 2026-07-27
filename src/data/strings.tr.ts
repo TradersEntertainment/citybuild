@@ -644,6 +644,51 @@ export const STR = {
     transit: 'Otoyol geçişi',
   },
 
+  lens: {
+    off: 'Katman kapandı',
+    name: {
+      value: 'Arazi değeri',
+      pollution: 'Kirlilik',
+      noise: 'Gürültü',
+      traffic: 'Trafik',
+      coverage: 'Hizmet kapsaması',
+      crime: 'Suç riski',
+      density: 'İmar yoğunluğu',
+    },
+    hint: {
+      value: 'Altın = değerli. Vergi burada toplanır; parklar ve hizmetler değeri yükseltir.',
+      pollution: 'Kızıl = kirli. Fabrikalar ve santraller yayar; konut buradan kaçar.',
+      noise: 'Turuncu = gürültülü. Anayollar ve sanayi; ev fiyatını düşürür.',
+      traffic: 'Kırmızı = tıkalı. Tıkalı sokak ziyaretçiyi ve malı yavaşlatır.',
+      coverage: 'Yeşil = hizmet alıyor, kırmızı = istasyon yetişmiyor.',
+      crime: 'Pembe = riskli. Dükkânlar hedef; karakol kapsaması riski düşürür.',
+      density: 'Parlak = yoğun imar (beş kat), soluk = normal (üç kat).',
+    },
+  },
+
+  inspector: {
+    close: 'Kapat',
+    level: (level: number, cap: number): string => `Kat ${level}/${cap}`,
+    residents: (people: number, capacity: number): string =>
+      `${plain.format(Math.round(people))}/${plain.format(Math.round(capacity))} kişi`,
+    jobs: (jobs: number, capacity: number): string =>
+      `${plain.format(Math.round(jobs))}/${plain.format(Math.round(capacity))} iş`,
+    output: (perMinute: number): string => `₺${money.format(Math.round(perMinute))}/dk`,
+    upkeep: (perMinute: number): string => `Bakım: ₺${money.format(Math.round(perMinute))}/dk`,
+    maxed: 'Bu bina zirvesinde — arsasının izin verdiği en yüksek hâli.',
+    growing: 'Bir sorunu yok; sırası gelince büyüyecek.',
+    blocker: {
+      decay: 'Bu bina geriliyor — böyle kalırsa kat kaybedecek.',
+      denseZoning: 'Normal imar üç katta durur. Daha yükseği için yoğun imar boyaman gerek.',
+      services: 'Hizmet yetmiyor — kapsama katmanına bak, eksik istasyonu kur.',
+      schools: 'Okumuş işgücü yok. Okul bugün, bu ofisin katları iki kuşak sonra.',
+      demand: 'Şu an bu türe talep yok — talep çubuklarına bak.',
+      pollution: 'Kirlilik bastırıyor. Kaynağı kirlilik katmanında gör.',
+      noise: 'Sokak fazla gürültülü — anayolu ya da sanayiyi uzaklaştır.',
+      stalled: 'Konum zayıf — yol erişimine, çevresine ve arazi değerine bak.',
+    },
+  },
+
   view: {
     zoomIn: 'Yaklaştır',
     zoomOut: 'Uzaklaştır',
@@ -659,6 +704,7 @@ export const STR = {
     panOff: 'Kaydırma kapalı — tek parmak yine çiziyor.',
     /** Shown once, the first time a desktop city opens. */
     keyboardHint: 'WASD / ok tuşları ile haritayı gezebilirsin · Q E çevirir · R F yakınlaştırır',
+    lens: 'Veri katmanları',
   },
 
   walk: {
