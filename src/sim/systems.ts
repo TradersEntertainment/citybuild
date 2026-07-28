@@ -7,6 +7,7 @@ import { stepElections, type ElectionEvent } from './elections';
 import { stepLobbies, type LobbyLapse } from './lobbies';
 import { findMarooned, isMarooned, type MaroonedRoads } from './marooned';
 import { stepUnrest, type UnrestChange } from './unrest';
+import { stepPromises } from './promises';
 import { computeGoods, createGoodsField, type GoodsField } from './goods';
 import { lobbyValueFactor } from './lobbies';
 import {
@@ -255,6 +256,8 @@ export class Systems {
     this.lobbyLapses.push(...stepLobbies(state));
     // The streets, on the same clock as the votes they answer to (§29).
     this.unrestChanges.push(...stepUnrest(state, dt));
+    // What the room remembers of a broken promise, fading (§30).
+    stepPromises(state, dt);
     stepResearch(state, dt);
     const era = stepProgression(state);
 

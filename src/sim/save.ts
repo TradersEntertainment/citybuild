@@ -13,6 +13,8 @@ import { PROGRAMME_ORDER, tiersOf } from '../data/investments';
 import { investmentLevels } from './investments';
 import { ATTRACTION_ORDER } from '../data/attractions';
 import { LOBBY_ORDER } from '../data/lobbies';
+import { PROMISE_SPECS, type PromiseId } from '../data/promises';
+import { GROUP_ORDER } from './groups';
 import { POLICY_SPECS, type PolicyId } from '../data/policies';
 import { PORT_ORDER } from '../data/ports';
 import { SERVICE_ORDER } from '../data/services';
@@ -121,6 +123,15 @@ export interface SaveData {
    */
   mandate: string;
   unrest: number;
+  /**
+   * Promises outstanding, by id, and what each faction remembers of the broken
+   * ones — parallel to GROUP_ORDER (§30).
+   *
+   * Saved because a promise is a debt: a reload that cleared it would make the
+   * whole mechanic free, which is exactly the thing it is designed not to be.
+   */
+  promises: string[];
+  betrayed: number[];
   /**
    * Signed lobby deals, flattened: kind index, played-ms it lapses at.
    *
@@ -262,6 +273,8 @@ export function serialize(state: GameState): SaveData {
     policies: [...state.policies],
     mandate: state.mandate,
     unrest: Math.round(state.unrest * 1000) / 1000,
+    promises: [...state.promises],
+    betrayed: state.betrayed.map((memory) => Math.round(memory * 1000) / 1000),
     lobbies,
     transit,
     nextTransitId: state.nextTransitId,
@@ -534,6 +547,22 @@ export function deserialize(data: unknown): GameState | null {
   const unrest = data.unrest;
   state.unrest =
     typeof unrest === 'number' && Number.isFinite(unrest) ? Math.min(1, Math.max(0, unrest)) : 0;
+
+  // Promises, filtered to the ones this build still has — a promise that no
+  // longer exists simply lapses, the same rule as goals, techs and ordinances.
+  for (const id of Array.isArray(data.promises) ? data.promises : []) {
+    if (typeof id === 'string' && id in PROMISE_SPECS) state.promises.push(id as PromiseId);
+  }
+  // The grudges, clamped and sized to the factions this build knows. A file
+  // written when there were more of them is truncated rather than rejected, and
+  // one written when there were fewer leaves the new factions trusting.
+  const betrayed = Array.isArray(data.betrayed) ? data.betrayed : [];
+  state.betrayed = GROUP_ORDER.map((_, i) => {
+    const memory = betrayed[i];
+    return typeof memory === 'number' && Number.isFinite(memory)
+      ? Math.min(1, Math.max(0, memory))
+      : 0;
+  });
 
   // Signed deals. A file from before the lobbies existed has no key at all and
   // loads as a city nobody has approached, which is exactly right. An index this

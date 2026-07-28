@@ -78,6 +78,8 @@ import { LOBBY_SPECS } from './data/lobbies';
 import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
 import { readReport, reportLegacyFactor } from './sim/report';
 import { activeSites } from './sim/missions';
+import { PROMISE_ORDER, PROMISE_SPECS, isPromiseUnlocked } from './data/promises';
+import { betrayalTotal, hasPromised, makePromise, promiseProgress } from './sim/promises';
 import { siteArea } from './sim/sites';
 import { isMarooned } from './sim/marooned';
 import { mountCityPanel } from './ui/cityPanel';
@@ -263,6 +265,39 @@ mountCityPanel(ui, {
    */
   // Ordinances (sim/policies.ts). Every outcome is spoken, the lock included:
   // a toggle that silently does nothing reads as a broken switch.
+  /**
+   * Says a promise out loud (§30).
+   *
+   * Free, instant, and it moves the room before the player has built anything —
+   * which is the mechanic, not an oversight. The toast names who it was aimed
+   * at, so the player can feel the constituency rather than the number.
+   */
+  onPromise: (id) => {
+    const outcome = makePromise(game, id as never);
+    haptics.tap();
+    if (outcome === 'locked') {
+      sfx.play('blocked');
+      toast.show(STR.promise.names[id as keyof typeof STR.promise.names], STR.lockedAt(''));
+      return;
+    }
+    if (outcome === 'full') {
+      sfx.play('blocked');
+      toast.show(STR.promise.full);
+      return;
+    }
+    if (outcome === 'already') return;
+    sfx.play('build');
+    toast.show(STR.promise.made, STR.promise.names[id as keyof typeof STR.promise.names]);
+    eventFeed.pushCustom([
+      {
+        icon: STR.promise.icon,
+        tone: 'calm',
+        text: `${STR.promise.names[id as keyof typeof STR.promise.names]} — ${STR.promise.courts[id as keyof typeof STR.promise.courts]}`,
+      },
+    ]);
+    syncUi();
+    autosave.flush(game);
+  },
   onPolicy: (id) => {
     const outcome = togglePolicy(game, id);
     haptics.tap();
@@ -1348,6 +1383,27 @@ function announceElection(): void {
     appendHistory([
       { year: yearOf(game.playedMs), icon: '🗳️', title: text, detail: undefined },
     ]);
+    // The promises that came due, before the card (§30). They are the reason
+    // the vote went the way it did, so they are reported first — a player who
+    // won on promises should read why in the order it happened.
+    for (const verdict of event.promises) {
+      const name = STR.promise.names[verdict.id];
+      const text = verdict.kept ? STR.promise.kept(name) : STR.promise.broken(name);
+      eventFeed.pushCustom([
+        { icon: STR.promise.icon, tone: verdict.kept ? 'calm' : 'alarm', text },
+      ]);
+      pressRun(verdict.kept ? STR.media.promiseKept : STR.media.promiseBroken);
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: STR.promise.icon,
+          title: text,
+          detail: verdict.kept ? STR.promise.chronicleKept : STR.promise.chronicleBroken,
+        },
+      ]);
+    }
+    if (event.promises.some((verdict) => !verdict.kept)) sfx.play('alarm');
+
     // …and the card beside the verdict, every term, won or lost. Together they
     // are the transcript this game never had: a mayor can read back four terms
     // of "kazandı" against four terms of D and see exactly what they traded.
@@ -1842,6 +1898,14 @@ function syncUi(): void {
     report: readReport(game),
     mandate: game.mandate,
     unrest: game.unrest,
+    promises: PROMISE_ORDER.map((id) => ({
+      id,
+      made: hasPromised(game, id),
+      unlocked: isPromiseUnlocked(id, game.era),
+      progress: promiseProgress(game, id),
+      target: PROMISE_SPECS[id].target,
+    })),
+    betrayed: betrayalTotal(game),
     riders: systems.traffic.riders,
     secondsToElection: secondsToElection(game.playedMs),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },

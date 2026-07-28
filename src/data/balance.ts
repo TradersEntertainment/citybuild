@@ -721,6 +721,28 @@ export const ELECTION_THRESHOLD = 0.5;
  * number going up faster.
  */
 export const MANDATE_PER_CITIZEN = 9;
+/**
+ * How the grant answers to how well the city was actually run (§25).
+ *
+ * The grant is by a wide margin the largest sum in the game — at a hundred
+ * thousand residents it is nine hundred thousand lira a term, more than the
+ * entire twenty-nine-goal mission chain pays across a whole playthrough — and
+ * until now it looked only at population. A mayor was paid for *size*, and
+ * every quality signal the game had built lived somewhere else and was worth a
+ * fraction as much. That is the wrong thing for the biggest number in a game
+ * about governing to measure.
+ *
+ * So the grant is scaled by the report card, and the calibration is the
+ * important half. At a card of 0.5 — a C, an ordinary city — the multiplier is
+ * exactly 1, so nothing an existing city earns today is taken away. An A earns
+ * 1.4×; an F earns 0.6×. Same construction as DAY_TRADE_UPLIFT in
+ * sim/investments.ts and for the same reason: a rebalance that moves the
+ * average case is a nerf wearing a design rationale, and the point here is to
+ * make quality an *opportunity* rather than to punish anybody for the city they
+ * already have.
+ */
+export const MANDATE_CARD_FLOOR = 0.6;
+export const MANDATE_CARD_SPAN = 0.8;
 /** Mood the city carries for a while after a win, and after a defeat. */
 export const MANDATE_HAPPINESS = 6;
 export const REBUKE_HAPPINESS = 9;
@@ -757,6 +779,44 @@ export const GROUP_POLICY_SWAY = 0.15;
 export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
+
+// --- Campaign promises (§30) ---------------------------------------------------
+/**
+ * What saying it buys, what keeping it is worth, and what breaking it costs.
+ *
+ * The asymmetry is the mechanic. Making a promise is free and immediate;
+ * breaking one costs more than making it ever bought, and takes terms to shed.
+ * If the two balanced, promising everything would be strictly correct and there
+ * would be nothing to weigh — the player has to be able to buy an election with
+ * words and find out at the next one what that cost.
+ *
+ * Sized against GROUP_POLICY_SWAY (0.12) and LOBBY_GROUP_SWAY (0.22) on the
+ * same 0..1 pet score: a promise moves a faction harder than an ordinance and
+ * about as hard as a signed contract, which is right — it is addressed to them
+ * by name.
+ */
+export const PROMISE_MADE_SWAY = 0.18;
+export const PROMISE_KEPT_SWAY = 0.1;
+export const PROMISE_BETRAYAL_SWAY = 0.34;
+/**
+ * How much of a faction's trust one broken promise costs, 0..1.
+ *
+ * Not a whole one, deliberately. At 1 the meter would saturate on the first
+ * betrayal and a mayor who broke faith twice with the same room would be no
+ * worse off than one who did it once — no gradient, and a cap that arrives
+ * before the player has learned there is one. At 0.75 the first breach is
+ * already worse than the promise ever bought (0.255 against 0.18) and the
+ * second reaches the ceiling, which is where a ceiling belongs.
+ */
+export const PROMISE_BETRAYAL_STEP = 0.75;
+/**
+ * How fast a faction forgets being lied to.
+ *
+ * One full betrayal takes about three election terms to shed. Slow enough that
+ * a broken promise is a real cost and fast enough that it is never a cap on the
+ * rest of the city's life — the same reason the verdict memory fades.
+ */
+export const PROMISE_BETRAYAL_DECAY_PER_S = 1 / 600;
 
 // --- Legitimacy and unrest (§29) -----------------------------------------------
 /**

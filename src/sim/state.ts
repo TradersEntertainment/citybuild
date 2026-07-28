@@ -3,6 +3,7 @@ import type { Building } from './buildings';
 import type { Attraction } from './attractions';
 import type { LobbyDeal } from './lobbies';
 import type { Mandate } from './unrest';
+import type { PromiseId } from '../data/promises';
 import { createBudgets, type Budgets } from './budgets';
 import type { PolicyId } from '../data/policies';
 import type { Loan } from './credit';
@@ -179,6 +180,17 @@ export interface GameState {
   mandate: Mandate;
   unrest: number;
   /**
+   * Promises outstanding, and what each faction remembers of the broken ones
+   * (sim/promises.ts, §30).
+   *
+   * `betrayed` is parallel to GROUP_ORDER rather than a map, so the save is an
+   * array of numbers and a faction added later simply starts at zero. Both
+   * saved: a promise a player made is a debt, and a reload that cleared it
+   * would make the whole mechanic free.
+   */
+  promises: PromiseId[];
+  betrayed: number[];
+  /**
    * Level bought in each civic programme (data/investments.ts). What a rich city
    * spends its money on, and the only purchase whose effect is the whole map.
    */
@@ -237,6 +249,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     nextAttractionId: 1,
     policies: new Set(),
     lobbies: [],
+    promises: [],
+    betrayed: [],
     mandate: 'elected',
     unrest: 0,
     transit: new Map(),

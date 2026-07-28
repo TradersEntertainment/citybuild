@@ -626,6 +626,34 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §30 seçim vaatleri — popülizmin *fiili*
+§25 popülizmi *ölçüyordu*, §27 iyi yönetimi *ödüllendiriyordu*, §29 ikisi
+çeliştiğinde ne yapacağını *soruyordu*. Hiçbiri oyuncunun popülist **olmasına**
+izin vermiyordu — "onlara duymak istediklerini söyle" diyen bir düğme yoktu.
+
+`sim/promises.ts` o düğme. Tasarımın tamamı iki an arasındaki boşluk:
+- **Vaat vermek bedavadır ve anında işe yarar.** Hedeflediği kesim, daha hiçbir
+  şey inşa edilmeden ısınır. Bu sempatiyle modellenmiş bir kusur değil,
+  mekanizmanın kendisi — vaat vermek pahalı ya da yavaş olsaydı popülizm bir
+  tuzak olurdu ve oyun taraf tutmuş olurdu.
+- **Fatura sonraki seçimde gelir.** Tutulursa güvene dönüşür; tutulmazsa o
+  kesim döner — verdiğinden daha sert ve daha uzun süre.
+
+Asimetri kasıtlı (`PROMISE_BETRAYAL_SWAY` > `PROMISE_MADE_SWAY`): ikisi eşit
+olsaydı her şeyi vaat etmek kesin doğru olur ve tartılacak bir şey kalmazdı.
+Oyuncu sözlerle bir seçim kazanabilmeli ve bunun bedelini bir sonrakinde
+öğrenmeli. Kırgınlık soluyor (~3 dönem) — kalıcı olsaydı erken bir yanlış tüm
+şehrin siyasetini ömür boyu kapardı.
+
+§30 sırasında bulunan iki gerçek hata:
+- `state.betrayed` GROUP_ORDER ile indeksleniyor ama boş dizi olarak
+  başlıyordu; greens'in yuvasına yazmak **seyrek dizi** bırakıyordu ve toplamı
+  **NaN** oluyordu — panele "NaN" olarak ulaşırdı. `ensureBetrayed` ile
+  yoğunlaştırılıyor (regresyon testi var).
+- Kırılma adımı 1 olduğu için ilk ihanette tavana vuruyordu; yorum "üst üste
+  biner" diyordu, kod binmiyordu. Adım 0.75 oldu: ilk ihanet zaten vaadin
+  kazandırdığından pahalı, ikincisi tavana ulaşıyor.
+
 ### §29 meşruiyet ve huzursuzluk — seçimin gerçekten önemli olduğu an
 Oyuncunun isteği: "seçimi kaybedersek sorsun, devam etmek istiyorsan kaos
 çıksın, yönetime zorla el koyalım." Kaybetmek o zamana kadar oyundaki **en
@@ -656,6 +684,18 @@ yönetimden, sadece tatsız şehirden kaçtığından hızlı kaçar), suç, kes
 (§23 — düz bir ceza, çünkü bu bazılarının sevdiği bir politika değil,
 "bu yönetim orada olmalı mı" sorusu), iki gazete (§23 — Posta darbeyi istikrar,
 Gazete bir şeyin sonu diye okuyor; ikisi de yalan söylemiyor).
+
+### Ödül ekonomisi — ölçüldü ve düzeltildi
+Denetim (gerçek sayılarla): seçim ödeneği 100k nüfusta **₺900.000/dönem** —
+29 hedeflik tüm inşaat zincirinden (₺590.700) fazla — ve **sadece nüfusa**
+bakıyordu. Yani oyun "daha büyük"e "daha iyi"den ~6 kat fazla ödüyordu; §25 ve
+§27 kaliteyi ölçüyor ve söylüyordu ama cüzdanda karşılığı zayıftı.
+
+Ödenek artık karneye bağlı: `pop × MANDATE_PER_CITIZEN × (0.6 + 0.8 × karne)`.
+Kalibrasyon `DAY_TRADE_UPLIFT` emsalini izliyor — karne 0.5'te çarpan tam 1.0,
+yani ortalama şehir hiçbir şey kaybetmiyor. **Ölçüldü:** makul oynanmış bir
+şehir %80 (B) alıyor → **1.24×**. Yani yetkin oyuncu kazanıyor, sadece gerçekten
+ihmal edilmiş şehir 0.6 tabanına düşüyor.
 
 ### §28 saha görevleri — haritada *yer* gösteren ilk hedefler
 Oyuncunun sorusu: "haritanın belli bir kısmı görev olarak verilecek, oraya

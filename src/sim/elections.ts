@@ -1,6 +1,8 @@
 import {
   ELECTION_THRESHOLD,
   MANDATE_HAPPINESS,
+  MANDATE_CARD_FLOOR,
+  MANDATE_CARD_SPAN,
   MANDATE_PER_CITIZEN,
   REBUKE_HAPPINESS,
   TERM_YEARS,
@@ -8,6 +10,8 @@ import {
 } from '../data/balance';
 import { SECONDS_PER_YEAR } from '../data/timeline';
 import { electorateApproval } from './groups';
+import { settlePromises, type PromiseVerdict } from './promises';
+import { readReport } from './report';
 import { electionsRun, restoreMandate } from './unrest';
 import type { GameState } from './state';
 
@@ -77,6 +81,8 @@ export interface ElectionEvent {
   grant: number;
   /** How many terms this settles. More than one only after an absence. */
   terms: number;
+  /** Every promise that came due at this vote, kept or broken (§30). */
+  promises: readonly PromiseVerdict[];
 }
 
 const NO_EVENTS: readonly ElectionEvent[] = [];
@@ -109,6 +115,12 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
   // because losing an election a city was too small to hold is not a lesson.
   if (state.population < 1) return NO_EVENTS;
 
+  // Promises are settled *before* the vote is counted (§30), which is the whole
+  // shape of the mechanic: the warmth an outstanding promise bought is spent on
+  // the election it was made for, and the reckoning lands on the next one. A
+  // mayor who promised and delivered goes into this vote with the trust; one
+  // who promised and did not goes into the *following* one with the grudge.
+  const promises = settlePromises(state);
   const share = approval(state);
   const won = share >= ELECTION_THRESHOLD;
   state.verdictMemory = VERDICT_MEMORY_S;
@@ -127,13 +139,30 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
    * was at the time, and reported as one line rather than several: five toasts
    * at once is not five pieces of news.
    */
-  const grant = won ? Math.round(state.population * MANDATE_PER_CITIZEN) * missed : 0;
+  // What the term is worth, and what the city did with the last one. The card
+  // is read once and applied to every term being settled at the same time,
+  // which is the honest reading: there is no record of what the card was during
+  // an absence, and the alternative is paying the full rate for years nobody
+  // watched.
+  const standard = MANDATE_CARD_FLOOR + MANDATE_CARD_SPAN * readReport(state).overall;
+  const grant = won
+    ? Math.round(state.population * MANDATE_PER_CITIZEN * standard) * missed
+    : 0;
   if (grant > 0) state.money += grant;
   // Winning is the honest way back to legitimacy: a mayor who refused a result
   // and then won the next vote is elected again, and the streets settle at the
   // ordinary rate from wherever the refusal left them (§29).
   if (won) restoreMandate(state);
-  return [{ kind: 'election', verdict: state.lastVerdict, approval: share, grant, terms: missed }];
+  return [
+    {
+      kind: 'election',
+      verdict: state.lastVerdict,
+      approval: share,
+      grant,
+      terms: missed,
+      promises,
+    },
+  ];
 }
 
 /**

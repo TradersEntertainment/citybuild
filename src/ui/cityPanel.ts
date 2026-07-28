@@ -9,6 +9,7 @@ import { SERVICE_ORDER, type ServiceKind } from '../data/services';
 import { POLICY_ORDER, POLICY_SPECS, type PolicyId } from '../data/policies';
 import { STR } from '../data/strings.tr';
 import { REPORT_DIMENSIONS } from '../sim/report';
+import { PROMISE_LIMIT } from '../data/promises';
 import type { Era } from '../sim/tiles';
 import { uiStore, type MissionView, type ProgrammeView } from '../state/store';
 import { describeGoal } from './missionText';
@@ -59,6 +60,8 @@ export interface CityPanelDeps {
   onBudget(kind: ServiceKind, direction: number): void;
   /** Toggles an ordinance; the shell speaks the outcome (sim/policies.ts). */
   onPolicy(id: PolicyId): void;
+  /** Says a promise out loud (§30). */
+  onPromise(id: string): void;
   /** Whether an ordinance is in force, for the row state. */
   policyActive(id: PolicyId): boolean;
   policyUnlocked(id: PolicyId): boolean;
@@ -341,6 +344,49 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
    * a punishment; this one always says what settles it, and for a government
    * that ended the voting it says the only thing that can.
    */
+  /**
+   * Campaign promises (§30), directly above the legitimacy the mayor is
+   * spending them on.
+   *
+   * The note under the heading states the whole mechanic in one line —
+   * free now, expensive later — because a player who discovers the second half
+   * at an election they lost would rightly feel tricked. Populism is supposed
+   * to be tempting, not hidden.
+   */
+  const promises = section(STR.promise.title);
+  const promiseNote = document.createElement('p');
+  promiseNote.className = 'mission-empty';
+  promiseNote.textContent = STR.promise.note;
+  const promiseCount = row(STR.promise.title);
+  const promiseList = document.createElement('div');
+  const betrayedRow = row(STR.promise.betrayed);
+  promises.body.append(promiseNote, promiseCount.el, promiseList, betrayedRow.el);
+  inner.append(promises.el);
+
+  const promiseRows = new Map<
+    string,
+    { button: HTMLButtonElement; value: HTMLSpanElement }
+  >();
+  /** A promise's row: what it says, who it is aimed at, and where the city is. */
+  const promiseRow = (id: string) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'panel-policy';
+
+    const name = document.createElement('span');
+    const key = id as keyof typeof STR.promise.names;
+    name.textContent = `${STR.promise.names[key]} — ${STR.promise.courts[key]}`;
+    const value = document.createElement('span');
+    value.className = 'panel-value mono';
+    button.append(name, value);
+    button.addEventListener('click', () => deps.onPromise(id));
+    promiseList.append(button);
+
+    const made = { button, value };
+    promiseRows.set(id, made);
+    return made;
+  };
+
   const legitimacy = section(STR.crisis.heading);
   const mandateRow = row(STR.crisis.mandate.elected);
   const unrestRow = row(STR.crisis.unrest);
@@ -602,6 +648,38 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       row_.value.textContent = STR.format.percent(score);
       row_.bar.style.width = `${Math.round(score * 100)}%`;
     }
+    // The promises. Shown from the era that opens the first one, because unlike
+    // legitimacy this is a verb the player is meant to reach for rather than a
+    // consequence they stumble into.
+    let made = 0;
+    let anyUnlocked = false;
+    for (const view of s.promises) {
+      const promiseView = promiseRows.get(view.id) ?? promiseRow(view.id);
+      promiseView.button.hidden = !view.unlocked;
+      if (!view.unlocked) continue;
+      anyUnlocked = true;
+      if (view.made) made++;
+      promiseView.button.dataset['selected'] = String(view.made);
+      // Where the city stands against the bar, and whether that clears it. Shown
+      // for every promise, made or not: a player deciding what to promise wants
+      // to know which ones they are already close to.
+      const clears = view.progress >= view.target;
+      promiseView.value.textContent = view.made
+        ? `${STR.format.percent(view.progress)} · ${clears ? STR.promise.onTrack : STR.promise.behind}`
+        : STR.promise.progress(
+            STR.format.percent(view.progress),
+            STR.format.percent(view.target),
+          );
+      promiseView.button.dataset['alarm'] = String(view.made && !clears);
+    }
+    promises.el.hidden = !anyUnlocked;
+    promiseCount.set(STR.promise.count(made, PROMISE_LIMIT));
+    // The grudge is its own row and hidden until there is one — a "0" here
+    // would be the game reminding a player of a mistake they have not made.
+    betrayedRow.el.hidden = s.betrayed <= 0.005;
+    betrayedRow.set(STR.format.percent(Math.min(1, s.betrayed)));
+    betrayedRow.el.dataset['alarm'] = 'true';
+
     // Legitimacy, hidden until the player has actually been asked the question.
     const mandate = s.mandate as keyof typeof STR.crisis.mandate;
     const contested = mandate !== 'elected' || s.unrest > 0.005;

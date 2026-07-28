@@ -223,6 +223,14 @@ export const STR = {
       post: 'Yönetim el değiştirmedi: kararlar artık hızlı alınacak.',
       gazette: 'Seçim yok. Bundan sonrasını kim soracak?',
     },
+    promiseKept: {
+      post: 'Belediye taahhüdünü yerine getirdi: güven tazelendi.',
+      gazette: 'Dediğini yaptı. Mahalle şaşırdı ama memnun.',
+    },
+    promiseBroken: {
+      post: 'Taahhüt tutulmadı: yatırımcı temkinli.',
+      gazette: 'Söz vermişti. Kimse unutmadı.',
+    },
     crisisSettled: {
       post: 'Sokak yatıştı: yatırımcı geri dönüyor.',
       gazette: 'Meydan boşaldı — kimse kazandı demiyor, ama ekmek ucuzladı.',
@@ -713,6 +721,55 @@ export const STR = {
    * would be the game deciding for them. Both are stated flatly, and the choice
    * is theirs.
    */
+  /**
+   * Campaign promises (§30).
+   *
+   * Every line is written as something a mayor would actually say on a stage,
+   * not as a system description — "Trafiği çözeceğim" rather than "trafik
+   * şikâyeti %18'in altına insin". The bar is shown separately, beside the
+   * progress, so the promise reads as a promise and the measurement reads as
+   * the measurement.
+   */
+  promise: {
+    title: 'Seçim vaatleri',
+    icon: '\u{1F4E3}',
+    note: 'Vaat vermek bedava ve hemen işe yarar. Seçimde tutulmayan vaat pahalıya patlar.',
+    /** "2/3 vaat" */
+    count: (made: number, limit: number): string => `${made}/${limit} vaat`,
+    none: 'Henüz vaat yok.',
+    make: 'Vaat ver',
+    made: 'Vaat verildi.',
+    full: 'Daha fazla vaat veremezsin.',
+    /** On the row: where the city stands against the bar. */
+    progress: (have: string, want: string): string => `${have} / ${want}`,
+    onTrack: 'tutuluyor',
+    behind: 'geride',
+    /** At the election. */
+    kept: (what: string): string => `Vaat tutuldu: ${what}`,
+    broken: (what: string): string => `Vaat tutulmadı: ${what}`,
+    /** The grudge, in the panel. */
+    betrayed: 'Kırılan güven',
+    betrayedNote: 'Tutulmayan vaatler unutulur, ama birkaç dönem sürer.',
+    names: {
+      noJams: 'Trafiği çözeceğim',
+      cleanAir: 'Havayı temizleyeceğim',
+      schools: 'Her mahalleye okul',
+      lowTax: 'Vergiyi artırmayacağım',
+      work: 'Herkese iş',
+      care: 'Sağlık ocağı her yerde',
+    },
+    /** Who it is addressed to, shown on the row. */
+    courts: {
+      noJams: 'sürücülere',
+      cleanAir: 'çevrecilere',
+      schools: 'ailelere',
+      lowTax: 'esnafa',
+      work: 'gençlere',
+      care: 'emeklilere',
+    },
+    chronicleKept: 'Belediye verdiği sözü tuttu.',
+    chronicleBroken: 'Belediye verdiği sözü tutmadı.',
+  },
   crisis: {
     title: 'Seçim kaybedildi',
     icon: '\u{1F5F3}',

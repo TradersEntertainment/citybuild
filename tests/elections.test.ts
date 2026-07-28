@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   ELECTION_THRESHOLD,
+  MANDATE_CARD_FLOOR,
+  MANDATE_CARD_SPAN,
   MANDATE_PER_CITIZEN,
   TAX_RATE_MAX,
   TERM_YEARS,
@@ -15,9 +17,12 @@ import {
   verdictHappiness,
   type ElectionEvent,
 } from '../src/sim/elections';
+import { readReport } from '../src/sim/report';
 import { hashSeed } from '../src/sim/rng';
 import { deserialize, serialize } from '../src/sim/save';
 import { createGameState, type GameState } from '../src/sim/state';
+import { ISSUE } from '../src/sim/tiles';
+import { index, startingCentre } from '../src/sim/world';
 
 /**
  * The vote (§30).
@@ -103,7 +108,7 @@ describe('holding one', () => {
     const [event] = stepElections(game, 1);
 
     expect(event?.terms).toBe(4);
-    expect(event?.grant).toBe(Math.round(game.population * MANDATE_PER_CITIZEN) * 4);
+    expect(event?.grant).toBe(expectedGrant(game) * 4);
     expect(game.money).toBe(before + (event?.grant ?? 0));
     expect(game.lastTermSettled).toBe(4);
   });
@@ -121,6 +126,34 @@ describe('holding one', () => {
     expect(toTerm(game, 1)).toEqual([]);
   });
 });
+
+/** Puts a row of buildings on the map, so the report card has something to read. */
+function fill(state: GameState, opts: { issues: number; level: number }): void {
+  const centre = startingCentre(state.world);
+  const x0 = Math.floor(centre.x) - 15;
+  const y = Math.floor(centre.y);
+  for (let n = 0; n < 30; n++) {
+    const id = state.nextBuildingId++;
+    state.buildings.set(id, {
+      id, x: x0 + n, y, zone: 'res', level: opts.level, score: 0.6,
+      growthProgress: 0, decayTimer: 0, population: 20, jobs: 0,
+      issues: opts.issues, output: 0, builtAt: 0, variantSeed: n,
+    } as never);
+    state.world.landValue[index(state.world, x0 + n, y)] = opts.issues === 0 ? 55 : 6;
+  }
+}
+
+/**
+ * What a term is worth for this city, as the sim computes it.
+ *
+ * Derived rather than hard-coded since §25: the grant answers to the report
+ * card as well as to the population, so a fixture asserting the bare
+ * population product would be pinning a formula the game no longer uses.
+ */
+function expectedGrant(state: GameState): number {
+  const standard = MANDATE_CARD_FLOOR + MANDATE_CARD_SPAN * readReport(state).overall;
+  return Math.round(state.population * MANDATE_PER_CITIZEN * standard);
+}
 
 describe('what the city is judging', () => {
   it('reads the mood above everything else', () => {
@@ -188,8 +221,39 @@ describe('winning and losing', () => {
     const [event] = toTerm(game, 1);
     expect(event?.verdict).toBe('won');
     expect(event?.terms).toBe(1);
-    expect(event?.grant).toBe(Math.round(game.population * MANDATE_PER_CITIZEN));
+    expect(event?.grant).toBe(expectedGrant(game));
     expect(game.money).toBe(before + (event?.grant ?? 0));
+  });
+
+  it('pays more for a better-run city of the same size (§25)', () => {
+    // The grant is by a wide margin the largest sum in the game and used to
+    // look only at population, so a mayor was paid for size alone. Same
+    // population, same era, same everything — only the card differs.
+    // The fixture sets a population without placing anything, and the card is
+    // read off buildings — so both cities need a real street before the two can
+    // differ on anything but size.
+    const neglected = city();
+    neglected.happiness = 90;
+    fill(neglected, { issues: ISSUE.traffic | ISSUE.pollution | ISSUE.noService, level: 1 });
+    const cared = city();
+    cared.happiness = 90;
+    fill(cared, { issues: 0, level: 5 });
+
+    expect(cared.population).toBe(neglected.population);
+    const [good] = toTerm(cared, 1);
+    const [bad] = toTerm(neglected, 1);
+    expect(good?.grant ?? 0).toBeGreaterThan(bad?.grant ?? 0);
+  });
+
+  it('never pays nothing for a won term, however badly the city scores', () => {
+    // The floor is what stops this being a second lose condition: winning a
+    // vote always pays something, even in a city that scores zero.
+    const game = city();
+    game.happiness = 90;
+    fill(game, { issues: ISSUE.traffic | ISSUE.pollution | ISSUE.noService, level: 1 });
+    const [event] = toTerm(game, 1);
+    expect(event?.verdict).toBe('won');
+    expect(event?.grant ?? 0).toBeGreaterThan(0);
   });
 
   it('takes nothing away on a defeat', () => {

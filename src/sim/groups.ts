@@ -13,6 +13,7 @@ import {
 } from '../data/balance';
 import { LOBBY_SPECS } from '../data/lobbies';
 import { unrestGroupSway } from './unrest';
+import { promiseSway } from './promises';
 import { bandCount, burialHappiness, schooledShare, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { rubbishStrain } from './rubbish';
@@ -270,6 +271,9 @@ function petScore(state: GameState, id: GroupId, t: Tallies): number {
   // them like, it is whether the government should be there at all, and the
   // greens and the industrialists answer that the same way.
   score += unrestGroupSway(state);
+  // …and what the mayor told them they would do (§30). The one input to a
+  // faction's vote that costs nothing to change and everything to get wrong.
+  score += promiseSway(state, id);
   return score < 0 ? 0 : score > 1 ? 1 : score;
 }
 

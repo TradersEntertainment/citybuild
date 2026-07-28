@@ -53,6 +53,10 @@ export interface UiState {
   /** How the mayor came to power, and how the streets have taken it (§29). */
   mandate: string;
   unrest: number;
+  /** The promises on offer, and where the city stands on each (§30). */
+  promises: PromiseView[];
+  /** How much of the room is holding a grudge, 0..n. */
+  betrayed: number;
   /** Riders a minute the bus lines are carrying (sim/transit.ts). */
   riders: number;
   /** Seconds until the next vote is counted (sim/elections.ts). */
@@ -82,6 +86,22 @@ export interface GroupView {
   weight: number;
   /** How the faction would vote today, 0..1. */
   approval: number;
+}
+
+/**
+ * One campaign promise as the panel draws it (sim/promises.ts).
+ *
+ * Carries where the city stands as well as the bar, because a promise the
+ * player cannot watch approach is a deadline with no dashboard — and the whole
+ * fairness of the mechanic rests on being able to see it coming.
+ */
+export interface PromiseView {
+  id: string;
+  made: boolean;
+  unlocked: boolean;
+  /** 0..1 on the promise's own scale, and the bar it must clear. */
+  progress: number;
+  target: number;
 }
 
 /**
@@ -230,6 +250,8 @@ export interface SimSnapshot {
   report: ReportView;
   mandate: string;
   unrest: number;
+  promises: PromiseView[];
+  betrayed: number;
   riders: number;
   secondsToElection: number;
   grid: GridView;
@@ -304,6 +326,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   report: { scores: {}, overall: 0, grade: 'F' },
   mandate: 'elected',
   unrest: 0,
+  promises: [],
+  betrayed: 0,
   riders: 0,
   secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
@@ -401,6 +425,18 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
           Math.round((snapshot.report.scores[dimension] ?? 0) * 100),
       ) &&
       current.mandate === snapshot.mandate &&
+      current.promises.length === snapshot.promises.length &&
+      current.promises.every((row, i) => {
+        const next = snapshot.promises[i];
+        return (
+          next !== undefined &&
+          row.id === next.id &&
+          row.made === next.made &&
+          row.unlocked === next.unlocked &&
+          Math.round(row.progress * 100) === Math.round(next.progress * 100)
+        );
+      }) &&
+      Math.round(current.betrayed * 100) === Math.round(snapshot.betrayed * 100) &&
       Math.round(current.unrest * 100) === Math.round(snapshot.unrest * 100) &&
       Math.round(current.riders) === Math.round(snapshot.riders) &&
       Math.ceil(current.secondsToElection) === Math.ceil(snapshot.secondsToElection) &&
