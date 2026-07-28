@@ -1322,5 +1322,14 @@ export const STR = {
     cityShelvedHint:
       'Kayıt üst üste iki açılışta oyunu kapattı, o yüzden yeni bir şehirle ' +
       'başlandı. Eskisi silinmedi — tarayıcı hafızasında duruyor.',
+    // The tab's graphics context went away underneath us. Without this the
+    // screen simply goes black and stays black, which reads as the game
+    // freezing rather than as the browser reclaiming the card.
+    gpuLost: 'Ekran kartı bağlantısı koptu',
+    gpuLostHint:
+      'Tarayıcı çizim bağlantısını kapattı — genelde hafıza darlığından olur. ' +
+      'Şehrin kayıtlı; sayfayı yenilemek yeter. Başka sekmeleri kapatmak da yardımcı olur.',
+    gpuBack: 'Görüntü geri geldi',
+    gpuBackHint: 'Çizim bağlantısı kuruldu. Bir sorun görürsen sayfayı yenile.',
   },
 } as const;

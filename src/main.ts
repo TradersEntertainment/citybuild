@@ -416,6 +416,21 @@ mountCityPanel(ui, {
 });
 mountHint(ui);
 const toast = mountToast(ui);
+// A lost graphics context used to be a black screen and nothing else. Wired up
+// here rather than beside the renderer because it needs the toast to exist:
+// during boot the assignment would close over a variable in its dead zone, and
+// the one moment this must not do is throw is while something has already gone
+// wrong. Said once — the browser may fire the event repeatedly.
+let toldGpuLost = false;
+renderer.onContextLost = () => {
+  if (toldGpuLost) return;
+  toldGpuLost = true;
+  toast.show(STR.system.gpuLost, STR.system.gpuLostHint);
+};
+renderer.onContextRestored = () => {
+  toldGpuLost = false;
+  toast.show(STR.system.gpuBack, STR.system.gpuBackHint);
+};
 const eventFeed = mountEventFeed(ui);
 
 /**

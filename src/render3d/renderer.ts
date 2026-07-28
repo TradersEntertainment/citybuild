@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { MAX_DPR, MAX_DRAWING_PIXELS } from '../data/balance';
 import type { DraftRender } from '../input/draft';
 import type { GameState } from '../sim/state';
 import { createBuildings, type BuildingMeshes } from './buildings';
@@ -25,6 +26,31 @@ import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './te
 import { createTraffic, type TrafficLayer } from './traffic';
 import { createTrees, type TreeLayer } from './trees';
 import { createWeatherFx, type WeatherFx } from './weatherFx';
+
+/**
+ * The device pixel ratio to draw at, given the window it has to fill.
+ *
+ * Two caps, not one. MAX_DPR keeps a phone from rendering at three or four times
+ * its own screen for a sharpness nobody can see; MAX_DRAWING_PIXELS keeps a big
+ * desktop window from asking for a framebuffer measured in hundreds of megabytes
+ * (see the constant for the arithmetic). The second is the one that matters for
+ * "Out of Memory", because it is the only term here that scales with something
+ * the player can change without touching the game.
+ *
+ * Never returns more than the display actually has, and never less than a
+ * quarter — below that the picture is mush, and a window big enough to hit that
+ * floor has problems this cannot solve.
+ */
+export function pixelRatioFor(
+  width: number,
+  height: number,
+  devicePixelRatio = 1,
+): number {
+  const area = Math.max(1, width * height);
+  const capped = Math.min(MAX_DPR, Math.max(0.25, devicePixelRatio || 1));
+  const budget = Math.sqrt(MAX_DRAWING_PIXELS / area);
+  return Math.max(0.25, Math.min(capped, budget));
+}
 
 /**
  * Owns the WebGL context and the scene graph, and nothing else. Everything the
@@ -97,6 +123,21 @@ export class Renderer {
    */
   externalCameraControl = false;
 
+  /**
+   * Told when the graphics context goes away and when it comes back, so the
+   * shell can stop drawing and say so. Set by main.ts; the renderer itself has
+   * no opinion about what the player should be told.
+   */
+  onContextLost?: () => void;
+  onContextRestored?: () => void;
+
+  private lost = false;
+
+  /** Whether the context is currently gone. A frame drawn now is wasted work. */
+  get contextLost(): boolean {
+    return this.lost;
+  }
+
   private zonesDirty = true;
   private forSaleDirty = true;
   private stationsDirty = false;
@@ -119,12 +160,47 @@ export class Renderer {
       alpha: false,
       stencil: false,
     });
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.renderer.setPixelRatio(
+      pixelRatioFor(window.innerWidth, window.innerHeight, window.devicePixelRatio),
+    );
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.05;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+    // The browser can take the graphics context away — under memory pressure,
+    // when the GPU process is recycled, or when the machine sleeps. Until now
+    // nothing listened, so the frame loop went on calling render() against a
+    // dead context and the player watched a black rectangle with no idea
+    // whether the game had frozen, crashed, or was simply thinking.
+    //
+    // preventDefault is what makes a restore possible at all: without it the
+    // context is gone for good and only a reload brings the city back.
+    canvas.addEventListener(
+      'webglcontextlost',
+      (event) => {
+        event.preventDefault();
+        this.lost = true;
+        this.onContextLost?.();
+      },
+      false,
+    );
+    canvas.addEventListener(
+      'webglcontextrestored',
+      () => {
+        this.lost = false;
+        // Everything the layers hold was uploaded to a context that no longer
+        // exists, so the ones built from the map are rebuilt rather than
+        // trusted. three.js re-uploads its own resources on the next draw.
+        this.zonesDirty = true;
+        this.forSaleDirty = true;
+        this.stationsDirty = true;
+        this.terrain.rebuildAll();
+        this.onContextRestored?.();
+      },
+      false,
+    );
 
     this.sky = createSky(this.scene);
     this.terrain = createTerrain(state.world);
@@ -180,7 +256,7 @@ export class Renderer {
   resize(): void {
     const width = window.innerWidth;
     const height = window.innerHeight;
-    this.renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+    this.renderer.setPixelRatio(pixelRatioFor(width, height, window.devicePixelRatio));
     this.renderer.setSize(width, height, false);
     this.camera.setViewport(width, height);
   }
@@ -265,6 +341,10 @@ export class Renderer {
   }
 
   render(frame: FrameInput, deltaMs: number): void {
+    // A draw against a dead context is at best wasted and at worst a stream of
+    // console errors a second. The simulation keeps running either way — the
+    // city is not paused by the browser reclaiming a graphics card.
+    if (this.lost) return;
     const cpuStart = performance.now();
     if (!this.externalCameraControl) this.camera.update();
 

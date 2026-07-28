@@ -1628,6 +1628,28 @@ export const ZOOM_LOD_BLOCKS = 1.0;
 export const ZOOM_LOD_BLOBS = 0.5;
 export const TILE_PX = 16; // world tile size at zoom 1.0
 export const MAX_DPR = 2; // Math.min(devicePixelRatio, 2)
+/**
+ * Most pixels the drawing buffer may ever hold, however big the window is.
+ *
+ * MAX_DPR alone is not a budget, because it bounds only one of the three terms
+ * that decide the size of the framebuffer: a phone at 390×780 and DPR 2 asks for
+ * 1.2 million pixels, and a maximised window on a 4K desktop at the same ratio
+ * asks for thirty-three million. The buffer is allocated at colour *and* depth,
+ * and `antialias: true` multiplies both by the sample count — so that window is
+ * asking for the better part of a gigabyte before a single mesh is uploaded. It
+ * is by a wide margin the largest allocation this app makes, it is the one that
+ * scales with something the player controls rather than with the city, and on a
+ * machine where Chrome has fallen back to software rendering it comes out of
+ * system RAM rather than out of a graphics card.
+ *
+ * Four million is about 2560×1440, and it is chosen to be inert in the cases
+ * that were never in trouble: a phone at DPR 2, a 1080p laptop and a 1440p
+ * monitor all sit under it and are not touched at all. What it catches is the
+ * large HiDPI desktop window, which is scaled down to fit rather than allowed to
+ * ask for whatever the display happens to be — a softer picture is a trade worth
+ * making against a tab that dies with "Out of Memory".
+ */
+export const MAX_DRAWING_PIXELS = 4_000_000;
 export const LONG_PRESS_MS = 380;
 export const TAP_SLOP_PX = 10; // movement still counted as a tap
 export const TOUCH_TARGET_MIN_PX = 44;
