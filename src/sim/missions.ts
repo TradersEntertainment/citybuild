@@ -3,6 +3,7 @@ import { totalBuildings, type BuildingTotals } from './buildings';
 import { highwayInterchanges, transitFlow } from './highway';
 import { seaIncome, workingPorts } from './ports';
 import { readReport } from './report';
+import { countOnSite, siteArea, type SiteArea } from './sites';
 import type { GameState } from './state';
 import { eraReached, NONE } from './tiles';
 import { ownedParcelCount } from './world';
@@ -68,7 +69,34 @@ export function measureGoal(state: GameState, totals: BuildingTotals, goal: Miss
       return readReport(state).overall * 100;
     case 'cardDimension':
       return readReport(state).scores[goal.dimension] * 100;
+    // The only measure that asks *where* (sim/sites.ts). A map with nowhere to
+    // put the square reads as zero rather than as complete: the goal is dropped
+    // from the offered list by `activeMissions`, so nothing is ever shown a
+    // player that they cannot finish.
+    case 'onSite': {
+      const area = siteArea(state, goal.want);
+      return area ? countOnSite(state, area, goal.want) : 0;
+    }
   }
+}
+
+/**
+ * The squares the player is currently being sent to, for the map to mark.
+ *
+ * Only unfinished, era-unlocked goals: a site whose goal is done stops pulsing,
+ * which is the whole of the feedback loop — the marking is the ask, and it goes
+ * out when the ask is met.
+ */
+export function activeSites(state: GameState): { id: string; area: SiteArea }[] {
+  const open: { id: string; area: SiteArea }[] = [];
+  for (const mission of MISSIONS) {
+    if (mission.goal.measure !== 'onSite') continue;
+    if (state.missionsDone.includes(mission.id)) continue;
+    if (!eraReached(state.era, mission.from)) continue;
+    const area = siteArea(state, mission.goal.want);
+    if (area) open.push({ id: mission.id, area });
+  }
+  return open;
 }
 
 /**
@@ -106,6 +134,10 @@ export function activeMissions(state: GameState, limit = MISSIONS_SHOWN): Missio
   for (const mission of MISSIONS) {
     if (state.missionsDone.includes(mission.id)) continue;
     if (!eraReached(state.era, mission.from)) continue;
+    // A site goal on a map with nowhere dry to put its square is dropped rather
+    // than offered at zero forever. An impossible goal in a chain the player
+    // trusts is worse than no goal at all (§28).
+    if (mission.goal.measure === 'onSite' && !siteArea(state, mission.goal.want)) continue;
     const have = measureGoal(state, totals, mission.goal);
     const want = mission.goal.target;
     open.push({ mission, have, want, fraction: want > 0 ? Math.min(1, have / want) : 1 });

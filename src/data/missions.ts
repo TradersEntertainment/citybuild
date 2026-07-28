@@ -1,6 +1,7 @@
 import type { Level } from './buildings';
 import type { Era } from '../sim/tiles';
 import type { ReportDimension } from '../sim/report';
+import type { SiteWant } from '../sim/sites';
 
 /**
  * Goals (§12.3).
@@ -38,7 +39,10 @@ export type MissionGoal =
   // The mandates (§27). Everything above measures how *much* the player built;
   // these two measure how well it was run, off the report card (sim/report.ts).
   | { measure: 'cardOverall'; target: number }
-  | { measure: 'cardDimension'; dimension: ReportDimension; target: number };
+  | { measure: 'cardDimension'; dimension: ReportDimension; target: number }
+  // The site goals (§28). The only measure with a *place*: everything else is
+  // counted across the whole map, this one only inside its own square.
+  | { measure: 'onSite'; want: SiteWant; target: number };
 
 export interface Mission {
   id: string;
@@ -83,6 +87,20 @@ export const MISSIONS: readonly Mission[] = [
   // branch is behind one condition nothing else in the game has, and a goal is
   // the cheapest way to say "there is something over there".
   { id: 'firstBerth', goal: { measure: 'ports', target: 1 }, reward: 3_800, from: 'village' },
+  /**
+   * The site goals (§28) — the first goals in this game with a *place*, sitting
+   * at their own eras rather than in a block of their own.
+   *
+   * The chain's opening teaches the verbs (draw a road, paint a zone, place a
+   * station) and then never once says *where*, so a player learns the tools
+   * without ever learning that the map has parts. These send them somewhere: a
+   * square is marked, it pulses, and the goal is what to put inside it.
+   *
+   * Each asks for a different verb — grow, paint, place — so together they are
+   * a tour of what can be done to a piece of ground rather than one instruction
+   * repeated five times.
+   */
+  { id: 'siteHomes', goal: { measure: 'onSite', want: 'homes', target: 6 }, reward: 3_900, from: 'village' },
 
   { id: 'mains', goal: { measure: 'utilities', target: 1 }, reward: 6_000, from: 'town' },
   { id: 'surveyor', goal: { measure: 'parcels', target: 2 }, reward: 9_000, from: 'town' },
@@ -90,15 +108,19 @@ export const MISSIONS: readonly Mission[] = [
   { id: 'fiveThousand', goal: { measure: 'population', target: 5_000 }, reward: 12_000, from: 'town' },
   { id: 'corridor', goal: { measure: 'transitFlow', target: 200 }, reward: 8_000, from: 'town' },
   { id: 'harbour', goal: { measure: 'seaIncome', target: 260 }, reward: 14_000, from: 'town' },
+  { id: 'sitePark', goal: { measure: 'onSite', want: 'park', target: 10 }, reward: 14_500, from: 'town' },
+  { id: 'siteStation', goal: { measure: 'onSite', want: 'service', target: 1 }, reward: 15_000, from: 'town' },
 
   { id: 'served', goal: { measure: 'services', target: 6 }, reward: 18_000, from: 'city' },
   { id: 'waterfront', goal: { measure: 'ports', target: 4 }, reward: 26_000, from: 'city' },
   { id: 'reserve', goal: { measure: 'reserve', target: 120_000 }, reward: 15_000, from: 'city' },
   { id: 'fourthStorey', goal: { measure: 'atLevel', level: 4, target: 25 }, reward: 24_000, from: 'city' },
   { id: 'twentyThousand', goal: { measure: 'population', target: 20_000 }, reward: 35_000, from: 'city' },
+  { id: 'siteShops', goal: { measure: 'onSite', want: 'shops', target: 8 }, reward: 38_000, from: 'city' },
 
   { id: 'skyline', goal: { measure: 'atLevel', level: 5, target: 30 }, reward: 60_000, from: 'metro' },
   { id: 'roofOver', goal: { measure: 'housing', target: 90_000 }, reward: 70_000, from: 'metro' },
+  { id: 'siteTall', goal: { measure: 'onSite', want: 'tall', target: 8 }, reward: 75_000, from: 'metro' },
   { id: 'hundredThousand', goal: { measure: 'population', target: 100_000 }, reward: 120_000, from: 'metropolis' },
 
   /**

@@ -20,6 +20,19 @@ const DRAFT_LIFT = 0.22;
 const FOR_SALE_LIFT = 0.3;
 /** Boundary strip width, in tiles. */
 const FOR_SALE_WIDTH = 0.7;
+/** The site outline is drawn heavier: it is an instruction, not an offer. */
+const SITE_WIDTH = 0.9;
+/**
+ * The pulse. Radians a second, and the range it swings between.
+ *
+ * ~0.44 Hz — a breath rather than a blink. Fast enough to catch the eye on a
+ * map where nothing else moves, slow enough that it never reads as an alarm,
+ * and it never fades to nothing so the square stays findable at the bottom of
+ * the swing.
+ */
+const SITE_PULSE_RATE = 2.8;
+const SITE_OPACITY_MIN = 0.28;
+const SITE_OPACITY_MAX = 0.85;
 
 /** What the stroke under the finger is about to do to the ground it covers. */
 const DRAFT_COLOURS: Record<DraftRender['mode'], string> = {
@@ -36,6 +49,10 @@ export interface OverlayLayer {
   setDraft(draft: DraftRender | null): void;
   /** Outlines the parcels currently for sale. */
   setForSale(parcels: readonly { px: number; py: number }[]): void;
+  /** Outlines the squares a site goal is pointing at (§28). */
+  setSites(areas: readonly { x0: number; y0: number; x1: number; y1: number }[]): void;
+  /** Drives the pulse. `seconds` is elapsed time; called every frame. */
+  pulse(seconds: number): void;
   dispose(): void;
 }
 
@@ -72,7 +89,27 @@ export function createOverlay(world: World): OverlayLayer {
   });
   const forSale = new THREE.Mesh(new THREE.BufferGeometry(), forSaleMaterial);
   forSale.renderOrder = 4;
-  group.add(zones, draft, forSale);
+
+  // The site a goal is pointing at (§28), drawn the same way land for sale is —
+  // a boundary rather than a wash, because it is asking the player to judge the
+  // ground inside it and a tint over the whole square would bury exactly that.
+  //
+  // What is different is that it *moves*. A static outline on a map that
+  // already has zone tints, parcel edges and road markings on it is one more
+  // line among many; a slow pulse is the only thing on screen that changes
+  // when nothing else is, which is what makes it findable without a tutorial
+  // telling the player to look. Slow on purpose — a fast blink reads as an
+  // error state, and this is an invitation.
+  const siteMaterial = new THREE.MeshBasicMaterial({
+    color: '#7FD4A8',
+    transparent: true,
+    opacity: SITE_OPACITY_MAX,
+    depthWrite: false,
+  });
+  const sites = new THREE.Mesh(new THREE.BufferGeometry(), siteMaterial);
+  sites.renderOrder = 5;
+
+  group.add(zones, draft, forSale, sites);
 
   const rebuildZones = (): void => {
     const positions: number[] = [];
@@ -148,6 +185,41 @@ export function createOverlay(world: World): OverlayLayer {
     forSale.geometry = toGeometry(positions, colours);
   };
 
+  const setSites = (
+    areas: readonly { x0: number; y0: number; x1: number; y1: number }[],
+  ): void => {
+    const positions: number[] = [];
+    const colours: number[] = [];
+    const colour = new THREE.Color('#7FD4A8');
+
+    for (const area of areas) {
+      // Tile bounds are inclusive; the strip wants the far edge of the last one.
+      const x0 = area.x0;
+      const y0 = area.y0;
+      const x1 = area.x1 + 1;
+      const y1 = area.y1 + 1;
+      const w = SITE_WIDTH;
+      pushStrip(positions, colours, colour, world, x0, y0, x1, y0 + w);
+      pushStrip(positions, colours, colour, world, x0, y1 - w, x1, y1);
+      pushStrip(positions, colours, colour, world, x0, y0 + w, x0 + w, y1 - w);
+      pushStrip(positions, colours, colour, world, x1 - w, y0 + w, x1, y1 - w);
+    }
+
+    sites.geometry.dispose();
+    sites.geometry = toGeometry(positions, colours);
+    // Nothing marked means nothing drawn, rather than an invisible mesh still
+    // being asked to pulse every frame.
+    sites.visible = areas.length > 0;
+  };
+
+  const pulse = (seconds: number): void => {
+    if (!sites.visible) return;
+    // A sine between the two bounds. Continuous in `seconds`, so it does not
+    // jump when the marked set changes underneath it.
+    const wave = (Math.sin(seconds * SITE_PULSE_RATE) + 1) / 2;
+    siteMaterial.opacity = SITE_OPACITY_MIN + (SITE_OPACITY_MAX - SITE_OPACITY_MIN) * wave;
+  };
+
   rebuildZones();
 
   return {
@@ -155,7 +227,11 @@ export function createOverlay(world: World): OverlayLayer {
     rebuildZones,
     setDraft,
     setForSale,
+    setSites,
+    pulse,
     dispose: () => {
+      sites.geometry.dispose();
+      siteMaterial.dispose();
       zones.geometry.dispose();
       draft.geometry.dispose();
       forSale.geometry.dispose();

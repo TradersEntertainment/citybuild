@@ -48,5 +48,7 @@ export function describeGoal(goal: MissionGoal): string {
       return say.cardOverall(goal.target);
     case 'cardDimension':
       return say.cardDimension(STR.report.names[goal.dimension], goal.target);
+    case 'onSite':
+      return say.onSite[goal.want](goal.target);
   }
 }

@@ -676,6 +676,14 @@ function missionRow(view: MissionView): HTMLElement {
   // — a reward line quoting nothing would read as a goal that pays nothing.
   reward.textContent =
     view.legacy > 0 ? STR.mission.rewardLegacy(view.legacy) : STR.mission.reward(view.reward);
+  // …and a site goal names the square it is pointing at, so the panel and the
+  // outline on the ground are recognisably about the same place.
+  if (view.site) {
+    const where = document.createElement('span');
+    where.className = 'panel-group-share mono';
+    where.textContent = STR.mission.site(view.site);
+    head.append(where);
+  }
   head.append(name, reward);
 
   const track = document.createElement('div');

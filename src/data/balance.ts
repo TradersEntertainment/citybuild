@@ -758,6 +758,26 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- Site goals (§28) ----------------------------------------------------------
+/**
+ * How big a marked site is, in tiles.
+ *
+ * Ten is a district, not a plot: big enough that the boundary reads as a place
+ * on a zoomed-out map, small enough that filling it is an afternoon's work
+ * rather than a campaign. A square much smaller would be lost under the pulse
+ * itself at the camera heights this game is played at.
+ */
+export const SITE_SIDE = 10;
+/**
+ * How far out the search will walk before giving up.
+ *
+ * Each ring is one square further from the city's centre. Twelve reaches most
+ * of a map from the middle, which is enough to find dry land on any sane
+ * coastline; past that the honest answer is that this map has nowhere to put
+ * the goal, and the goal is dropped rather than marking the sea.
+ */
+export const SITE_SEARCH_RINGS = 12;
+
 // --- The report card (§25) -----------------------------------------------------
 /**
  * Where each letter starts, richest band first.

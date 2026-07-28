@@ -818,6 +818,8 @@ export const STR = {
     /** Toast when one lands. */
     complete: 'Hedef tamamlandı',
     reward: (amount: number): string => `+₺${money.format(amount)}`,
+    /** The name of the marked square, shown beside a site goal. */
+    site: (name: string): string => `📍 ${name}`,
     /** A mandate pays in what outlives the city, so it says so differently. */
     rewardLegacy: (points: number): string => `+${plain.format(points)} miras puanı`,
     /** "18 / 24" — where the city is against what was asked. */
@@ -849,6 +851,21 @@ export const STR = {
       /** The mandates (§27). Named as a standard to reach, not a thing to build. */
       cardOverall: (n: number): string => `Şehir karnesini %${n}'e çıkar`,
       cardDimension: (name: string, n: number): string => `Karnede ${name} %${n} olsun`,
+      /**
+       * The site goals (§28). Every one says "işaretli bölge" out loud, because
+       * the pulsing square on the map and the line in the panel have to read as
+       * the same instruction — a goal that said only "12 kare park boya" would
+       * send the player anywhere.
+       */
+      onSite: {
+        park: (n: number): string => `İşaretli bölgeye ${n} kare park boya`,
+        homes: (n: number): string => `İşaretli bölgede ${n} konut yükselsin`,
+        shops: (n: number): string => `İşaretli bölgede ${n} dükkân açılsın`,
+        workshops: (n: number): string => `İşaretli bölgede ${n} atölye kurulsun`,
+        service: (n: number): string =>
+          n > 1 ? `İşaretli bölgeye ${n} hizmet binası kur` : 'İşaretli bölgeye bir hizmet binası kur',
+        tall: (n: number): string => `İşaretli bölgede ${n} bina 3. seviyeye çıksın`,
+      },
     },
   },
 

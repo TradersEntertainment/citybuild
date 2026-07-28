@@ -113,6 +113,8 @@ export interface MissionView {
   reward: number;
   /** Legacy points, for a mandate; 0 for an ordinary goal (§27). */
   legacy: number;
+  /** The marked square's name, for a site goal; empty otherwise (§28). */
+  site: string;
   have: number;
   want: number;
   /** 0..1, for the bar. */

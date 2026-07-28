@@ -626,6 +626,27 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §28 saha görevleri — haritada *yer* gösteren ilk hedefler
+Oyuncunun sorusu: "haritanın belli bir kısmı görev olarak verilecek, oraya
+belirli şeyleri koyma görevi olacak, oralar yanıp sönecek." O zamana kadarki
+hedeflerin **hiçbiri** yer göstermiyordu — hepsi şehir geneli sayılardı, yani
+harita "tepeleri olan bir tablo"ydu.
+
+- `sim/sites.ts`: kare, tohum + hedef id'den **türetiliyor** (lobiler/seçimler
+  ile aynı kural — yeniden yükleme kaleyi oynatamaz). Arama şehir merkezinden
+  halka halka dışarı yürüyor ve **ıslak kareyi reddediyor**: denizde biten bir
+  hedef tamamlanamaz, ve tamamlanamayan hedef hiç hedef olmamasından kötüdür.
+  Kuru yer bulunamazsa `null` — görev listeden düşüyor, deniz işaretlenmiyor.
+- Kare, mevcut mahalle isimlendiricisinden (`data/districtNames.ts`) isim
+  alıyor; panelde "Yeşiltepe", yerde de Yeşiltepe. İkinci bir isimlendirme
+  şeması iki ayrı yer yaratırdı.
+- `render3d/overlay.ts`: sınır şeridi (satılık parsel çizimiyle aynı yol) +
+  **nefes gibi bir nabız** (~0.44 Hz, opaklık 0.28–0.85). Yavaş, çünkü hızlı
+  yanıp sönme hata durumu gibi okunur; bu bir davet. Nabız duvar saatiyle
+  sürülüyor, sim saatiyle değil — oyun duraklatılınca da atmaya devam etsin.
+- Beş hedef beş ayrı fiil istiyor (büyüt / boya / kur), kendi çağlarına
+  yerleştirildi. Hedef bitince işaret sönüyor: geri bildirim döngüsünün tamamı.
+
 ### §27 mandalar — tasarım kararları
 - **Miras puanı ödüyor, para değil.** Şehir çağında oyuncunun parası zaten
   fazla; "iyi yönettin" ödülünün şehirden sonra da kalan şey olması gerekiyor.

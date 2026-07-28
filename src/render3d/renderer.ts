@@ -197,6 +197,18 @@ export class Renderer {
     this.forSaleDirty = false;
   }
 
+  /**
+   * Marks the squares the site goals are pointing at (§28).
+   *
+   * Set from the sim rather than derived here, because which goals are open is
+   * a rule and this file draws rules rather than deciding them. Cheap enough to
+   * call whenever the goal list changes; the pulse itself costs one opacity
+   * write a frame.
+   */
+  setSites(areas: readonly { x0: number; y0: number; x1: number; y1: number }[]): void {
+    this.overlay.setSites(areas);
+  }
+
   /** True when a purchase changed which parcels are on offer. */
   get needsForSaleRefresh(): boolean {
     return this.forSaleDirty;
@@ -284,6 +296,10 @@ export class Renderer {
     this.construction.update(frame.state, this.camera.distance, frame.now);
     this.wildlife.update(deltaMs / 1000, frame.state, this.camera.distance);
     this.overlay.setDraft(frame.draft);
+    // The site outline breathes on wall-clock time, not on the sim clock: it is
+    // an instruction to the player, and it should keep pulsing while the game
+    // is paused for exactly that reason.
+    this.overlay.pulse(frame.now / 1000);
     this.buildings.sync(frame.state, frame.now);
     this.traffic.update(
       deltaMs / 1000,

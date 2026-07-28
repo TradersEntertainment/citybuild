@@ -75,6 +75,8 @@ import { mountLobbyPrompt } from './ui/lobbyPrompt';
 import { LOBBY_SPECS } from './data/lobbies';
 import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
 import { readReport, reportLegacyFactor } from './sim/report';
+import { activeSites } from './sim/missions';
+import { siteArea } from './sim/sites';
 import { isMarooned } from './sim/marooned';
 import { mountCityPanel } from './ui/cityPanel';
 import { mountCoach, type CoachFacts } from './ui/coach';
@@ -451,6 +453,14 @@ const lobbyPrompt = mountLobbyPrompt(ui, {
  * them.
  */
 let answeredOffer = -1;
+
+/**
+ * Which site goals are currently outlined on the map, as a comparison key.
+ *
+ * Not saved and not state — it is the renderer's idea of what it has drawn, and
+ * a reload rebuilds it from the goals within a frame.
+ */
+let shownSites = '';
 
 /**
  * Offers the bank when the city has run dry, and says so when a loan closes.
@@ -1136,6 +1146,18 @@ function frame(now: number): void {
   // Which land is on the market only changes when a parcel is bought, so this
   // is driven by a flag rather than recomputed every frame.
   if (renderer.needsForSaleRefresh) renderer.setForSale(parcelOffers(game));
+  // The marked squares change only when a goal is finished or an era opens a
+  // new one, so this rides the same idea: a cheap key, compared, and the
+  // geometry rebuilt only when it actually differs. Recomputing four strips a
+  // frame would be affordable and still wrong — it would churn a buffer that
+  // is identical ninety-nine times in a hundred.
+  const siteKey = activeSites(game)
+    .map((site) => site.id)
+    .join(',');
+  if (siteKey !== shownSites) {
+    shownSites = siteKey;
+    renderer.setSites(activeSites(game).map((site) => site.area));
+  }
   renderer.render(
     { state: game, draft: tools.draft, now, trafficLoad: systems.traffic.load },
     deltaMs,
@@ -1739,6 +1761,14 @@ function syncUi(): void {
       goal: view.mission.goal,
       reward: view.mission.reward,
       legacy: view.mission.legacy ?? 0,
+      // Named so the card and the pulsing square on the map are recognisably
+      // the same place — "Yeşiltepe" in the panel, Yeşiltepe outlined on the
+      // ground. A goal that only said "işaretli bölge" would make the player
+      // hunt for it every time they reopened the panel.
+      site:
+        view.mission.goal.measure === 'onSite'
+          ? (siteArea(game, view.mission.goal.want)?.name ?? '')
+          : '',
       have: view.have,
       want: view.want,
       fraction: view.fraction,

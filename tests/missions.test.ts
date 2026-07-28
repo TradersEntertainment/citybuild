@@ -82,10 +82,17 @@ describe('the chain itself', () => {
     // same dimension would still have to escalate, which is what this guards.
     const seen = new Map<string, number>();
     for (const mission of MISSIONS) {
+      // Keyed by what the goal actually asks for, not just its measure: the
+      // cardDimension goals are six parallel asks (one per column of the report
+      // card) and the onSite goals are five (one per verb on a piece of
+      // ground). Neither set is a ladder. Two goals asking the same thing would
+      // still have to escalate, which is what this guards.
       const key =
         mission.goal.measure === 'cardDimension'
           ? `cardDimension:${mission.goal.dimension}`
-          : mission.goal.measure;
+          : mission.goal.measure === 'onSite'
+            ? `onSite:${mission.goal.want}`
+            : mission.goal.measure;
       const previous = seen.get(key);
       if (previous !== undefined) expect(mission.goal.target).toBeGreaterThan(previous);
       seen.set(key, mission.goal.target);
