@@ -24,8 +24,18 @@ const ZONES: readonly BuiltZone[] = ['res', 'com', 'ind', 'office'];
 const PERIOD_SALT: Record<Period, number> = { early: 0, industrial: 61, modern: 127 };
 const INITIAL_CAPACITY = 256;
 
-/** Storey height in world units, used to scale facade UVs so windows stay put. */
-const STOREY = 0.16;
+/**
+ * Storey height in world units, used to scale facade UVs so windows stay put.
+ *
+ * Raised with the archetype rescale, because this is the number that decides how
+ * *big a window is* and the two have to move together. The walls grew by up to
+ * two and a half times at the low end; left at 0.16 the same cottage would have
+ * worn three bands of windows where it used to wear one, which is not a bigger
+ * house, it is a block of flats pretending to be one. At 0.3 a window is a
+ * window you can see from the camera — which is the whole point of the rescale —
+ * and a cottage is two storeys, a level-five office twenty-odd.
+ */
+const STOREY = 0.3;
 
 /**
  * Everything about an archetype that does not depend on how many of it there

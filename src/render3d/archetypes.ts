@@ -42,6 +42,52 @@ export interface Archetype {
   facade: FacadeOptions;
 }
 
+/**
+ * The tables below author *massing* — the proportions of the city, level against
+ * level and zone against zone. These three numbers turn that massing into world
+ * units, and they exist because the low end of the tables was simply drawn too
+ * small for the world it stands in.
+ *
+ * The scene's own furniture is what settles the argument. A car is 0.16 units
+ * tall (render3d/traffic.ts), a lamp post 0.34 (render3d/streetlights.ts) and a
+ * tree crown reaches about 0.8 (render3d/trees.ts) — so one tile is somewhere
+ * near eight metres, and a two-storey cottage ought to stand a little under a
+ * tile. It was authored at 0.20 with a 0.16 ridge: **shorter than the trees in
+ * its own garden and barely twice the height of the car parked outside it.**
+ * From the camera that reads as texture on the ground rather than as a building,
+ * which is exactly the complaint — the city was not visible.
+ *
+ * So the curve lifts the bottom hard and the top gently: an exponent below one
+ * on a gain above one, which is 2.5× on a cottage and 1.25× on a tower. That
+ * shape is deliberate, because a flat multiplier would have to choose between
+ * leaving the cottage invisible and turning the level-five office into a needle
+ * eight tiles wide of clear sky. Levels are still the game's main visual reward
+ * — a modern office block is eight times its own ground floor after the rescale,
+ * where it was fourteen before — but the reward now starts from something the
+ * player can see.
+ *
+ * Footprints get the same treatment for the same reason: a house covering 18% of
+ * its plot is a shed in a field. The exponent is harsher because the ceiling is
+ * hard — a footprint of 1 is a building the width of its tile, touching its
+ * neighbours and swallowing the streets — so this tops out near 0.93 and leaves
+ * a plot line visible between blocks.
+ */
+const HEIGHT_GAIN = 1.81;
+const HEIGHT_CURVE = 0.8;
+const FOOTPRINT_GAIN = 0.97;
+const FOOTPRINT_CURVE = 0.5;
+/**
+ * Roofs are scaled flat rather than on the curve.
+ *
+ * A ridge is a function of how wide the building is, not how tall — put a pitch
+ * through the height curve and a cottage grows a spire while a warehouse gets a
+ * roof you cannot see. A flat lift keeps every pitch in proportion to the walls
+ * it sits on, which at these gains means the deep tiled roofs of the early
+ * period read as roughly half the wall height again: the single most toy-like
+ * thing in the settlement, and worth keeping.
+ */
+const PITCH_GAIN = 1.7;
+
 function arch(
   footprint: number,
   height: number,
@@ -49,7 +95,13 @@ function arch(
   roof: string,
   facade: FacadeOptions,
 ): Archetype {
-  return { footprint, height, roofPitch, roof, facade };
+  return {
+    footprint: FOOTPRINT_GAIN * Math.pow(footprint, FOOTPRINT_CURVE),
+    height: HEIGHT_GAIN * Math.pow(height, HEIGHT_CURVE),
+    roofPitch: roofPitch * PITCH_GAIN,
+    roof,
+    facade,
+  };
 }
 
 function wall(

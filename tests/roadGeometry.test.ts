@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { TilePoint } from '../src/input/pathGeometry';
+import { ROAD_WIDTH } from '../src/render3d/constants';
 import { buildRoadGeometry, classifyRoads, SHAPE } from '../src/render3d/roadGeometry';
 import { hashSeed } from '../src/sim/rng';
 import { buildRoad } from '../src/sim/roads';
@@ -165,12 +166,20 @@ describe('the surface it produces', () => {
     // point, and a join you can see through is the thing this replaces.
     const cornerX = origin.x + 5;
     const cornerZ = origin.y + 5;
+    // How far from the corner to go looking, derived from the carriageway rather
+    // than picked. A band overshoots by half its width and is half a width across,
+    // so its end vertices sit at half·√2 — 0.71 of a width — from the corner, and
+    // the next tile's far end is a full 1.2 widths beyond that. One width is the
+    // window between them. It used to be a flat 0.5, which happened to clear
+    // 0.71 × 0.7 by one per cent and silently stopped being a tolerance the day
+    // the asphalt got wider.
+    const window = ROAD_WIDTH['asphalt'] as number;
     let before = 0;
     let after = 0;
     for (let i = 0; i < position.count; i++) {
       const dx = position.getX(i) - cornerX;
       const dz = position.getZ(i) - cornerZ;
-      if (Math.hypot(dx, dz) >= 0.5) continue;
+      if (Math.hypot(dx, dz) >= window) continue;
       // Distance along the run, signed: the band that ends here should overshoot
       // and the band that starts here should begin early.
       const along = (dx + dz) / Math.SQRT2;

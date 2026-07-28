@@ -1612,7 +1612,15 @@ export const AUTOSAVE_INTERVAL_S = 20;
 export const SAVE_VERSION = 5;
 
 // --- Camera & input (§3, §14.5) ----------------------------------------------
-export const ZOOM_MIN = 0.35;
+/**
+ * How far out the camera may be pulled, as a divisor of CAMERA_BASE_DISTANCE.
+ *
+ * Widened from 0.35 when the base distance came in from 52 to 34, so that the
+ * furthest view is the same distance it always was (52/0.35 and 34/0.23 are both
+ * about 149 units). The rescale is meant to make the default view closer, not to
+ * take the map-wide view away from anyone who was using it to plan.
+ */
+export const ZOOM_MIN = 0.23;
 export const ZOOM_MAX = 3.0;
 export const ZOOM_DEFAULT = 1.0;
 /** Below these zoom levels the renderer drops to blocks, then colour blobs. */

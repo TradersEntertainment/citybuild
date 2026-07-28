@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { GameState } from '../sim/state';
 import { ISSUE } from '../sim/tiles';
+import { archetypeFor, periodOf } from './archetypes';
 import { LOD_DETAIL_DISTANCE } from './constants';
 import { sampleHeight } from './terrain';
 
@@ -39,8 +40,17 @@ const BANDS: readonly Band[] = [
 ];
 
 const INITIAL_CAPACITY = 128;
-/** Height above the ground the mark floats at. */
-const FLOAT_HEIGHT = 0.55;
+/**
+ * Height above the building's own roof that the mark floats at.
+ *
+ * Above the *roof*, not above the ground, which it used to be. A flat 0.55 above
+ * the terrain worked only while every building was shorter than that, and it
+ * never was — anything past a level-three block wore its warning inside its own
+ * masonry, invisible. The archetype rescale made that the common case rather
+ * than the tall one, so the mark now asks the building how tall it is, the same
+ * way the scaffolding does (render3d/construction.ts).
+ */
+const FLOAT_HEIGHT = 0.34;
 
 export interface IssueLayer {
   readonly group: THREE.Group;
@@ -99,6 +109,7 @@ export function createIssues(): IssueLayer {
     // of them needing their own animation state.
     const bob = Math.sin(now / 420) * 0.06;
     const spin = now / 1400;
+    const period = periodOf(state.era);
 
     for (const building of state.buildings.values()) {
       if (building.issues === 0) continue;
@@ -113,7 +124,9 @@ export function createIssues(): IssueLayer {
 
       const x = building.x + 0.5;
       const z = building.y + 0.5;
-      position.set(x, sampleHeight(state.world, x, z) + FLOAT_HEIGHT + bob, z);
+      const spec = archetypeFor(period, building.zone, building.level);
+      const roof = spec.height + spec.roofPitch;
+      position.set(x, sampleHeight(state.world, x, z) + roof + FLOAT_HEIGHT + bob, z);
       quaternion.setFromAxisAngle(axis, spin);
       matrix.compose(position, quaternion, scale);
       mesh.setMatrixAt(counts[band] as number, matrix);

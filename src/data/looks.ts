@@ -32,47 +32,79 @@ export interface FacilityLook {
   mast: number;
 }
 
+/**
+ * How much taller every facility stands than the table below says.
+ *
+ * The archetype tables were rescaled (render3d/archetypes.ts) because the city's
+ * buildings were drawn far shorter than the world they stand in, and a station
+ * left at its old height would simply have been overtaken by the housing around
+ * it — a fire station shorter than the cottages it protects is not a landmark,
+ * and finding one on the map is most of what these silhouettes are for.
+ *
+ * A flat lift rather than the archetypes' curve, and deliberately gentler than
+ * the curve's low end. These are hand-placed buildings whose proportions carry
+ * stated intent — a cemetery that reads as ground, a dam that is all wall, a
+ * reactor that is the tallest thing for miles — and a curve steep enough to fix
+ * a cottage would have turned the cemetery into a mausoleum and the TV mast into
+ * a thing you cannot see past. At half again, the cemetery is still ground
+ * (0.21) and the reactor is still the skyline.
+ *
+ * Widths are left alone: several are already at or over a whole tile, which is
+ * as wide as anything in this game is allowed to be.
+ */
+const FACILITY_HEIGHT_GAIN = 1.5;
+
+function look(body: string, accent: string, width: number, height: number, mast: number): FacilityLook {
+  return {
+    body,
+    accent,
+    width,
+    height: height * FACILITY_HEIGHT_GAIN,
+    mast: mast * FACILITY_HEIGHT_GAIN,
+  };
+}
+
 export const FACILITY_LOOKS: Readonly<Record<FacilityKind, FacilityLook>> = {
-  fire: { body: '#B9AFA3', accent: '#B03A2B', width: 0.78, height: 0.58, mast: 0.5 },
-  health: { body: '#E2DED4', accent: '#3E86A8', width: 0.72, height: 0.5, mast: 0.34 },
-  education: { body: '#D6CDB6', accent: '#8A6B2E', width: 0.86, height: 0.44, mast: 0.28 },
-  police: { body: '#C2C6CB', accent: '#2E4A7A', width: 0.74, height: 0.52, mast: 0.44 },
+  fire: look('#B9AFA3', '#B03A2B', 0.78, 0.58, 0.5),
+  health: look('#E2DED4', '#3E86A8', 0.72, 0.5, 0.34),
+  education: look('#D6CDB6', '#8A6B2E', 0.86, 0.44, 0.28),
+  police: look('#C2C6CB', '#2E4A7A', 0.74, 0.52, 0.44),
   // Low, pale and wide, with nothing standing up off it: a cemetery should read
   // as ground rather than as a building, because that is what it is.
-  cemetery: { body: '#C8CBBE', accent: '#7D8A6E', width: 0.9, height: 0.14, mast: 0.36 },
+  cemetery: look('#C8CBBE', '#7D8A6E', 0.9, 0.14, 0.36),
   // A yard: wide, low, drab, with a short stack. Nothing about a depot is meant
   // to be handsome, and a player scanning the map should read it as industry.
-  depot: { body: '#8A8578', accent: '#4E6B3F', width: 0.92, height: 0.3, mast: 0.7 },
+  depot: look('#8A8578', '#4E6B3F', 0.92, 0.3, 0.7),
   // Infrastructure reads as heavier and squatter than a civic building, except
   // the chimneys — which are the tallest thing in a young city, and should be.
-  well: { body: '#9FA9A4', accent: '#3E86A8', width: 0.6, height: 0.36, mast: 0.62 },
-  waterworks: { body: '#93A0A6', accent: '#3E86A8', width: 0.94, height: 0.5, mast: 0.4 },
-  coalPlant: { body: '#7C7671', accent: '#4A4441', width: 0.96, height: 0.72, mast: 1.5 },
-  gasPlant: { body: '#8B8E92', accent: '#5B6166', width: 0.94, height: 0.66, mast: 1.1 },
-  oilPlant: { body: '#6E6862', accent: '#8A5A24', width: 0.98, height: 0.7, mast: 1.35 },
+  well: look('#9FA9A4', '#3E86A8', 0.6, 0.36, 0.62),
+  waterworks: look('#93A0A6', '#3E86A8', 0.94, 0.5, 0.4),
+  coalPlant: look('#7C7671', '#4A4441', 0.96, 0.72, 1.5),
+  gasPlant: look('#8B8E92', '#5B6166', 0.94, 0.66, 1.1),
+  oilPlant: look('#6E6862', '#8A5A24', 0.98, 0.7, 1.35),
   // A dam is wide and low with nothing on the roof: the wall *is* the building.
-  hydroPlant: { body: '#A8AEB2', accent: '#2F7FA8', width: 1.05, height: 0.44, mast: 0 },
+  hydroPlant: look('#A8AEB2', '#2F7FA8', 1.05, 0.44, 0),
   // Panels, so: flat, broad, and dark. Nothing to see above the fence.
-  solarFarm: { body: '#3A4450', accent: '#5FA8D8', width: 1.05, height: 0.16, mast: 0 },
+  solarFarm: look('#3A4450', '#5FA8D8', 1.05, 0.16, 0),
   // The cooling tower is the silhouette, and it should be the tallest thing for
   // miles — a reactor is the last building a city ever builds.
-  nuclearPlant: { body: '#D9DBD6', accent: '#5FB48A', width: 1.05, height: 0.8, mast: 2.4 },
+  nuclearPlant: look('#D9DBD6', '#5FB48A', 1.05, 0.8, 2.4),
   // The waterfront. Low sheds and tall thin masts: a crane is the one thing on
   // a coast you can see from the other side of the bay, which is exactly what a
   // player wants of a building they have to find the shoreline for.
-  fishing: { body: '#8E7654', accent: '#C9793B', width: 0.66, height: 0.34, mast: 0.5 },
-  cargo: { body: '#8D9297', accent: '#E0A32E', width: 0.98, height: 0.46, mast: 1.7 },
-  shipyard: { body: '#6F757A', accent: '#B24C3A', width: 1, height: 0.6, mast: 2 },
-  marina: { body: '#E8E6DF', accent: '#2F7FA8', width: 0.62, height: 0.3, mast: 1.3 },
+  fishing: look('#8E7654', '#C9793B', 0.66, 0.34, 0.5),
+  cargo: look('#8D9297', '#E0A32E', 0.98, 0.46, 1.7),
+  shipyard: look('#6F757A', '#B24C3A', 1, 0.6, 2),
+  marina: look('#E8E6DF', '#2F7FA8', 0.62, 0.3, 1.3),
   // Attractions read as occasions, not infrastructure: lighter bodies, warmer
   // accents, and the tallest silhouettes in the city short of a reactor —
   // a landmark the eye cannot find from across the map is not a landmark.
-  hotel: { body: '#E4D6C2', accent: '#C08A2E', width: 0.6, height: 0.9, mast: 0.3 },
-  clockTower: { body: '#D8CDB6', accent: '#C08A2E', width: 0.3, height: 1.1, mast: 0.6 },
-  opera: { body: '#EDE8DC', accent: '#8A5A8A', width: 0.95, height: 0.55, mast: 0 },
-  stadium: { body: '#C9CDD2', accent: '#3E8656', width: 1.1, height: 0.4, mast: 0.9 },
-  tvTower: { body: '#B8BEC6', accent: '#C4463A', width: 0.24, height: 1.6, mast: 1.6 },
-  airport: { body: '#DDE0E4', accent: '#2F7FA8', width: 1.15, height: 0.35, mast: 1.2 },
+  hotel: look('#E4D6C2', '#C08A2E', 0.6, 0.9, 0.3),
+  clockTower: look('#D8CDB6', '#C08A2E', 0.3, 1.1, 0.6),
+  opera: look('#EDE8DC', '#8A5A8A', 0.95, 0.55, 0),
+  stadium: look('#C9CDD2', '#3E8656', 1.1, 0.4, 0.9),
+  tvTower: look('#B8BEC6', '#C4463A', 0.24, 1.6, 1.6),
+  airport: look('#DDE0E4', '#2F7FA8', 1.15, 0.35, 1.2),
 };
 
 /** The carriageway, by tier. Read by the map's road mesh and by the menu card. */
