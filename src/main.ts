@@ -72,6 +72,8 @@ import { mountChronicle } from './ui/chronicle';
 import { mountBankPrompt } from './ui/bankPrompt';
 import { mountRoadRepairPrompt } from './ui/roadRepairPrompt';
 import { mountLobbyPrompt } from './ui/lobbyPrompt';
+import { mountCrisisPrompt } from './ui/crisisPrompt';
+import { handOver, hasMandate, refuseResult, seizePower } from './sim/unrest';
 import { LOBBY_SPECS } from './data/lobbies';
 import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
 import { readReport, reportLegacyFactor } from './sim/report';
@@ -401,6 +403,63 @@ const roadRepair = mountRoadRepairPrompt(ui, {
     return true;
   },
   onTooPoor: () => toast.show(STR.roadRepair.tooPoor),
+});
+
+/**
+ * The fork after a lost election (§29).
+ *
+ * Every branch writes to the chronicle and runs the papers, because this is the
+ * one decision a player will want to read back later — the transcript is what
+ * makes a coup a story rather than a stat change. The factions and the mood are
+ * recomputed immediately: refusing a result should be visible in the panel
+ * before the card has finished closing, or the choice reads as having done
+ * nothing.
+ */
+const crisisPrompt = mountCrisisPrompt(ui, {
+  onChoose: (choice) => {
+    if (choice === 'handOver') {
+      handOver(game);
+      toast.show(STR.crisis.handedOver);
+      pressRun(STR.media.crisisHandedOver);
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: STR.crisis.icon,
+          title: STR.crisis.handedOver,
+          detail: STR.crisis.chronicleHandedOver,
+        },
+      ]);
+    } else if (choice === 'refuse') {
+      refuseResult(game);
+      toast.show(STR.crisis.refused, STR.crisis.hint.refused);
+      pressRun(STR.media.crisisRefused);
+      sfx.play('alarm');
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: STR.crisis.icon,
+          title: STR.crisis.refused,
+          detail: STR.crisis.chronicleRefused,
+        },
+      ]);
+    } else {
+      seizePower(game);
+      toast.show(STR.crisis.seized, STR.crisis.hint.seized);
+      pressRun(STR.media.crisisSeized);
+      sfx.play('alarm');
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: STR.crisis.icon,
+          title: STR.crisis.seized,
+          detail: STR.crisis.chronicleSeized,
+        },
+      ]);
+    }
+    haptics.confirm();
+    syncUi();
+    autosave.flush(game);
+  },
 });
 
 const lobbyPrompt = mountLobbyPrompt(ui, {
@@ -1133,6 +1192,7 @@ function frame(now: number): void {
     announceRoadDamage(seconds);
     announceLobbies();
     announceMarooned();
+    announceUnrest();
     announceRituals();
     checkBank();
   }
@@ -1279,6 +1339,11 @@ function announceElection(): void {
     toast.show(text);
     eventFeed.pushCustom([{ icon: won ? '🗳️' : '📉', tone: won ? 'calm' : 'warn', text }]);
     pressRun(won ? STR.media.electionWon : STR.media.electionLost);
+    // A defeat is a question rather than a result (§29). Raised only for a
+    // mayor who still holds a mandate to lose: a government that already
+    // refused once and lost again is asked once more, but one that ended the
+    // voting never gets here, because no election was held.
+    if (!won) crisisPrompt.offer(share);
     if (won) sfx.play('goal');
     appendHistory([
       { year: yearOf(game.playedMs), icon: '🗳️', title: text, detail: undefined },
@@ -1553,6 +1618,30 @@ function announceRoadDamage(seconds: number): void {
 }
 
 /**
+ * Says when the streets turn, and when they settle (§29).
+ *
+ * Only the crossing, in either direction — a meter that announced every tick
+ * would be noise, and what the player needs is the moment it turned. The
+ * settling line runs the papers too, because a city quieting down after a coup
+ * is the single most interesting thing the two of them ever disagree about.
+ */
+function announceUnrest(): void {
+  for (const change of systems.drainUnrest()) {
+    const rising = change.kind === 'rising';
+    const text = rising ? STR.crisis.rising : STR.crisis.settling;
+    toast.show(text, hasMandate(game) ? undefined : STR.crisis.hint[game.mandate]);
+    eventFeed.pushCustom([
+      { icon: STR.crisis.icon, tone: rising ? 'alarm' : 'calm', text },
+    ]);
+    if (!rising) pressRun(STR.media.crisisSettled);
+    if (rising) sfx.play('alarm');
+    appendHistory([
+      { year: yearOf(game.playedMs), icon: STR.crisis.icon, title: text, detail: undefined },
+    ]);
+  }
+}
+
+/**
  * Says when the one-way arrows have cut a street off, and when they stop.
  *
  * The one thing AGENTS.md asked for by name, and the reason it asked: a junction
@@ -1751,6 +1840,8 @@ function syncUi(): void {
       remaining: dealRemaining(game, deal.id),
     })),
     report: readReport(game),
+    mandate: game.mandate,
+    unrest: game.unrest,
     riders: systems.traffic.riders,
     secondsToElection: secondsToElection(game.playedMs),
     grid: { ...utilityBalance(game), expected: utilitiesExpected(game.era) },

@@ -6,6 +6,7 @@ import { stepEconomy } from './economy';
 import { stepElections, type ElectionEvent } from './elections';
 import { stepLobbies, type LobbyLapse } from './lobbies';
 import { findMarooned, isMarooned, type MaroonedRoads } from './marooned';
+import { stepUnrest, type UnrestChange } from './unrest';
 import { computeGoods, createGoodsField, type GoodsField } from './goods';
 import { lobbyValueFactor } from './lobbies';
 import {
@@ -49,6 +50,7 @@ const EMPTY_ELECTIONS: readonly ElectionEvent[] = [];
 const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_LOBBIES: readonly LobbyLapse[] = [];
 const EMPTY_MAROONED: readonly MaroonedRoads[] = [];
+const EMPTY_UNREST: readonly UnrestChange[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
 
@@ -100,6 +102,7 @@ export class Systems {
   private readonly rubbishEvents: RubbishEvent[] = [];
   private readonly electionEvents: ElectionEvent[] = [];
   private readonly lobbyLapses: LobbyLapse[] = [];
+  private readonly unrestChanges: UnrestChange[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -250,6 +253,8 @@ export class Systems {
     // Signed deals run down on the same clock as the votes, and for the same
     // reason: a term the player is away for is a term spent (sim/lobbies.ts).
     this.lobbyLapses.push(...stepLobbies(state));
+    // The streets, on the same clock as the votes they answer to (§29).
+    this.unrestChanges.push(...stepUnrest(state, dt));
     stepResearch(state, dt);
     const era = stepProgression(state);
 
@@ -318,6 +323,12 @@ export class Systems {
   drainMarooned(): readonly MaroonedRoads[] {
     if (this.maroonedEvents.length === 0) return EMPTY_MAROONED;
     return this.maroonedEvents.splice(0, this.maroonedEvents.length);
+  }
+
+  /** The streets turning, or settling, since the last drain (§29). */
+  drainUnrest(): readonly UnrestChange[] {
+    if (this.unrestChanges.length === 0) return EMPTY_UNREST;
+    return this.unrestChanges.splice(0, this.unrestChanges.length);
   }
 
   /** Lobby deals that ran out since the last drain, for the UI to announce. */

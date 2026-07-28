@@ -626,6 +626,37 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §29 meşruiyet ve huzursuzluk — seçimin gerçekten önemli olduğu an
+Oyuncunun isteği: "seçimi kaybedersek sorsun, devam etmek istiyorsan kaos
+çıksın, yönetime zorla el koyalım." Kaybetmek o zamana kadar oyundaki **en
+sessiz an**dı — şehir kalıyor, para kalıyor, sadece ödenek gidiyordu. Yani oy
+bir bonus turdu, oysa anayasanın tezi oyun *oyun*.
+
+Kaybedilen seçim artık üç cevaplı bir soru (`ui/crisisPrompt.ts`):
+- **Görevi devret** — ödenek gider, huzursuzluk *sıfırlanır*, yeni yönetim iyi
+  niyetle başlar. Şehri kolaylaştıran tek cevap bu; diğer ikisinin bedava
+  olmamasını sağlayan da bu.
+- **Sonucu tanıma** — koltukta kalırsın, sokak karışır, **seçimler devam eder**.
+  Gelecek seçimi kazanmak meşruiyeti geri getirir.
+- **Yönetime el koy** — seçimler biter, bir daha kaybetmezsin, huzursuzluk
+  tavana yakın fırlar.
+
+**Kilit tasarım kararı: huzursuzluk bir ceza çubuğu değil.** Bariz versiyon
+darbeyi tuzak yapardı (seç, sayıların düşüşünü izle, geri yükle) — bu ilerleme
+çubuklu bir ahlak dersi olurdu ve "hiçbir şey geri alınamaz değildir"
+doktrinini ilk kez çiğnerdi. Bunun yerine huzursuzluk **şehrin ne kadar iyi
+yönetildiğine** cevap veriyor (§25 karnesi): mandasız yönet, tırmanır; gerçekten
+iyi bir şehir yönet, düşer — nasıl geldiğine bakmadan. A alan bir gaspçı sokağı
+birkaç dönemde yatıştırabiliyor (test var). Bu bir azarlama değil gerçek bir
+gerilim: bir şehir işini yapan bir yönetimin çok şeyini affedebilir — oyunun
+söylemesi rahatsız edici ve doğru olan bir şey.
+
+Dokunduğu sistemler: mutluluk, göç (ayrı bir itme terimi — insanlar güvenmediği
+yönetimden, sadece tatsız şehirden kaçtığından hızlı kaçar), suç, kesimler
+(§23 — düz bir ceza, çünkü bu bazılarının sevdiği bir politika değil,
+"bu yönetim orada olmalı mı" sorusu), iki gazete (§23 — Posta darbeyi istikrar,
+Gazete bir şeyin sonu diye okuyor; ikisi de yalan söylemiyor).
+
 ### §28 saha görevleri — haritada *yer* gösteren ilk hedefler
 Oyuncunun sorusu: "haritanın belli bir kısmı görev olarak verilecek, oraya
 belirli şeyleri koyma görevi olacak, oralar yanıp sönecek." O zamana kadarki

@@ -2,6 +2,7 @@ import { HAPPINESS_START, STARTING_MONEY, STARTING_TAX_RATE } from '../data/bala
 import type { Building } from './buildings';
 import type { Attraction } from './attractions';
 import type { LobbyDeal } from './lobbies';
+import type { Mandate } from './unrest';
 import { createBudgets, type Budgets } from './budgets';
 import type { PolicyId } from '../data/policies';
 import type { Loan } from './credit';
@@ -168,6 +169,16 @@ export interface GameState {
   lastVerdict: Verdict;
   verdictMemory: number;
   /**
+   * How the mayor came to be governing, and what the streets make of it
+   * (sim/unrest.ts, §29).
+   *
+   * Both saved. A refusal or a coup is the single most consequential thing a
+   * player can do in this game, and a reload that quietly restored their
+   * legitimacy would erase the decision along with its cost.
+   */
+  mandate: Mandate;
+  unrest: number;
+  /**
    * Level bought in each civic programme (data/investments.ts). What a rich city
    * spends its money on, and the only purchase whose effect is the whole map.
    */
@@ -226,6 +237,8 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     nextAttractionId: 1,
     policies: new Set(),
     lobbies: [],
+    mandate: 'elected',
+    unrest: 0,
     transit: new Map(),
     nextTransitId: 1,
     farmTiles: 0,

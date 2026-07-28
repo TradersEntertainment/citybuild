@@ -50,6 +50,9 @@ export interface UiState {
   lobbies: LobbyView[];
   /** How the city is graded, which is a different question from approval (§25). */
   report: ReportView;
+  /** How the mayor came to power, and how the streets have taken it (§29). */
+  mandate: string;
+  unrest: number;
   /** Riders a minute the bus lines are carrying (sim/transit.ts). */
   riders: number;
   /** Seconds until the next vote is counted (sim/elections.ts). */
@@ -225,6 +228,8 @@ export interface SimSnapshot {
   groups: GroupView[];
   lobbies: LobbyView[];
   report: ReportView;
+  mandate: string;
+  unrest: number;
   riders: number;
   secondsToElection: number;
   grid: GridView;
@@ -297,6 +302,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   groups: [],
   lobbies: [],
   report: { scores: {}, overall: 0, grade: 'F' },
+  mandate: 'elected',
+  unrest: 0,
   riders: 0,
   secondsToElection: 0,
   grid: { waterSupply: 0, waterDemand: 0, powerSupply: 0, powerDemand: 0, expected: false },
@@ -393,6 +400,8 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
           Math.round((current.report.scores[dimension] ?? 0) * 100) ===
           Math.round((snapshot.report.scores[dimension] ?? 0) * 100),
       ) &&
+      current.mandate === snapshot.mandate &&
+      Math.round(current.unrest * 100) === Math.round(snapshot.unrest * 100) &&
       Math.round(current.riders) === Math.round(snapshot.riders) &&
       Math.ceil(current.secondsToElection) === Math.ceil(snapshot.secondsToElection) &&
       SERVICE_KEYS.every(

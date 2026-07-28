@@ -111,6 +111,17 @@ export interface SaveData {
   /** Ordinances in force, by id — filtered on load like goals and techs. */
   policies: string[];
   /**
+   * How the mayor came to power, and how the streets have taken it (§29).
+   *
+   * Saved because a refusal or a coup is the most consequential thing a player
+   * can do in this game, and a reload that quietly restored their legitimacy
+   * would erase the decision along with its cost. A file from before this
+   * existed loads as an ordinary elected mayor with calm streets, which is what
+   * every such city was.
+   */
+  mandate: string;
+  unrest: number;
+  /**
    * Signed lobby deals, flattened: kind index, played-ms it lapses at.
    *
    * The expiry is stored as played time rather than as a countdown, so an
@@ -249,6 +260,8 @@ export function serialize(state: GameState): SaveData {
     attractions,
     nextAttractionId: state.nextAttractionId,
     policies: [...state.policies],
+    mandate: state.mandate,
+    unrest: Math.round(state.unrest * 1000) / 1000,
     lobbies,
     transit,
     nextTransitId: state.nextTransitId,
@@ -512,6 +525,15 @@ export function deserialize(data: unknown): GameState | null {
   for (const id of Array.isArray(data.policies) ? data.policies : []) {
     if (typeof id === 'string' && id in POLICY_SPECS) state.policies.add(id as PolicyId);
   }
+
+  // A mandate this build does not recognise loads as an elected one: the
+  // charitable reading, and the only one that cannot strand a city in a state
+  // it has no way out of.
+  state.mandate =
+    data.mandate === 'refused' || data.mandate === 'seized' ? data.mandate : 'elected';
+  const unrest = data.unrest;
+  state.unrest =
+    typeof unrest === 'number' && Number.isFinite(unrest) ? Math.min(1, Math.max(0, unrest)) : 0;
 
   // Signed deals. A file from before the lobbies existed has no key at all and
   // loads as a city nobody has approached, which is exactly right. An index this

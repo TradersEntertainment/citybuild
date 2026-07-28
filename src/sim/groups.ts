@@ -12,6 +12,7 @@ import {
   TAX_RATE_MAX,
 } from '../data/balance';
 import { LOBBY_SPECS } from '../data/lobbies';
+import { unrestGroupSway } from './unrest';
 import { bandCount, burialHappiness, schooledShare, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { rubbishStrain } from './rubbish';
@@ -264,6 +265,11 @@ function petScore(state: GameState, id: GroupId, t: Tallies): number {
   // at the floor cannot be angered further. A signature moves a group that has
   // somewhere to move.
   score += lobbySway(state, id);
+  // …and what every faction makes of how the mayor came to be there (§29).
+  // Flat across the room rather than per-faction: this is not a policy some of
+  // them like, it is whether the government should be there at all, and the
+  // greens and the industrialists answer that the same way.
+  score += unrestGroupSway(state);
   return score < 0 ? 0 : score > 1 ? 1 : score;
 }
 

@@ -203,6 +203,30 @@ export const STR = {
   media: {
     postName: 'Şehir Postası',
     gazetteName: 'Körfez Gazetesi',
+    /**
+     * The crisis (§29), read two ways.
+     *
+     * The Post reads a coup as stability and the Gazette reads it as the end of
+     * something — neither is lying, and the player is left to decide which
+     * paper they think is right. That disagreement is the whole reason there
+     * are two of them.
+     */
+    crisisHandedOver: {
+      post: 'Devir teslim sorunsuz: piyasalar rahatladı.',
+      gazette: 'Belediye anahtarı teslim etti — mahalle "hakkını verdi" diyor.',
+    },
+    crisisRefused: {
+      post: 'Belediye koltuğu bırakmıyor: hukukçular tartışıyor.',
+      gazette: 'Sandığa gidip ne oldu? Meydanda kalabalık var.',
+    },
+    crisisSeized: {
+      post: 'Yönetim el değiştirmedi: kararlar artık hızlı alınacak.',
+      gazette: 'Seçim yok. Bundan sonrasını kim soracak?',
+    },
+    crisisSettled: {
+      post: 'Sokak yatıştı: yatırımcı geri dönüyor.',
+      gazette: 'Meydan boşaldı — kimse kazandı demiyor, ama ekmek ucuzladı.',
+    },
     policyOn: {
       freeTransit: {
         post: 'Bilet kasası kapandı: ulaşım artık vergiden.',
@@ -679,6 +703,52 @@ export const STR = {
     /** The chronicle's telling. */
     chronicle: 'Ters işaretlenmiş kavşak trafiği kesti.',
     chronicleCleared: 'Tek yön düzeni onarıldı.',
+  },
+  /**
+   * The fork after a lost election (§29), and what the city says about it.
+   *
+   * Every line names the cost as well as the offer. A coup card that read like
+   * a power fantasy and hid the bill would be the game tricking the player into
+   * the most consequential decision in it; a card that read like a warning
+   * would be the game deciding for them. Both are stated flatly, and the choice
+   * is theirs.
+   */
+  crisis: {
+    title: 'Seçim kaybedildi',
+    icon: '\u{1F5F3}',
+    lead: (share: string): string =>
+      `Sandıktan %${share} çıktı. Şehir yeni bir yönetim istiyor.`,
+    handOver: 'Görevi devret',
+    handOverNote: 'Ödenek gider, şehir kalır. Yeni yönetim iyi niyetle başlar.',
+    refuse: 'Sonucu tanıma',
+    refuseNote: 'Koltukta kalırsın. Sokak karışır; gelecek seçim hâlâ var.',
+    seize: 'Yönetime el koy',
+    seizeNote: 'Seçimler biter. Bir daha kaybetmezsin — şehir de bunu unutmaz.',
+    /** Confirmations. */
+    handedOver: 'Görev devredildi.',
+    refused: 'Sonuç tanınmadı.',
+    seized: 'Yönetime el kondu. Seçimler durdu.',
+    /** The meter crossing, in the feed. */
+    rising: 'Sokaklar karışıyor.',
+    settling: 'Sokaklar yatışıyor.',
+    /** The panel section. */
+    heading: 'Meşruiyet',
+    unrest: 'Huzursuzluk',
+    mandate: {
+      elected: 'Seçilmiş yönetim',
+      refused: 'Tanınmayan sonuç',
+      seized: 'El konmuş yönetim',
+    },
+    /** How the streets can be settled again, said where the meter is shown. */
+    hint: {
+      elected: 'Sandık seni onayladı.',
+      refused: 'İyi bir karne sokağı yatıştırır; gelecek seçimi kazanmak bitirir.',
+      seized: 'Seçim yok. Sokağı yatıştırmanın tek yolu şehri gerçekten iyi yönetmek.',
+    },
+    /** The chronicle. */
+    chronicleRefused: 'Belediye sandık sonucunu tanımadı.',
+    chronicleSeized: 'Belediye yönetime el koydu; seçimler askıya alındı.',
+    chronicleHandedOver: 'Görev seçilen yönetime devredildi.',
   },
   roadRepair: {
     title: 'Karayolları müdürlüğü',

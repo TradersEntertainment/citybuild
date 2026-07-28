@@ -25,6 +25,7 @@ import { rubbishHappiness } from './rubbish';
 import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
 import { lobbyHappiness } from './lobbies';
+import { unrestHappiness, unrestMigrationPush } from './unrest';
 import { portHappiness } from './ports';
 import { ritualHappiness } from './rituals';
 import type { GameState } from './state';
@@ -100,6 +101,9 @@ function updateHappiness(state: GameState, workers: number, jobs: number, dt: nu
   // A wage settlement, while the city is paying for one (sim/lobbies.ts). Zero
   // with nothing signed, like every other term above it.
   target += lobbyHappiness(state);
+  // What governing without a mandate costs the mood (sim/unrest.ts). Zero for
+  // an elected mayor, which is every city that has not been given the choice.
+  target += unrestHappiness(state);
   target = clamp(target, 0, 100);
   // Mood moves slowly; a city that swung with every tick would be unreadable.
   state.happiness += (target - state.happiness) * Math.min(1, HAPPINESS_RESPONSE * dt);
@@ -222,6 +226,11 @@ function migrate(state: GameState, vacancy: number, dt: number): void {
   // History decides how full the road in is: a draft empties it, a boom
   // decade fills every bus.
   if (perMinute > 0) perMinute *= state.timelineEffects.migrationMult;
+  // People leave a government they have stopped trusting faster than they leave
+  // a merely unpleasant city (sim/unrest.ts). Subtracted rather than scaled, so
+  // it pushes a city that was gaining people toward losing them instead of only
+  // slowing the gain — which is what "they are leaving" has to mean.
+  perMinute -= (unrestMigrationPush(state) * state.population) / 1_000;
   const change = (perMinute * dt) / 60;
   if (change === 0) return;
 

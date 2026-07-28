@@ -8,6 +8,7 @@ import {
 } from '../data/balance';
 import { SECONDS_PER_YEAR } from '../data/timeline';
 import { electorateApproval } from './groups';
+import { electionsRun, restoreMandate } from './unrest';
 import type { GameState } from './state';
 
 /**
@@ -91,6 +92,14 @@ const NO_EVENTS: readonly ElectionEvent[] = [];
 export function stepElections(state: GameState, dt: number): readonly ElectionEvent[] {
   if (state.verdictMemory > 0) state.verdictMemory = Math.max(0, state.verdictMemory - dt);
 
+  // A government that ended the voting does not hold elections (§29). The term
+  // clock is still advanced below so that restoring the vote — which nothing
+  // currently does — would not fire a decade of back-dated ballots at once.
+  if (!electionsRun(state)) {
+    state.lastTermSettled = termOf(state.playedMs);
+    return NO_EVENTS;
+  }
+
   const term = termOf(state.playedMs);
   // Term zero is the founding: nobody elected anybody to build a village.
   if (term <= state.lastTermSettled) return NO_EVENTS;
@@ -120,6 +129,10 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
    */
   const grant = won ? Math.round(state.population * MANDATE_PER_CITIZEN) * missed : 0;
   if (grant > 0) state.money += grant;
+  // Winning is the honest way back to legitimacy: a mayor who refused a result
+  // and then won the next vote is elected again, and the streets settle at the
+  // ordinary rate from wherever the refusal left them (§29).
+  if (won) restoreMandate(state);
   return [{ kind: 'election', verdict: state.lastVerdict, approval: share, grant, terms: missed }];
 }
 

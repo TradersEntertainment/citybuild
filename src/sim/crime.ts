@@ -22,6 +22,7 @@ import { schoolingCrimeFactor } from './cohorts';
 import { lightingShare } from './investments';
 import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
+import { unrestCrimeFactor } from './unrest';
 import type { GameState } from './state';
 import { index } from './world';
 
@@ -143,11 +144,15 @@ function startCrimes(
   // And what the schools bought, a band late (sim/cohorts.ts). This is the pay-off
   // a player waits for: children schooled now are the workforce that does not rob
   // the place later, which is the longest-horizon decision in the game.
+  const unrestFactor = unrestCrimeFactor(state);
   const schooling = schoolingCrimeFactor(state);
 
   for (const building of state.buildings.values()) {
     if (crimeAt(state, building.id) !== null) continue;
-    let chance = CRIME_PER_SEC * dt * nightMult * miseryMult * forensics * schooling;
+    // …and what a city that has stopped trusting its government does to its own
+    // streets (sim/unrest.ts); exactly 1 under an elected mayor.
+    let chance =
+      CRIME_PER_SEC * dt * nightMult * miseryMult * forensics * schooling * unrestFactor;
     if (building.zone === 'com') chance *= CRIME_COMMERCIAL_MULT;
     const covered = coveredByPolice(state, building);
     // A watched street is watched harder or thinner depending on what the

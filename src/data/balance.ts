@@ -758,6 +758,45 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- Legitimacy and unrest (§29) -----------------------------------------------
+/**
+ * The shocks, when a lost election is answered with something other than
+ * standing down.
+ *
+ * Refusing is a third of the meter; a coup is most of it. The gap is the whole
+ * moral distinction the mechanic draws — staying on without a mandate is a
+ * thing cities survive and argue about, and ending the voting is not.
+ */
+export const UNREST_ON_REFUSAL = 0.35;
+export const UNREST_ON_SEIZURE = 0.75;
+/**
+ * How fast the streets turn while nobody has a mandate, and how fast they
+ * settle once somebody does.
+ *
+ * The grip is slower than the decay on purpose: a government that fixes things
+ * can outrun the drift, which is what makes the redemption path real rather
+ * than decorative. At these rates a usurper running an A-grade city is back
+ * under the loud line in roughly two terms, and one running a D never gets
+ * there at all.
+ */
+export const UNREST_GRIP_PER_S = 1 / 900;
+export const UNREST_DECAY_PER_S = 1 / 420;
+/**
+ * How much a good report card is worth against the grip, as a multiple of the
+ * ordinary decay.
+ *
+ * 2.4 means a perfect card more than cancels the grip and a middling one only
+ * slows it. Tuned so "govern well and the city forgives you" is true and
+ * "govern adequately and it forgets" is not.
+ */
+export const UNREST_QUIET_CARD = 2.4;
+/** Mood lost at full unrest; scaled linearly below it. */
+export const UNREST_HAPPINESS_HIT = 22;
+/** Extra residents a minute pushed out at full unrest, per thousand people. */
+export const UNREST_MIGRATION_PUSH = 0.35;
+/** Crime at full unrest, as a multiple of the ordinary rate. */
+export const UNREST_CRIME_MULT = 1.6;
+
 // --- Site goals (§28) ----------------------------------------------------------
 /**
  * How big a marked site is, in tiles.

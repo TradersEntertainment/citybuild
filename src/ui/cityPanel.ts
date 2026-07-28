@@ -329,6 +329,31 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   }
   inner.append(report.el);
 
+  /**
+   * Legitimacy (§29), directly above the deals and the electorate.
+   *
+   * Shown only once it means something. A mayor who has never lost a vote has
+   * never been asked the question, and a row reading "Seçilmiş yönetim · %0"
+   * would be the game teasing a mechanic they have not met — the same reason
+   * the electorate section stays hidden in an empty city.
+   *
+   * The hint line is the part that matters. A meter with no stated way down is
+   * a punishment; this one always says what settles it, and for a government
+   * that ended the voting it says the only thing that can.
+   */
+  const legitimacy = section(STR.crisis.heading);
+  const mandateRow = row(STR.crisis.mandate.elected);
+  const unrestRow = row(STR.crisis.unrest);
+  const legitimacyHint = document.createElement('p');
+  legitimacyHint.className = 'mission-empty';
+  const unrestTrack = document.createElement('div');
+  unrestTrack.className = 'panel-group-track';
+  const unrestBar = document.createElement('div');
+  unrestBar.className = 'panel-group-bar';
+  unrestTrack.append(unrestBar);
+  legitimacy.body.append(mandateRow.el, unrestRow.el, unrestTrack, legitimacyHint);
+  inner.append(legitimacy.el);
+
   const deals = section(STR.lobby.heading);
   const dealsEmpty = document.createElement('p');
   dealsEmpty.className = 'mission-empty';
@@ -577,6 +602,16 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       row_.value.textContent = STR.format.percent(score);
       row_.bar.style.width = `${Math.round(score * 100)}%`;
     }
+    // Legitimacy, hidden until the player has actually been asked the question.
+    const mandate = s.mandate as keyof typeof STR.crisis.mandate;
+    const contested = mandate !== 'elected' || s.unrest > 0.005;
+    legitimacy.el.hidden = !contested;
+    mandateRow.el.hidden = false;
+    mandateRow.set(STR.crisis.mandate[mandate] ?? mandate);
+    unrestRow.set(STR.format.percent(s.unrest));
+    unrestRow.el.dataset['alarm'] = String(s.unrest >= 0.5);
+    unrestBar.style.width = `${Math.round(s.unrest * 100)}%`;
+    legitimacyHint.textContent = STR.crisis.hint[mandate] ?? '';
     // The deals in force, with what is left of each. The section stays visible
     // with none signed and says so: "imzalı anlaşma yok" is information — a
     // player who has forgotten whether they took the oil money can check —
