@@ -76,6 +76,29 @@ export interface CityPanelDeps {
   policyUnlocked(id: PolicyId): boolean;
 }
 
+/**
+ * Which tab the player was last in. Remembered like the panel's open state:
+ * somebody who governs from the Yönetim tab should not be dropped back into
+ * the city numbers every time they reload.
+ */
+const TAB_KEY = 'kadastro.panelTab';
+
+function rememberedTab(): 'gov' | 'city' {
+  try {
+    return window.localStorage.getItem(TAB_KEY) === 'city' ? 'city' : 'gov';
+  } catch {
+    return 'gov';
+  }
+}
+
+function rememberTab(tab: 'gov' | 'city'): void {
+  try {
+    window.localStorage.setItem(TAB_KEY, tab);
+  } catch {
+    // Not being able to remember costs one tap, not the game.
+  }
+}
+
 export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPanelHandle {
   const panel = document.createElement('section');
   panel.className = 'city-panel';
@@ -248,7 +271,61 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   // that stays out of the way until it is asked for.
   const inner = document.createElement('div');
   inner.className = 'panel-detail-inner';
-  inner.append(goals.el, people.el, books.el, grid.el, trade.el);
+
+  /**
+   * Two tabs, because one column had stopped working (§34).
+   *
+   * The panel had grown to eleven sections and the whole governance layer —
+   * the decrees, the tax lever, the promises, the opposition — sat below five
+   * screens of city statistics. A player asking "where do I issue a decree"
+   * was asking a fair question: the answer was "scroll for a while", which for
+   * a game about governing is the wrong thing to bury.
+   *
+   * So the sections are split by what they are *for*. **Yönetim** holds every
+   * lever and every reading about power; **Şehir** holds the numbers about the
+   * place. Governance opens first — this is a politics game, and the tab a
+   * player lands on is a statement about what the game is.
+   *
+   * Both groups stay in the DOM and both are updated every frame. Hiding a
+   * section is a display concern, and a tab that quietly stopped refreshing
+   * would be a stale readout waiting to lie to somebody.
+   */
+  const tabs = document.createElement('div');
+  tabs.className = 'panel-tabs';
+  const govGroup = document.createElement('div');
+  govGroup.className = 'panel-tab-group';
+  const cityGroup = document.createElement('div');
+  cityGroup.className = 'panel-tab-group';
+
+  const tabButton = (label: string, group: HTMLElement): HTMLButtonElement => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'panel-tab';
+    button.textContent = label;
+    button.addEventListener('click', () => {
+      for (const other of [govButton, cityButton]) {
+        other.dataset['selected'] = String(other === button);
+      }
+      govGroup.hidden = group !== govGroup;
+      cityGroup.hidden = group !== cityGroup;
+      rememberTab(group === govGroup ? 'gov' : 'city');
+    });
+    return button;
+  };
+  const govButton = tabButton(STR.panel.tabGovern, govGroup);
+  const cityButton = tabButton(STR.panel.tabCity, cityGroup);
+  tabs.append(govButton, cityButton);
+
+  // The remembered tab, so a player who lives in one is not thrown back to the
+  // other on every reload — the same courtesy the panel's own open state gets.
+  const startTab = rememberedTab();
+  govButton.dataset['selected'] = String(startTab === 'gov');
+  cityButton.dataset['selected'] = String(startTab === 'city');
+  govGroup.hidden = startTab !== 'gov';
+  cityGroup.hidden = startTab !== 'city';
+
+  inner.append(tabs, govGroup, cityGroup);
+  cityGroup.append(goals.el, people.el, books.el, grid.el, trade.el);
   // Retiring lives at the bottom of the panel, below every number it is a
   // decision about, and does not exist at all until the city is old enough for
   /**
@@ -270,7 +347,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     programmeRows.set(id, built);
     invest.body.append(built.el);
   }
-  inner.append(invest.el);
+  cityGroup.append(invest.el);
 
   /**
    * The electorate (sim/groups.ts, §23): the factions and how each would
@@ -289,7 +366,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   >();
   const groupList = document.createElement('div');
   opinion.body.append(groupList);
-  inner.append(opinion.el);
+  govGroup.append(opinion.el);
 
   /**
    * The signed deals (§24), directly under the electorate they moved.
@@ -340,7 +417,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     report.body.append(el);
     reportRows.set(dimension, { value, bar });
   }
-  inner.append(report.el);
+  govGroup.append(report.el);
 
   /**
    * Legitimacy (§29), directly above the deals and the electorate.
@@ -379,7 +456,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const rivalRow = row(STR.opponent.heading);
   const rivalTaking = row(STR.opponent.taking);
   rival.body.append(rivalNote, rivalRow.el, rivalTaking.el);
-  inner.append(rival.el);
+  govGroup.append(rival.el);
 
   /**
    * The dictator's menu (§32), above the promises — force above persuasion.
@@ -435,16 +512,35 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const decreeRows = new Map<string, { button: HTMLButtonElement; value: HTMLSpanElement }>();
   const decreeList = document.createElement('div');
   decrees.body.append(decreeList);
+  /**
+   * A decree's row: the name and its state on one line, the trade underneath.
+   *
+   * The first version put both in one span, so the era label ran straight into
+   * the end of the sentence — "…köylük yerler unutmaz.Köy". A decree's *state*
+   * (issue it, repeal it, or what unlocks it) is the thing a finger is aiming
+   * at, so it gets the head line to itself; the trade is the subtitle that
+   * justifies the tap.
+   */
   const decreeRow = (id: string) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'panel-policy';
-    const name = document.createElement('span');
+    button.className = 'panel-policy panel-decree';
+
+    const head = document.createElement('span');
+    head.className = 'panel-decree-head';
     const key = id as keyof typeof STR.decree.names;
-    name.textContent = `${STR.decree.names[key]} — ${STR.decree.trade[key]}`;
+    const name = document.createElement('span');
+    name.className = 'panel-decree-name';
+    name.textContent = STR.decree.names[key];
     const value = document.createElement('span');
     value.className = 'panel-value mono';
-    button.append(name, value);
+    head.append(name, value);
+
+    const trade = document.createElement('span');
+    trade.className = 'panel-decree-trade';
+    trade.textContent = STR.decree.trade[key];
+
+    button.append(head, trade);
     button.addEventListener('click', () => deps.onDecree(id));
     decreeList.append(button);
     const made = { button, value };
@@ -456,10 +552,14 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   // is its own seizure and its own chunk of fury.
   const confiscateButton = document.createElement('button');
   confiscateButton.type = 'button';
-  confiscateButton.className = 'panel-policy';
   const confiscateName = document.createElement('span');
-  confiscateName.textContent = `${STR.decree.confiscate} — ${STR.decree.confiscateTrade}`;
-  confiscateButton.append(confiscateName);
+  confiscateName.className = 'panel-decree-name';
+  confiscateName.textContent = STR.decree.confiscate;
+  const confiscateTrade = document.createElement('span');
+  confiscateTrade.className = 'panel-decree-trade';
+  confiscateTrade.textContent = STR.decree.confiscateTrade;
+  confiscateButton.className = 'panel-policy panel-decree';
+  confiscateButton.append(confiscateName, confiscateTrade);
   confiscateButton.addEventListener('click', () => deps.onConfiscate());
 
   // The release valve beside the seizure: the two one-shots are one decision
@@ -467,13 +567,17 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   // putting them on adjacent rows.
   const breadButton = document.createElement('button');
   breadButton.type = 'button';
-  breadButton.className = 'panel-policy';
   const breadName = document.createElement('span');
-  breadName.textContent = `${STR.decree.bread} — ${STR.decree.breadTrade}`;
-  breadButton.append(breadName);
+  breadName.className = 'panel-decree-name';
+  breadName.textContent = STR.decree.bread;
+  const breadTrade = document.createElement('span');
+  breadTrade.className = 'panel-decree-trade';
+  breadTrade.textContent = STR.decree.breadTrade;
+  breadButton.className = 'panel-policy panel-decree';
+  breadButton.append(breadName, breadTrade);
   breadButton.addEventListener('click', () => deps.onBread());
   decrees.body.append(confiscateButton, breadButton);
-  inner.append(decrees.el);
+  govGroup.append(decrees.el);
 
   const promises = section(STR.promise.title);
   const promiseNote = document.createElement('p');
@@ -483,7 +587,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const promiseList = document.createElement('div');
   const betrayedRow = row(STR.promise.betrayed);
   promises.body.append(promiseNote, promiseCount.el, promiseList, betrayedRow.el);
-  inner.append(promises.el);
+  govGroup.append(promises.el);
 
   const promiseRows = new Map<
     string,
@@ -520,7 +624,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   unrestBar.className = 'panel-group-bar';
   unrestTrack.append(unrestBar);
   legitimacy.body.append(mandateRow.el, unrestRow.el, unrestTrack, legitimacyHint);
-  inner.append(legitimacy.el);
+  govGroup.append(legitimacy.el);
 
   const deals = section(STR.lobby.heading);
   const dealsEmpty = document.createElement('p');
@@ -528,7 +632,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   dealsEmpty.textContent = STR.lobby.none;
   const dealList = document.createElement('div');
   deals.body.append(dealsEmpty, dealList);
-  inner.append(deals.el);
+  govGroup.append(deals.el);
 
   const dealRows = new Map<string, { el: HTMLDivElement; value: HTMLSpanElement }>();
   /** Built on first sight and reused, exactly like a faction's row. */
@@ -603,7 +707,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     policyRows.set(id, button);
     policies.body.append(button);
   }
-  inner.append(policies.el);
+  govGroup.append(policies.el);
 
   // it to be one. A destructive action a new player can reach by accident is
   // not a feature.
@@ -620,7 +724,22 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   locked.className = 'mission-empty';
   locked.textContent = STR.legacy.locked;
   legacy.body.append(retire, locked);
-  inner.append(legacy.el);
+  cityGroup.append(legacy.el);
+
+  // The governance tab, ordered by how directly a player acts on each: the
+  // levers first, then who is watching, then the readings. Re-appending an
+  // existing child moves it, so this one call settles the order however the
+  // sections were built above.
+  govGroup.append(
+    legitimacy.el,
+    decrees.el,
+    promises.el,
+    rival.el,
+    opinion.el,
+    report.el,
+    deals.el,
+    policies.el,
+  );
 
   detail.append(inner);
   panel.append(toggle, detail);

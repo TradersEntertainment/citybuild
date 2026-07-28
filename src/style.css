@@ -1885,3 +1885,92 @@ body {
 .promise-pick[data-selected='true'] span {
   color: var(--pirinc);
 }
+
+/* --- Panel tabs: governance and city (§34) -------------------------------- */
+
+.panel-tabs {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 4px;
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: linear-gradient(
+    to bottom,
+    var(--murekkep) 70%,
+    color-mix(in srgb, var(--murekkep) 0%, transparent)
+  );
+}
+
+.panel-tab {
+  flex: 1;
+  min-height: 34px;
+  border: 1px solid color-mix(in srgb, var(--parsomen) 16%, transparent);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--sis);
+  font: inherit;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+
+.panel-tab[data-selected='true'] {
+  color: var(--murekkep);
+  background: var(--pirinc);
+  border-color: var(--pirinc);
+  font-weight: 600;
+}
+
+.panel-tab:focus-visible {
+  outline: 2px solid var(--parsomen);
+  outline-offset: 2px;
+}
+
+.panel-tab-group {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.panel-tab-group[hidden] {
+  display: none;
+}
+
+/* A decree row: name + state on the head line, the trade underneath (§34). */
+.panel-decree {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  padding-top: 9px;
+  padding-bottom: 9px;
+}
+
+.panel-decree-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.panel-decree-name {
+  font-size: 13.5px;
+  color: var(--parsomen);
+}
+
+.panel-decree[data-selected='true'] .panel-decree-name {
+  color: var(--pirinc);
+  font-weight: 600;
+}
+
+.panel-decree-trade {
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: var(--sis);
+  text-wrap: pretty;
+}
+
+.panel-decree[data-locked='true'] .panel-decree-trade {
+  opacity: 0.6;
+}

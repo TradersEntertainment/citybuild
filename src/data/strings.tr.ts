@@ -1190,6 +1190,9 @@ export const STR = {
     unemployment: 'İşsizlik',
     books: 'Bütçe',
     tax: 'Vergi',
+    /** The two tabs (§34): power, and the place. */
+    tabGovern: 'Yönetim',
+    tabCity: 'Şehir',
     roads: 'Yol bakımı',
     stations: 'Hizmet gideri',
     debt: 'Kredi taksiti',

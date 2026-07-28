@@ -107,6 +107,7 @@ import { mountIntro } from './ui/intro';
 import { mountOnboarding } from './ui/onboarding';
 import { scoreOpening } from './sim/elections';
 import { leaderStartMoney } from './sim/leaders';
+import { NEUTRAL_LEADER } from './data/leaders';
 import { ELECTION_THRESHOLD } from './data/balance';
 import * as haptics from './ui/haptics';
 import { mountEventFeed, type CustomEntry } from './ui/eventFeed';
@@ -734,7 +735,15 @@ if (freshStart) {
     },
   });
 } else {
-  const intro = mountIntro(ui, { skip: returning, onDismiss: () => coach.start(coachFacts()) });
+  // A city that already has a chosen leader has been through the opening (§33),
+  // so it must never be shown the old road card — a player who completed the
+  // dictator selection and reloaded before laying a road was getting the very
+  // tutorial the opening replaced, on top of the panel they were trying to use.
+  const openingDone = game.leader !== NEUTRAL_LEADER;
+  const intro = mountIntro(ui, {
+    skip: returning || openingDone,
+    onDismiss: () => coach.start(coachFacts()),
+  });
   if (returning) coach.dismiss();
   else if (!intro.open) coach.start(coachFacts());
 }

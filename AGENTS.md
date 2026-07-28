@@ -626,6 +626,27 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §34 panel sekmeleri — siyaset öne
+Oyuncunun sorusu "fermanları nerden vericez" adil bir soruydu: panel on bir
+bölüme çıkmıştı ve tüm yönetim katmanı (fermanlar, vergi kolu, vaatler,
+rakip) beş ekran şehir istatistiğinin *altında* kalıyordu.
+
+- İki sekme: **Yönetim** (her kol ve iktidara dair her okuma) ve **Şehir**
+  (yerin sayıları). Yönetim önce açılıyor — bu bir siyaset oyunu ve oyuncunun
+  indiği sekme oyunun ne olduğuna dair bir beyandır. Seçilen sekme hatırlanıyor.
+- Yönetim içi sıra eyleme dönüklüğe göre: meşruiyet → fermanlar → vaatler →
+  rakip → kesimler → karne → anlaşmalar → kararnameler.
+- Her iki grup da DOM'da kalıyor ve her karede güncelleniyor: gizlemek bir
+  görüntü meselesi, sessizce yenilenmeyi bırakan bir sekme yalan söylemeyi
+  bekleyen bayat bir gösterge olurdu.
+- Ferman satırı yeniden yapılandırıldı: ad + durum baş satırda, takas altta.
+  Öncesinde çağ etiketi cümlenin sonuna yapışıyordu ("…unutmaz.Köy").
+
+**Tarayıcıda bulunan gerçek hata:** açılışı bitirip yol çizmeden reload eden
+oyuncu, tam da açılışın yerini aldığı **eski yol öğreticisini** geri alıyordu —
+üstelik kullanmaya çalıştığı panelin üstüne. Lider seçmiş bir şehir açılışı
+geçmiştir; `skip: returning || openingDone`.
+
 ### §33 diktatör seçimi + açılış seçimi — oyun artık siyasetle başlıyor
 Oyuncu: "diktatörünü seç diye başlasın, kişilik ve vaatle seçim kazanarak
 başlayalım." Eski açılış boş bir haritada dört etiketsiz fiildi; siyaset oyunu
