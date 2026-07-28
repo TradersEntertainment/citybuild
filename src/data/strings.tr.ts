@@ -223,6 +223,13 @@ export const STR = {
       post: 'Yönetim el değiştirmedi: kararlar artık hızlı alınacak.',
       gazette: 'Seçim yok. Bundan sonrasını kim soracak?',
     },
+    /** The papers on a revolt — the one story censorship cannot bury. */
+    revolt: {
+      post: 'Meydanlarda kalabalık: üretim durdu, yatırımcı kaçıyor.',
+      gazette: 'Bardak taştı. Kimse şaşırmadı — bir kişi hariç.',
+    },
+    /** What the Gazette prints under censorship: nothing it is allowed to say. */
+    censoredLine: '\u{258C}\u{258C}\u{258C} — sansürlendi',
     opponentBeat: {
       post: 'Sandık değişim dedi: yeni yönetim göreve hazırlanıyor.',
       gazette: 'Meydanda kalabalık var — ama bu kez kutlama için.',
@@ -429,6 +436,7 @@ export const STR = {
   serviceBuilt: 'Hizmet binası kuruldu.',
   tourismIncome: 'Turizm',
   lobbyIncome: 'Anlaşmalar',
+  decreeIncome: 'Fermanlar',
   policy: {
     title: 'Politikalar',
     note: 'Meclisin inşaatsız kolları. Her biri bir takas — bedavası yok.',
@@ -746,6 +754,63 @@ export const STR = {
    * something the player remembers when they read the chronicle back — and
    * something they can act on while there is still a term left to act in.
    */
+  /**
+   * Decrees (§32). Every row states both halves of its trade in the same
+   * breath — what it pays, and that the city will mind — because the only
+   * thing this system hides is *how much* this particular city minds, and that
+   * is the game.
+   */
+  decree: {
+    title: 'Fermanlar',
+    icon: '\u{1F5DE}',
+    note: 'Her ferman şimdi öder, halkı hep kızdırır. Bu şehrin sabrını ancak deneyerek öğrenirsin.',
+    enact: 'Çıkar',
+    repeal: 'Kaldır',
+    enacted: 'Ferman çıktı.',
+    repealed: 'Ferman kaldırıldı.',
+    /** The year-gated lock, said plainly: a lock always names its key. */
+    lockedYear: (year: number): string => `${year}'den önce olmaz`,
+    names: {
+      conscription: 'Zorunlu askerlik',
+      censorship: 'Basın sansürü',
+      curfew: 'Sokağa çıkma yasağı',
+      propaganda: 'Propaganda dairesi',
+      internetCut: 'İnternet kesintisi',
+    },
+    /** The trade, both halves, in one line each. */
+    trade: {
+      conscription: 'Hazineye aylık ödenek; atölyeler yavaşlar, gençler ve aileler kızar.',
+      censorship: 'Öfke yavaş örgütlenir — ama sokağın sesi de sana ulaşmaz.',
+      curfew: 'Suç yarıya iner; dükkânlar kan kaybeder, sokak için için kaynar.',
+      propaganda: 'Her kesim biraz ısınır; kasadan öder, şehre hiçbir şey katmaz.',
+      internetCut: 'Örgütlenme çöker; ofisler ve araştırma da çöker. Gençler unutmaz.',
+    },
+    /** The one-shot. */
+    confiscate: 'Varlık haczi',
+    confiscateTrade: 'Şimdi para. Sonrasını şehir söyler.',
+    confiscated: (amount: number): string => `Haciz: +₺${money.format(amount)}`,
+    /** The tax lever, finally attached. */
+    tax: 'Vergi oranı',
+    taxNote: 'Canlı: her kesimin çubuğu anında oynar. Bir yerden sonra öfke birikmeye başlar — nerede? Dene.',
+    /** The meter. */
+    fury: 'Halkın öfkesi',
+    stage: {
+      calm: 'Sokak sakin.',
+      murmurs: 'Halk homurdanıyor.',
+      protests: 'Meydanlarda protesto var.',
+    },
+    /** What the meter shows when the player has blinded their own press. */
+    censored: 'Basın susturuldu — sokak okunamıyor.',
+    /** The snap. */
+    revolt: 'İSYAN! Sokaklar yanıyor.',
+    revoltWorst: (what: string): string => `İsyanın fitili: ${what}.`,
+    revoltTax: 'vergiler',
+    /** Feed lines for the meter's crossings. */
+    calmAgain: 'Sokak yatıştı.',
+    chronicleEnacted: 'Belediye fermanla yönetmeye başladı.',
+    chronicleRepealed: 'Ferman geri çekildi.',
+    chronicleRevolt: 'Şehir ayaklandı; meydanlar yandı.',
+  },
   opponent: {
     heading: 'Rakip',
     icon: '\u{1F3F4}',

@@ -14,6 +14,7 @@ import {
 import { LOBBY_SPECS } from '../data/lobbies';
 import { unrestGroupSway } from './unrest';
 import { promiseSway } from './promises';
+import { decreeSway } from './decrees';
 import { bandCount, burialHappiness, schooledShare, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { rubbishStrain } from './rubbish';
@@ -274,6 +275,10 @@ function petScore(state: GameState, id: GroupId, t: Tallies): number {
   // …and what the mayor told them they would do (§30). The one input to a
   // faction's vote that costs nothing to change and everything to get wrong.
   score += promiseSway(state, id);
+  // …and the standing decrees (§32): propaganda's blanket warmth, less every
+  // named grievance. The one channel where a mayor can buy affection with
+  // nothing but the treasury — the report card never sees it.
+  score += decreeSway(state, id);
   return score < 0 ? 0 : score > 1 ? 1 : score;
 }
 

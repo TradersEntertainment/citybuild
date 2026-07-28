@@ -626,6 +626,33 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §32 fermanlar — diktatörün menüsü ve şehrin gizli mizacı
+Oyuncunun isteği: canlı vergi, zorla askere yollama, interneti kesme (2000
+sonrası), "şunu yaparsan gelir artar halk kızar" düğmeleri — ve **denenerek
+bulunan, her oyunda değişen bir öfke eşiği**.
+
+- `data/decrees.ts` + `sim/decrees.ts`: beş süreğen ferman (askerlik, sansür,
+  sokağa çıkma yasağı, propaganda, internet kesintisi ≥2000) + tek atımlık
+  varlık haczi + nihayet takılan **canlı vergi kolu** (`setTaxRate`; kesim
+  çubukları aynı karede oynar — kol yıllardır sonuçlara bağlıydı, tutamağı
+  yoktu).
+- **Gizli mizaç**: tohumdan türetilen üç aile — şehrin toplam tahammülü
+  (0.55..1.15), *ferman başına* hassasiyet (0.6..1.8; bu şehir askerliği
+  sineye çeker, sokağa çıkma yasağında ayaklanır — sonrakinde tersi) ve vergi
+  konfor çizgisi (0.10..0.15). Sayılar hiç gösterilmez; kayıt dosyası sırrı
+  taşımaz çünkü sır tohumun kendisi.
+- **Meşruiyet-korunumu**: eşik gizli ama patlama asla açıklamasız değil —
+  homurtu (~%50) ve protesto (~%80, ikisi de şehir başına titreşimli) isyandan
+  önce gelir. Tek istisna oyuncunun kendi eseri: **sansür ve internet kesintisi
+  tam da bu uyarıları susturur.** Basını kör eden kendini kör eder; sansür
+  kalkınca birikmiş uyarılar ertesi tick'te söylenir (test var). Gazete,
+  sansür altında ▌▌▌ basar; Posta basmaya devam eder.
+- **İsyan**: §29 huzursuzluğuna boşalır (mevcut bütün maliyet makinesi), öfkeyi
+  %35'e boşaltır ve **fitili adlandırır** ("İsyanın fitili: sokağa çıkma
+  yasağı") — "bu halk şuna sinirleniyor" bilgisi ancak bedeli ödenerek gelir.
+  Meydan yanarken sansür işlemez: isyan her koşulda duyurulur.
+- Çevrimdışı merhamet: kimse bakmazken öfke yalnız düşer (çöp kuralı).
+
 ### §31 rakip — seçim eşik değil yarış
 Seçim bir *kontroldü*: yarısını al, koltuğu koru. Karşı tarafta kimse yoktu,
 dolayısıyla manevra yapılacak kimse ve özellikle bir yere kampanya yapma sebebi

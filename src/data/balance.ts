@@ -780,6 +780,40 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- Decrees and fury (§32) ------------------------------------------------------
+/**
+ * The meter's mechanics. The city's *temper* — tolerance, per-decree
+ * sensitivity, tax comfort — is deliberately NOT here: those are hidden,
+ * seed-derived ranges that live in sim/decrees.ts, because a constant in this
+ * file is a promise of legibility and the temper is the one number the player
+ * is meant to discover by governing.
+ */
+/** Fury shed per second once the pressure is off. Slower than most accrual. */
+export const FURY_DECAY_PER_S = 1 / 1200;
+/** Fury per second from tax, per 5% over this city's hidden comfort line. */
+export const TAX_FURY_PER_S = 1 / 900;
+/**
+ * What a revolt does, and what it leaves.
+ *
+ * The jump lands on §29's unrest — mood, migration, crime, the factions, all
+ * already priced — so a revolt is severe, visible, and fully recoverable,
+ * which is what keeps rule-by-decree a strategy rather than a trap. The vent
+ * share is what survives the riot: the square empties, the grievance doesn't.
+ */
+export const REVOLT_UNREST_JUMP = 0.45;
+export const REVOLT_VENT_SHARE = 0.35;
+/** ₺ per resident a confiscation seizes, and the most one sweep can take. */
+export const CONFISCATION_PER_CITIZEN = 2;
+export const CONFISCATION_CAP = 150_000;
+/** Fury one confiscation adds, before this city's sensitivity scales it. */
+export const CONFISCATION_FURY = 0.16;
+/**
+ * How hard a standing decree's named grievance leans on its faction, on the
+ * 0..1 pet score. Above an ordinance (0.12), below a signed contract (0.22):
+ * a decree is policy imposed, not policy agreed.
+ */
+export const DECREE_GROUP_SWAY = 0.16;
+
 // --- The opposition (§31) ------------------------------------------------------
 /**
  * The most of a dissatisfied constituency the opposition can take.

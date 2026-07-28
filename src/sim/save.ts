@@ -14,6 +14,8 @@ import { investmentLevels } from './investments';
 import { ATTRACTION_ORDER } from '../data/attractions';
 import { LOBBY_ORDER } from '../data/lobbies';
 import { PROMISE_SPECS, type PromiseId } from '../data/promises';
+import { DECREE_SPECS, type DecreeId } from '../data/decrees';
+import { furyStage } from './decrees';
 import { GROUP_ORDER } from './groups';
 import { POLICY_SPECS, type PolicyId } from '../data/policies';
 import { PORT_ORDER } from '../data/ports';
@@ -132,6 +134,14 @@ export interface SaveData {
    */
   promises: string[];
   betrayed: number[];
+  /**
+   * Decrees in force and the fury they have banked (§32). Saved because a
+   * decree is a standing order and fury is a debt — a reload clearing either
+   * would make rule-by-force free. The city's temper itself is NOT here: it is
+   * derived from the seed, so the save never carries the secret.
+   */
+  decrees: string[];
+  fury: number;
   /**
    * Signed lobby deals, flattened: kind index, played-ms it lapses at.
    *
@@ -275,6 +285,8 @@ export function serialize(state: GameState): SaveData {
     unrest: Math.round(state.unrest * 1000) / 1000,
     promises: [...state.promises],
     betrayed: state.betrayed.map((memory) => Math.round(memory * 1000) / 1000),
+    decrees: [...state.decrees],
+    fury: Math.round(state.fury * 1000) / 1000,
     lobbies,
     transit,
     nextTransitId: state.nextTransitId,
@@ -563,6 +575,17 @@ export function deserialize(data: unknown): GameState | null {
       ? Math.min(1, Math.max(0, memory))
       : 0;
   });
+
+  // Decrees, filtered like everything else; fury clamped so a corrupt file
+  // cannot poison the meter. The told-stage is synced to the loaded fury, so a
+  // reload lands quiet and the *next* crossing announces.
+  for (const id of Array.isArray(data.decrees) ? data.decrees : []) {
+    if (typeof id === 'string' && id in DECREE_SPECS) state.decrees.push(id as DecreeId);
+  }
+  const fury = data.fury;
+  state.fury =
+    typeof fury === 'number' && Number.isFinite(fury) ? Math.min(2, Math.max(0, fury)) : 0;
+  state.furyToldStage = furyStage(state);
 
   // Signed deals. A file from before the lobbies existed has no key at all and
   // loads as a city nobody has approached, which is exactly right. An index this

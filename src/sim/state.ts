@@ -4,6 +4,7 @@ import type { Attraction } from './attractions';
 import type { LobbyDeal } from './lobbies';
 import type { Mandate } from './unrest';
 import type { PromiseId } from '../data/promises';
+import type { DecreeId } from '../data/decrees';
 import { createBudgets, type Budgets } from './budgets';
 import type { PolicyId } from '../data/policies';
 import type { Loan } from './credit';
@@ -191,6 +192,18 @@ export interface GameState {
   promises: PromiseId[];
   betrayed: number[];
   /**
+   * Decrees in force, the fury they have banked, and the highest warning stage
+   * the player has been told about (sim/decrees.ts, §32).
+   *
+   * Decrees and fury are saved — a decree is a standing order and fury is a
+   * debt, and a reload that cleared either would make rule-by-force free. The
+   * told-stage is transient: a loaded city syncs it to the current stage, so a
+   * reload lands quiet and the *next* crossing announces.
+   */
+  decrees: DecreeId[];
+  fury: number;
+  furyToldStage: number;
+  /**
    * Level bought in each civic programme (data/investments.ts). What a rich city
    * spends its money on, and the only purchase whose effect is the whole map.
    */
@@ -251,6 +264,9 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     lobbies: [],
     promises: [],
     betrayed: [],
+    decrees: [],
+    fury: 0,
+    furyToldStage: 0,
     mandate: 'elected',
     unrest: 0,
     transit: new Map(),
@@ -282,6 +298,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
       taxIncome: 0,
       tourismIncome: 0,
       lobbyIncome: 0,
+      decreeIncome: 0,
       roadUpkeep: 0,
       serviceUpkeep: 0,
       utilityUpkeep: 0,

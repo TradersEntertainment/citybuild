@@ -82,6 +82,15 @@ import { activeSites } from './sim/missions';
 import { standingNow } from './sim/elections';
 import { PROMISE_ORDER, PROMISE_SPECS, isPromiseUnlocked } from './data/promises';
 import { betrayalTotal, hasPromised, makePromise, promiseProgress } from './sim/promises';
+import {
+  confiscate,
+  decreeStates,
+  furyStage,
+  setTaxRate,
+  toggleDecree,
+  warningsSilenced,
+} from './sim/decrees';
+import type { DecreeId } from './data/decrees';
 import { siteArea } from './sim/sites';
 import { isMarooned } from './sim/marooned';
 import { mountCityPanel } from './ui/cityPanel';
@@ -274,6 +283,62 @@ mountCityPanel(ui, {
    * which is the mechanic, not an oversight. The toast names who it was aimed
    * at, so the player can feel the constituency rather than the number.
    */
+  /**
+   * The dictator's menu (§32): a decree flipped, the tax nudged, wealth seized.
+   *
+   * All three sync the UI in the same frame, because the whole promise of the
+   * menu is *liveness* — the player pulls a lever and watches the faction bars
+   * answer before their finger has left the button.
+   */
+  onDecree: (id) => {
+    const outcome = toggleDecree(game, id as DecreeId);
+    haptics.tap();
+    if (outcome === 'locked') {
+      sfx.play('blocked');
+      return;
+    }
+    sfx.play(outcome === 'enacted' ? 'build' : 'erase');
+    const name = STR.decree.names[id as DecreeId];
+    toast.show(outcome === 'enacted' ? STR.decree.enacted : STR.decree.repealed, name);
+    eventFeed.pushCustom([
+      {
+        icon: STR.decree.icon,
+        tone: outcome === 'enacted' ? ('warn' as const) : ('calm' as const),
+        text: `${name} — ${outcome === 'enacted' ? STR.decree.enacted : STR.decree.repealed}`,
+      },
+    ]);
+    appendHistory([
+      {
+        year: yearOf(game.playedMs),
+        icon: STR.decree.icon,
+        title: name,
+        detail: outcome === 'enacted' ? STR.decree.chronicleEnacted : STR.decree.chronicleRepealed,
+      },
+    ]);
+    syncUi();
+    autosave.flush(game);
+  },
+  onTax: (direction) => {
+    setTaxRate(game, game.taxRate + direction * 0.01);
+    haptics.tap();
+    sfx.play('tap');
+    // Live: the civic base reads the rate directly, so every faction bar and
+    // the approval figure move in this same frame. That immediacy is the whole
+    // reason the lever finally exists.
+    syncUi();
+    autosave.flush(game);
+  },
+  onConfiscate: () => {
+    const { seized } = confiscate(game);
+    haptics.confirm();
+    sfx.play('coin');
+    toast.show(STR.decree.confiscated(seized));
+    eventFeed.pushCustom([
+      { icon: STR.decree.icon, tone: 'warn', text: STR.decree.confiscated(seized) },
+    ]);
+    syncUi();
+    autosave.flush(game);
+  },
   onPromise: (id) => {
     const outcome = makePromise(game, id as never);
     haptics.tap();
@@ -338,9 +403,14 @@ const eventFeed = mountEventFeed(ui);
  */
 function pressRun(spin: { post: string; gazette: string } | undefined): void {
   if (!spin) return;
+  // Under censorship or the internet cut (§32) the Gazette — the critical
+  // voice — prints redaction blocks where its line would have been. The Post
+  // prints on: a regime always keeps one loyal paper. The player sees exactly
+  // what they bought, every time any story runs.
+  const gazette = warningsSilenced(game) ? STR.media.censoredLine : spin.gazette;
   eventFeed.pushCustom([
     { icon: '📰', tone: 'calm', text: `${STR.media.postName}: ${spin.post}` },
-    { icon: '🗞️', tone: 'calm', text: `${STR.media.gazetteName}: ${spin.gazette}` },
+    { icon: '🗞️', tone: 'calm', text: `${STR.media.gazetteName}: ${gazette}` },
   ]);
 }
 
@@ -1230,6 +1300,7 @@ function frame(now: number): void {
     announceLobbies();
     announceMarooned();
     announceUnrest();
+    announceDecrees();
     announceRituals();
     checkBank();
   }
@@ -1698,6 +1769,56 @@ function announceRoadDamage(seconds: number): void {
 }
 
 /**
+ * The fury meter's crossings, and the revolt (§32).
+ *
+ * Every line here except the revolt can be silenced — by the player, with
+ * their own censorship. The revolt cannot: you can shut a newspaper, not a
+ * burning square. And the revolt names the decree the city hated most, which
+ * is the game answering "bu halk şuna sinirleniyor" the only way that
+ * knowledge should ever arrive — paid for.
+ */
+function announceDecrees(): void {
+  for (const event of systems.drainDecreeEvents()) {
+    if (event.kind === 'revolt') {
+      toast.show(STR.decree.revolt);
+      sfx.play('alarm');
+      const lines: { icon: string; tone: 'alarm'; text: string }[] = [
+        { icon: '\u{1F525}', tone: 'alarm', text: STR.decree.revolt },
+      ];
+      if (event.worst) {
+        const name =
+          event.worst === 'tax' ? STR.decree.revoltTax : STR.decree.names[event.worst];
+        lines.push({
+          icon: STR.decree.icon,
+          tone: 'alarm' as const,
+          text: STR.decree.revoltWorst(name),
+        });
+      }
+      eventFeed.pushCustom(lines);
+      pressRun(STR.media.revolt);
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: '\u{1F525}',
+          title: STR.decree.revolt,
+          detail: STR.decree.chronicleRevolt,
+        },
+      ]);
+      continue;
+    }
+    const text =
+      event.kind === 'murmurs'
+        ? STR.decree.stage.murmurs
+        : event.kind === 'protests'
+          ? STR.decree.stage.protests
+          : STR.decree.calmAgain;
+    const tone = event.kind === 'calm' ? ('calm' as const) : ('warn' as const);
+    if (event.kind !== 'calm') toast.show(text);
+    eventFeed.pushCustom([{ icon: STR.decree.icon, tone, text }]);
+  }
+}
+
+/**
  * Says when the streets turn, and when they settle (§29).
  *
  * Only the crossing, in either direction — a meter that announced every tick
@@ -1891,6 +2012,7 @@ function syncUi(): void {
       fareIncome: game.ledger.fareIncome,
       tourismIncome: game.ledger.tourismIncome,
       lobbyIncome: game.ledger.lobbyIncome,
+      decreeIncome: game.ledger.decreeIncome,
       transitUpkeep: game.ledger.transitUpkeep,
     },
     investments: {
@@ -1935,6 +2057,10 @@ function syncUi(): void {
       remaining: dealRemaining(game, deal.id),
     })),
     report: readReport(game),
+    decrees: decreeStates(game),
+    fury: game.fury,
+    furyStage: furyStage(game),
+    furyCensored: warningsSilenced(game),
     mandate: game.mandate,
     unrest: game.unrest,
     promises: PROMISE_ORDER.map((id) => ({

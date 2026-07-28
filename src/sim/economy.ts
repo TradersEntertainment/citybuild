@@ -30,6 +30,12 @@ import { weatherAt, weatherEffects } from './weather';
 import { utilityUpkeep } from './utilities';
 import type { GameState } from './state';
 import { lobbyOutputFactor, lobbyStipend } from './lobbies';
+import {
+  decreeCommerceFactor,
+  decreeIndustryFactor,
+  decreeOfficeFactor,
+  decreeStipend,
+} from './decrees';
 import { decodeRoad, decodeZone, NONE } from './tiles';
 import { index } from './world';
 
@@ -76,10 +82,12 @@ export interface Ledger {
    * Net of every signed lobby deal (sim/lobbies.ts) — positive when the deals
    * pay the city, negative when they cost it.
    *
-   * The only row in the ledger that swings both ways, which is the point: it is
-   * the one line that says out loud what the mayor traded for.
+   * A row that swings both ways, which is the point: it is the line that says
+   * out loud what the mayor traded for.
    */
   lobbyIncome: number;
+  /** Net of the standing decrees (§32) — the price and proceeds of force. */
+  decreeIncome: number;
   /** …and what running the stops costs, which is usually more at first. */
   transitUpkeep: number;
 }
@@ -126,6 +134,7 @@ export function computeLedger(
   // unschooled city earns exactly what it earned before the bands existed, so a
   // player who has never been shown a school is not marked down for lacking one.
   const skill = skillFactor(state);
+  const decreeOffice = decreeOfficeFactor(state);
   // What the workshops can shift, city-wide (sim/goods.ts). A crate that cannot
   // be sold here goes on the next lorry, so which workshop is the unlucky one is
   // a precision the player could not act on.
@@ -134,8 +143,8 @@ export function computeLedger(
   // (sim/lobbies.ts): a night shift, a smoking ban, an oil contract, a wage
   // settlement. Every one answers 1 when off, so the output lines multiply
   // unconditionally.
-  const industry = industryFactor(state) * lobbyOutputFactor(state);
-  const commerce = commerceFactor(state);
+  const industry = industryFactor(state) * lobbyOutputFactor(state) * decreeIndustryFactor(state);
+  const commerce = commerceFactor(state) * decreeCommerceFactor(state);
 
   for (const building of state.buildings.values()) {
     const landValue = fields.landValue[index(state.world, building.x, building.y)] ?? 0;
@@ -179,7 +188,8 @@ export function computeLedger(
       // Offices are where the schooling actually cashes out: an unschooled city
       // can zone them, build them, and watch them earn very little, which is
       // the long chain the education system never had an end for.
-      building.output = building.jobs * OFFICE_TURNOVER * skill * skill;
+      // …unless the state has cut the wire the whole floor trades on (§32).
+      building.output = building.jobs * OFFICE_TURNOVER * skill * skill * decreeOffice;
       taxIncome += building.output * OFFICE_TAX;
     } else {
       // A workshop beside a busy junction sells at the gate too, but less: its
@@ -250,6 +260,10 @@ export function computeLedger(
   // Signed, so it belongs in the ledger rather than in a one-off: a deal the
   // player took for the cheque should be visible every minute it is running.
   const lobbies = lobbyStipend(state);
+  // The decrees' levy and their bills (§32): conscription pays the treasury,
+  // propaganda drains it. One net line, like the lobbies, and for the same
+  // reason — it is the row that says what ruling by force is worth.
+  const decrees = decreeStipend(state);
 
   return {
     taxIncome,
@@ -265,7 +279,8 @@ export function computeLedger(
       exports +
       fares +
       tourism +
-      lobbies -
+      lobbies +
+      decrees -
       roads -
       stations -
       plants -
@@ -283,6 +298,7 @@ export function computeLedger(
     fareIncome: fares,
     tourismIncome: tourism,
     lobbyIncome: lobbies,
+    decreeIncome: decrees,
     transitUpkeep: lines,
   };
 }

@@ -10,6 +10,7 @@ import { POLICY_ORDER, POLICY_SPECS, type PolicyId } from '../data/policies';
 import { STR } from '../data/strings.tr';
 import { REPORT_DIMENSIONS } from '../sim/report';
 import { PROMISE_LIMIT } from '../data/promises';
+import { DECREE_SPECS } from '../data/decrees';
 import type { Era } from '../sim/tiles';
 import { uiStore, type MissionView, type ProgrammeView } from '../state/store';
 import { describeGoal } from './missionText';
@@ -62,6 +63,12 @@ export interface CityPanelDeps {
   onPolicy(id: PolicyId): void;
   /** Says a promise out loud (§30). */
   onPromise(id: string): void;
+  /** Flips a decree (§32). */
+  onDecree(id: string): void;
+  /** Nudges the tax rate a point either way, live. */
+  onTax(direction: number): void;
+  /** Seizes wealth, once, now. */
+  onConfiscate(): void;
   /** Whether an ordinance is in force, for the row state. */
   policyActive(id: PolicyId): boolean;
   policyUnlocked(id: PolicyId): boolean;
@@ -127,6 +134,7 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const visiting = row(STR.visitorIncome);
   const tourism = row(STR.tourismIncome);
   const lobbies = row(STR.lobbyIncome);
+  const decreesLedger = row(STR.decreeIncome);
   const roads = row(STR.panel.roads);
   const stations = row(STR.panel.stations);
   const plants = row(STR.panel.plants);
@@ -370,6 +378,89 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   const rivalTaking = row(STR.opponent.taking);
   rival.body.append(rivalNote, rivalRow.el, rivalTaking.el);
   inner.append(rival.el);
+
+  /**
+   * The dictator's menu (§32), above the promises — force above persuasion.
+   *
+   * Every row states its whole trade in one line, because the *trade* is never
+   * the secret. The secret is this city's temper: how much of this it will
+   * bear, and which decree it hates most. The note says exactly that, once,
+   * and the fury meter underneath is where the answer accumulates.
+   */
+  const decrees = section(STR.decree.title);
+  const decreeNote = document.createElement('p');
+  decreeNote.className = 'mission-empty';
+  decreeNote.textContent = STR.decree.note;
+  decrees.body.append(decreeNote);
+
+  // The tax lever: minus, the live rate, plus. The oldest political decision
+  // there is, and until §32 the game had no handle on it at all.
+  const taxRow = document.createElement('div');
+  taxRow.className = 'panel-row';
+  const taxName = document.createElement('span');
+  taxName.textContent = STR.decree.tax;
+  const taxDown = document.createElement('button');
+  taxDown.type = 'button';
+  taxDown.className = 'parcel-button';
+  taxDown.textContent = '\u2212';
+  const taxValue = document.createElement('span');
+  taxValue.className = 'panel-value mono';
+  const taxUp = document.createElement('button');
+  taxUp.type = 'button';
+  taxUp.className = 'parcel-button';
+  taxUp.textContent = '+';
+  taxDown.addEventListener('click', () => deps.onTax(-1));
+  taxUp.addEventListener('click', () => deps.onTax(1));
+  taxRow.append(taxName, taxDown, taxValue, taxUp);
+  const taxNote = document.createElement('p');
+  taxNote.className = 'mission-empty';
+  taxNote.textContent = STR.decree.taxNote;
+  decrees.body.append(taxRow, taxNote);
+
+  // The meter: fury filling toward a top the bar deliberately does not mark.
+  // The stage line under it is the real instrument — and under censorship it
+  // is replaced by the one sentence that explains why the player is blind.
+  const furyRow = row(STR.decree.fury);
+  const furyTrack = document.createElement('div');
+  furyTrack.className = 'panel-group-track';
+  const furyBar = document.createElement('div');
+  furyBar.className = 'panel-group-bar';
+  furyTrack.append(furyBar);
+  const furyStageLine = document.createElement('p');
+  furyStageLine.className = 'mission-empty';
+  decrees.body.append(furyRow.el, furyTrack, furyStageLine);
+
+  const decreeRows = new Map<string, { button: HTMLButtonElement; value: HTMLSpanElement }>();
+  const decreeList = document.createElement('div');
+  decrees.body.append(decreeList);
+  const decreeRow = (id: string) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'panel-policy';
+    const name = document.createElement('span');
+    const key = id as keyof typeof STR.decree.names;
+    name.textContent = `${STR.decree.names[key]} — ${STR.decree.trade[key]}`;
+    const value = document.createElement('span');
+    value.className = 'panel-value mono';
+    button.append(name, value);
+    button.addEventListener('click', () => deps.onDecree(id));
+    decreeList.append(button);
+    const made = { button, value };
+    decreeRows.set(id, made);
+    return made;
+  };
+
+  // The one-shot, styled like a decree row but it never stays "on": each press
+  // is its own seizure and its own chunk of fury.
+  const confiscateButton = document.createElement('button');
+  confiscateButton.type = 'button';
+  confiscateButton.className = 'panel-policy';
+  const confiscateName = document.createElement('span');
+  confiscateName.textContent = `${STR.decree.confiscate} — ${STR.decree.confiscateTrade}`;
+  confiscateButton.append(confiscateName);
+  confiscateButton.addEventListener('click', () => deps.onConfiscate());
+  decrees.body.append(confiscateButton);
+  inner.append(decrees.el);
 
   const promises = section(STR.promise.title);
   const promiseNote = document.createElement('p');
@@ -635,6 +726,15 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
     // The one row that can go either way, so it carries its own sign rather
     // than a fixed one. Hidden only when nothing is signed — a deal costing the
     // city money is exactly the case the player must be able to see.
+    // The decrees' line, same contract as the deals': its own sign, hidden
+    // only when nothing is in force — a decree costing money is exactly the
+    // case the player must be able to see.
+    decreesLedger.el.hidden = s.ledger.decreeIncome === 0;
+    decreesLedger.set(
+      s.ledger.decreeIncome >= 0
+        ? `+${money(s.ledger.decreeIncome)}`
+        : `−${money(-s.ledger.decreeIncome)}`,
+    );
     lobbies.el.hidden = s.ledger.lobbyIncome === 0;
     lobbies.set(
       s.ledger.lobbyIncome >= 0
@@ -683,6 +783,39 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       // to take. Hiding it would remove the feedback for having done the work.
       rivalTaking.set(STR.format.percent(s.opponent.lost));
       rivalTaking.el.dataset['alarm'] = String(s.opponent.lost >= 0.08);
+    }
+
+    // The dictator's menu. The tax value is always live; the fury bar fills
+    // toward an unmarked top — the whole design — and the stage line is either
+    // the street's voice or the sentence explaining why it has none.
+    // The rate itself, not its share of the cap: a 9% tax must read "9%",
+    // because this same number is what the lowTax promise is judged against
+    // and the two displays must never disagree about what the rate is.
+    taxValue.textContent = STR.format.percent(s.taxRate);
+    furyRow.set(STR.format.percent(Math.min(1, s.fury / 1.2)));
+    furyBar.style.width = `${Math.round(Math.min(1, s.fury / 1.2) * 100)}%`;
+    furyRow.el.dataset['alarm'] = String(s.furyStage >= 2);
+    furyStageLine.textContent = s.furyCensored
+      ? STR.decree.censored
+      : s.furyStage >= 2
+        ? STR.decree.stage.protests
+        : s.furyStage === 1
+          ? STR.decree.stage.murmurs
+          : STR.decree.stage.calm;
+    for (const view of s.decrees) {
+      const decreeView = decreeRows.get(view.id) ?? decreeRow(view.id);
+      decreeView.button.dataset['selected'] = String(view.active);
+      decreeView.button.dataset['locked'] = String(view.gate !== 'open');
+      // A lock always names its key (§1): the year for the internet, the era
+      // for the rest.
+      decreeView.value.textContent =
+        view.gate === 'year'
+          ? STR.decree.lockedYear(2000)
+          : view.gate === 'era'
+            ? STR.eraName[DECREE_SPECS[view.id as keyof typeof DECREE_SPECS].unlockedAt]
+            : view.active
+              ? STR.decree.repeal
+              : STR.decree.enact;
     }
 
     // The promises. Shown from the era that opens the first one, because unlike

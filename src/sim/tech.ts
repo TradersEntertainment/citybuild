@@ -4,6 +4,7 @@ import { SERVICE_SPECS } from '../data/services';
 import { budgetOf } from './budgets';
 import type { GameState } from './state';
 import { lobbyResearchFactor } from './lobbies';
+import { decreeResearchFactor } from './decrees';
 import { eraReached } from './tiles';
 import { index } from './world';
 
@@ -25,7 +26,7 @@ export function techFactor(state: GameState, id: TechId): number {
 export function stepResearch(state: GameState, dt: number): void {
   if (state.population <= 0) return;
   const perMinute = researchPerMinute(state.population, educationCoverage(state) * 100);
-  state.research += (perMinute * dt * lobbyResearchFactor(state)) / 60;
+  state.research += (perMinute * dt * lobbyResearchFactor(state) * decreeResearchFactor(state)) / 60;
 }
 
 /**

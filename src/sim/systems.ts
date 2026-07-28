@@ -8,6 +8,7 @@ import { stepLobbies, type LobbyLapse } from './lobbies';
 import { findMarooned, isMarooned, type MaroonedRoads } from './marooned';
 import { stepUnrest, type UnrestChange } from './unrest';
 import { stepPromises } from './promises';
+import { stepDecrees, type DecreeEvent } from './decrees';
 import { computeGoods, createGoodsField, type GoodsField } from './goods';
 import { lobbyValueFactor } from './lobbies';
 import {
@@ -52,6 +53,7 @@ const EMPTY_ROAD: readonly HighwayWearEvent[] = [];
 const EMPTY_LOBBIES: readonly LobbyLapse[] = [];
 const EMPTY_MAROONED: readonly MaroonedRoads[] = [];
 const EMPTY_UNREST: readonly UnrestChange[] = [];
+const EMPTY_DECREES: readonly DecreeEvent[] = [];
 const EMPTY_TIMELINE: readonly TimelineFired[] = [];
 const EMPTY_RITUALS: readonly RitualToday[] = [];
 
@@ -104,6 +106,7 @@ export class Systems {
   private readonly electionEvents: ElectionEvent[] = [];
   private readonly lobbyLapses: LobbyLapse[] = [];
   private readonly unrestChanges: UnrestChange[] = [];
+  private readonly decreeEvents: DecreeEvent[] = [];
   private readonly roadEvents: HighwayWearEvent[] = [];
   private readonly timelineFired: TimelineFired[] = [];
   /**
@@ -258,6 +261,10 @@ export class Systems {
     this.unrestChanges.push(...stepUnrest(state, dt));
     // What the room remembers of a broken promise, fading (§30).
     stepPromises(state, dt);
+    // The fury the decrees are banking, and the moment it breaks (§32). Gated
+    // on `hazardsLive` like the bins and the fires: while nobody watches, fury
+    // only falls — a curfew left running overnight is not three revolts.
+    this.decreeEvents.push(...stepDecrees(state, dt, hazardsLive));
     stepResearch(state, dt);
     const era = stepProgression(state);
 
@@ -326,6 +333,12 @@ export class Systems {
   drainMarooned(): readonly MaroonedRoads[] {
     if (this.maroonedEvents.length === 0) return EMPTY_MAROONED;
     return this.maroonedEvents.splice(0, this.maroonedEvents.length);
+  }
+
+  /** Murmurs, protests, calm and revolts since the last drain (§32). */
+  drainDecreeEvents(): readonly DecreeEvent[] {
+    if (this.decreeEvents.length === 0) return EMPTY_DECREES;
+    return this.decreeEvents.splice(0, this.decreeEvents.length);
   }
 
   /** The streets turning, or settling, since the last drain (§29). */

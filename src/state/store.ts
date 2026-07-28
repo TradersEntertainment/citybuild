@@ -55,6 +55,11 @@ export interface UiState {
   unrest: number;
   /** Who is standing against the mayor at the next vote, or null (§31). */
   opponent: OpponentView | null;
+  /** The decrees, the fury meter, and whether the player blinded it (§32). */
+  decrees: DecreeView[];
+  fury: number;
+  furyStage: number;
+  furyCensored: boolean;
   /** The promises on offer, and where the city stands on each (§30). */
   promises: PromiseView[];
   /** How much of the room is holding a grudge, 0..n. */
@@ -88,6 +93,14 @@ export interface GroupView {
   weight: number;
   /** How the faction would vote today, 0..1. */
   approval: number;
+}
+
+/** One decree as the panel draws it (§32): its state, and why it is locked. */
+export interface DecreeView {
+  id: string;
+  active: boolean;
+  /** 'open', or what stands in the way — 'era' | 'year'. */
+  gate: string;
 }
 
 /**
@@ -186,6 +199,8 @@ export interface LedgerView {
   tourismIncome: number;
   /** Net of the signed lobby deals; the one row that can be either sign. */
   lobbyIncome: number;
+  /** Net of the standing decrees (§32); swings both ways like the lobbies. */
+  decreeIncome: number;
   transitUpkeep: number;
 }
 
@@ -269,6 +284,10 @@ export interface SimSnapshot {
   mandate: string;
   unrest: number;
   opponent: OpponentView | null;
+  decrees: DecreeView[];
+  fury: number;
+  furyStage: number;
+  furyCensored: boolean;
   promises: PromiseView[];
   betrayed: number;
   riders: number;
@@ -316,6 +335,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
     fareIncome: 0,
     tourismIncome: 0,
     lobbyIncome: 0,
+    decreeIncome: 0,
     transitUpkeep: 0,
   },
   investments: { lighting: { level: 0 }, greening: { level: 0 }, festivals: { level: 0 } },
@@ -346,6 +366,10 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   mandate: 'elected',
   unrest: 0,
   opponent: null,
+  decrees: [],
+  fury: 0,
+  furyStage: 0,
+  furyCensored: false,
   promises: [],
   betrayed: 0,
   riders: 0,
@@ -445,6 +469,16 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
           Math.round((snapshot.report.scores[dimension] ?? 0) * 100),
       ) &&
       current.mandate === snapshot.mandate &&
+      current.decrees.length === snapshot.decrees.length &&
+      current.decrees.every((row, i) => {
+        const next = snapshot.decrees[i];
+        return (
+          next !== undefined && row.id === next.id && row.active === next.active && row.gate === next.gate
+        );
+      }) &&
+      Math.round(current.fury * 100) === Math.round(snapshot.fury * 100) &&
+      current.furyStage === snapshot.furyStage &&
+      current.furyCensored === snapshot.furyCensored &&
       (current.opponent?.name ?? '') === (snapshot.opponent?.name ?? '') &&
       Math.round((current.opponent?.lost ?? 0) * 100) ===
         Math.round((snapshot.opponent?.lost ?? 0) * 100) &&

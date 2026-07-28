@@ -23,6 +23,7 @@ import { lightingShare } from './investments';
 import { techFactor } from './tech';
 import { eraReached, SERVICE } from './tiles';
 import { unrestCrimeFactor } from './unrest';
+import { decreeCrimeFactor } from './decrees';
 import type { GameState } from './state';
 import { index } from './world';
 
@@ -144,7 +145,7 @@ function startCrimes(
   // And what the schools bought, a band late (sim/cohorts.ts). This is the pay-off
   // a player waits for: children schooled now are the workforce that does not rob
   // the place later, which is the longest-horizon decision in the game.
-  const unrestFactor = unrestCrimeFactor(state);
+  const unrestFactor = unrestCrimeFactor(state) * decreeCrimeFactor(state);
   const schooling = schoolingCrimeFactor(state);
 
   for (const building of state.buildings.values()) {
