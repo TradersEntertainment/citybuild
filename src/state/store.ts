@@ -53,6 +53,8 @@ export interface UiState {
   /** How the mayor came to power, and how the streets have taken it (§29). */
   mandate: string;
   unrest: number;
+  /** Who is standing against the mayor at the next vote, or null (§31). */
+  opponent: OpponentView | null;
   /** The promises on offer, and where the city stands on each (§30). */
   promises: PromiseView[];
   /** How much of the room is holding a grudge, 0..n. */
@@ -86,6 +88,22 @@ export interface GroupView {
   weight: number;
   /** How the faction would vote today, 0..1. */
   approval: number;
+}
+
+/**
+ * The candidate standing at the next vote, as the panel draws it (§31).
+ *
+ * Named and with their platform spelled out, before the vote. An opponent the
+ * player only meets in the result is an ambush, and the whole point of putting
+ * one in is to give the player somewhere to campaign.
+ */
+export interface OpponentView {
+  name: string;
+  archetype: string;
+  /** The two factions they are working. */
+  courts: string[];
+  /** What they are currently taking off the mayor's share, 0..1. */
+  lost: number;
 }
 
 /**
@@ -250,6 +268,7 @@ export interface SimSnapshot {
   report: ReportView;
   mandate: string;
   unrest: number;
+  opponent: OpponentView | null;
   promises: PromiseView[];
   betrayed: number;
   riders: number;
@@ -326,6 +345,7 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
   report: { scores: {}, overall: 0, grade: 'F' },
   mandate: 'elected',
   unrest: 0,
+  opponent: null,
   promises: [],
   betrayed: 0,
   riders: 0,
@@ -425,6 +445,9 @@ export const uiStore = createStore<UiState & UiActions>()((set) => ({
           Math.round((snapshot.report.scores[dimension] ?? 0) * 100),
       ) &&
       current.mandate === snapshot.mandate &&
+      (current.opponent?.name ?? '') === (snapshot.opponent?.name ?? '') &&
+      Math.round((current.opponent?.lost ?? 0) * 100) ===
+        Math.round((snapshot.opponent?.lost ?? 0) * 100) &&
       current.promises.length === snapshot.promises.length &&
       current.promises.every((row, i) => {
         const next = snapshot.promises[i];

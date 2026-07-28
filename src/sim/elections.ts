@@ -11,6 +11,7 @@ import {
 import { SECONDS_PER_YEAR } from '../data/timeline';
 import { electorateApproval } from './groups';
 import { settlePromises, type PromiseVerdict } from './promises';
+import { contestedVote, opponentFor, type Opponent } from './opponents';
 import { readReport } from './report';
 import { electionsRun, restoreMandate } from './unrest';
 import type { GameState } from './state';
@@ -70,6 +71,29 @@ export function approval(state: GameState): number {
   return electorateApproval(state);
 }
 
+/**
+ * The share the mayor would take if the vote were held right now, and who they
+ * would be taking it from.
+ *
+ * The panel reads *this*, not `approval` — and that is not a nicety. The
+ * election counts a contested vote (§31), so a panel showing the uncontested
+ * figure would promise 55% and then deliver 48% and a defeat, with the
+ * difference invisible and unexplained. That is the same class of failure as the
+ * blank land-value overlay: a number that is wrong in a direction the player
+ * cannot see. The two must come from one function.
+ */
+export function standingNow(state: GameState): {
+  share: number;
+  lost: number;
+  opponent: Opponent | null;
+} {
+  // The *next* vote is the one the player can still do something about, so the
+  // panel looks forward a term rather than back at the one already settled.
+  const rival = opponentFor(state, termOf(state.playedMs) + 1);
+  const contested = contestedVote(state, rival);
+  return { share: contested.share, lost: contested.lost, opponent: rival };
+}
+
 export type Verdict = 'won' | 'lost';
 
 export interface ElectionEvent {
@@ -83,6 +107,10 @@ export interface ElectionEvent {
   terms: number;
   /** Every promise that came due at this vote, kept or broken (§30). */
   promises: readonly PromiseVerdict[];
+  /** Who stood against the mayor, or null after a coup (§31). */
+  opponent: Opponent | null;
+  /** What the opposition took off the mayor's share, 0..1. */
+  lostToOpponent: number;
 }
 
 const NO_EVENTS: readonly ElectionEvent[] = [];
@@ -121,7 +149,14 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
   // mayor who promised and delivered goes into this vote with the trust; one
   // who promised and did not goes into the *following* one with the grudge.
   const promises = settlePromises(state);
-  const share = approval(state);
+  // Who is standing, and what having them there costs (§31). The candidate is
+  // derived from the seed and the term, so this is the same contest whether the
+  // player reloads or not — and it is the term being *settled* rather than the
+  // current one, which matters after an absence: each term had its own
+  // candidate, and the one that decided the vote is the one that stood in it.
+  const rival = opponentFor(state, term);
+  const contested = contestedVote(state, rival);
+  const share = contested.share;
   const won = share >= ELECTION_THRESHOLD;
   state.verdictMemory = VERDICT_MEMORY_S;
   state.lastVerdict = won ? 'won' : 'lost';
@@ -161,6 +196,8 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
       grant,
       terms: missed,
       promises,
+      opponent: rival,
+      lostToOpponent: contested.lost,
     },
   ];
 }

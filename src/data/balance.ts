@@ -780,6 +780,22 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- The opposition (§31) ------------------------------------------------------
+/**
+ * The most of a dissatisfied constituency the opposition can take.
+ *
+ * Multiplied by how unhappy that faction already is, so it is a ceiling rather
+ * than a rate: a faction at zero approval loses this share of what little it was
+ * giving, and one at full approval loses nothing at all.
+ *
+ * 0.45 is sized so a mayor with one badly-neglected constituency can still win
+ * comfortably, and one who has neglected both of the candidate's targets is in
+ * real trouble. Any higher and a single weak room would decide every election
+ * regardless of the rest of the city; any lower and the opponent would be
+ * scenery.
+ */
+export const OPPONENT_PULL = 0.45;
+
 // --- Campaign promises (§30) ---------------------------------------------------
 /**
  * What saying it buys, what keeping it is worth, and what breaking it costs.

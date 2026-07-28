@@ -353,6 +353,24 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
    * at an election they lost would rightly feel tricked. Populism is supposed
    * to be tempting, not hidden.
    */
+  /**
+   * Who is standing against the mayor (§31), directly above the promises that
+   * are the answer to them.
+   *
+   * That adjacency is the argument. A player who reads "Nuri Balaban —
+   * sürücülere ve esnafa oynuyor" and then sees the promise list immediately
+   * underneath has been handed both the problem and the verb without a word of
+   * tutorial.
+   */
+  const rival = section(STR.opponent.heading);
+  const rivalNote = document.createElement('p');
+  rivalNote.className = 'mission-empty';
+  rivalNote.textContent = STR.opponent.note;
+  const rivalRow = row(STR.opponent.heading);
+  const rivalTaking = row(STR.opponent.taking);
+  rival.body.append(rivalNote, rivalRow.el, rivalTaking.el);
+  inner.append(rival.el);
+
   const promises = section(STR.promise.title);
   const promiseNote = document.createElement('p');
   promiseNote.className = 'mission-empty';
@@ -648,6 +666,25 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       row_.value.textContent = STR.format.percent(score);
       row_.bar.style.width = `${Math.round(score * 100)}%`;
     }
+    // The candidate, and what they are currently taking. Hidden when nobody is
+    // standing — a village before its first vote, or a city whose government
+    // ended the voting altogether (§29). Saying "Rakip: yok" in the second case
+    // would be technically true and deeply misleading.
+    rival.el.hidden = s.opponent === null;
+    if (s.opponent) {
+      const groups = s.opponent.courts.map(
+        (id) => STR.groups.name[id] ?? id,
+      );
+      rivalRow.set(
+        STR.opponent.platform(s.opponent.name, groups[0] ?? '', groups[1] ?? ''),
+      );
+      // Shown even at zero, and that zero is information: it means the player
+      // has looked after both constituencies well enough that there is nothing
+      // to take. Hiding it would remove the feedback for having done the work.
+      rivalTaking.set(STR.format.percent(s.opponent.lost));
+      rivalTaking.el.dataset['alarm'] = String(s.opponent.lost >= 0.08);
+    }
+
     // The promises. Shown from the era that opens the first one, because unlike
     // legitimacy this is a verb the player is meant to reach for rather than a
     // consequence they stumble into.

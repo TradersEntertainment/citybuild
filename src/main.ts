@@ -32,7 +32,8 @@ import { crimeNear, dispatchPolice } from './sim/crime';
 import { nudgeBudget } from './sim/budgets';
 import { policyActive, togglePolicy } from './sim/policies';
 import { isPolicyUnlocked, POLICY_SPECS } from './data/policies';
-import { approval, secondsToElection } from './sim/elections';
+import {
+  secondsToElection } from './sim/elections';
 import { readGroups } from './sim/groups';
 import { buildingAt, inspectBuilding } from './sim/inspect';
 import { LENS_ORDER, type LensKind } from './sim/lens';
@@ -78,6 +79,7 @@ import { LOBBY_SPECS } from './data/lobbies';
 import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbies';
 import { readReport, reportLegacyFactor } from './sim/report';
 import { activeSites } from './sim/missions';
+import { standingNow } from './sim/elections';
 import { PROMISE_ORDER, PROMISE_SPECS, isPromiseUnlocked } from './data/promises';
 import { betrayalTotal, hasPromised, makePromise, promiseProgress } from './sim/promises';
 import { siteArea } from './sim/sites';
@@ -1374,6 +1376,28 @@ function announceElection(): void {
     toast.show(text);
     eventFeed.pushCustom([{ icon: won ? '🗳️' : '📉', tone: won ? 'calm' : 'warn', text }]);
     pressRun(won ? STR.media.electionWon : STR.media.electionLost);
+    // Who they beat, or who beat them (§31). Named, so the chronicle reads as a
+    // sequence of contests rather than a column of percentages.
+    if (event.opponent) {
+      const rivalText = won
+        ? STR.opponent.held(event.opponent.name, share)
+        : STR.opponent.beat(event.opponent.name, share);
+      eventFeed.pushCustom([
+        { icon: STR.opponent.icon, tone: won ? 'calm' : 'warn', text: rivalText },
+      ]);
+      pressRun(won ? STR.media.opponentHeld : STR.media.opponentBeat);
+      appendHistory([
+        {
+          year: yearOf(game.playedMs),
+          icon: STR.opponent.icon,
+          title: rivalText,
+          detail:
+            event.lostToOpponent > 0.01
+              ? `${STR.opponent.taking}: ${STR.format.percent(event.lostToOpponent)}`
+              : undefined,
+        },
+      ]);
+    }
     // A defeat is a question rather than a result (§29). Raised only for a
     // mayor who still holds a mandate to lose: a government that already
     // refused once and lost again is asked once more, but one that ended the
@@ -1836,6 +1860,10 @@ function coachFacts(): CoachFacts {
 function syncUi(): void {
   const store = uiStore.getState();
   const totals = totalBuildings(game);
+  // Read once: the panel's approval figure, the opposition's name and what they
+  // are taking all have to come from the same count, or the three would
+  // disagree with each other on screen.
+  const standing = standingNow(game);
   store.syncFromSim({
     era: game.era,
     year: yearOf(game.playedMs),
@@ -1889,7 +1917,18 @@ function syncUi(): void {
     rubbish: { waiting: game.rubbish, strain: rubbishStrain(game) },
     stations: countStations(game),
     budgets: { ...game.budgets },
-    approval: approval(game),
+    // The contested share (§31), not the raw one: the election counts a vote
+    // somebody else is standing in, and a panel quoting the uncontested figure
+    // would promise a win it is not going to deliver.
+    approval: standing.share,
+    opponent: standing.opponent
+      ? {
+          name: standing.opponent.name,
+          archetype: standing.opponent.archetype.id,
+          courts: [...standing.opponent.archetype.courts],
+          lost: standing.lost,
+        }
+      : null,
     groups: readGroups(game),
     lobbies: game.lobbies.map((deal) => ({
       id: deal.id,

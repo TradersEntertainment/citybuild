@@ -626,6 +626,38 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §31 rakip — seçim eşik değil yarış
+Seçim bir *kontroldü*: yarısını al, koltuğu koru. Karşı tarafta kimse yoktu,
+dolayısıyla manevra yapılacak kimse ve özellikle bir yere kampanya yapma sebebi
+de yoktu. §30'un vaatleri de aynı boşluğa düşüyordu — hangi kesimin soğuk
+olduğunu görüyordun ama *başkasının hangisini işlediğini* göremiyordun.
+
+Tek fikir: **muhalefet, ihmal ettiğin yerden kazanır.** Her aday iki kesime
+oynuyor ve o kesimlerden aldığı pay, orada ne kadar kötü durumda olduğunla
+orantılı. Seni seven bir kesim avlanamaz; ihmal ettiğin yürür. Yani rakip ne
+zar ne vergi — ihmal ettiğin odanın üstüne tutulan bir büyüteç.
+
+§30 ile bedava besteleniyor: çevrecilere sözünü tutmazsan oradaki onayın düşer,
+bu da tam olarak çevrecilere oynayan adayı tehlikeli yapan şey. Ekstra kural yok.
+
+Adayların **ismi var** (`data/opponents.ts`), çünkü "muhalefet sürücülerin
+%8'ini aldı" bir istatistik, "Nuri Balaban çukurlar üzerinden yarışıyor" ise
+tarihçeyi geri okurken hatırlanan bir şey. Platform **oylamadan önce** panelde
+yazıyor — sonucunda öğrenilen bir rakip pusudur, bu oyun onu yapmaz.
+
+§31 sırasında bulunan gerçek regresyon: kesim ağırlıkları kohort bantlarından
+geliyor ve bantlar yüklemeden *sonraki tick'te* doluyor — yani yeniden yükleme
+sonrası bütün ağırlıkların 0 olduğu bir pencere var. `contestedVote` o durumda
+`share: 0` dönüyordu ve `stepElections` bunu doğrudan oy payı olarak
+kullandığından, o pencerede düşen bir seçim **%0 ile kaybediliyordu**. Artık
+`groups.ts`'in zaten sahip olduğu medeni taban fallback'ine düşüyor — tek
+doğruluk kaynağı. (Eski `approval()` bu fallback'e sahipti; yeni yol onu
+atlıyordu.)
+
+Panelin onay yüzdesi de artık **yarışmalı** payı gösteriyor. Yarışsız sayıyı
+göstermek panelde %55 yazıp seçimde %48 ile kaybettirmek olurdu — arazi değeri
+merceğiyle aynı sınıf: oyuncunun göremediği yönde yanlış olan bir sayı.
+
 ### §30 seçim vaatleri — popülizmin *fiili*
 §25 popülizmi *ölçüyordu*, §27 iyi yönetimi *ödüllendiriyordu*, §29 ikisi
 çeliştiğinde ne yapacağını *soruyordu*. Hiçbiri oyuncunun popülist **olmasına**

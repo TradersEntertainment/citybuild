@@ -223,6 +223,14 @@ export const STR = {
       post: 'Yönetim el değiştirmedi: kararlar artık hızlı alınacak.',
       gazette: 'Seçim yok. Bundan sonrasını kim soracak?',
     },
+    opponentBeat: {
+      post: 'Sandık değişim dedi: yeni yönetim göreve hazırlanıyor.',
+      gazette: 'Meydanda kalabalık var — ama bu kez kutlama için.',
+    },
+    opponentHeld: {
+      post: 'Belediye koltuğunu korudu: piyasa istikrarı sürdürüyor.',
+      gazette: 'Yine aynı isim. Mahalle "bakalım" diyor.',
+    },
     promiseKept: {
       post: 'Belediye taahhüdünü yerine getirdi: güven tazelendi.',
       gazette: 'Dediğini yaptı. Mahalle şaşırdı ama memnun.',
@@ -730,6 +738,35 @@ export const STR = {
    * progress, so the promise reads as a promise and the measurement reads as
    * the measurement.
    */
+  /**
+   * The candidate standing against you (§31).
+   *
+   * Named, with their platform, before the vote. "Muhalefet sürücülerin %8'ini
+   * aldı" is a statistic; "Nuri Balaban çukurlar üzerinden yarışıyor" is
+   * something the player remembers when they read the chronicle back — and
+   * something they can act on while there is still a term left to act in.
+   */
+  opponent: {
+    heading: 'Rakip',
+    icon: '\u{1F3F4}',
+    note: 'Muhalefet, ihmal ettiğin yerden oy alır.',
+    /** "Nuri Balaban — sürücülere ve esnafa oynuyor" */
+    platform: (name: string, first: string, second: string): string =>
+      `${name} — ${first} ve ${second} oynuyor`,
+    /** What they are taking right now. */
+    taking: 'Kaptırılan oy',
+    /** In the election announcement. */
+    beat: (name: string, share: string): string => `${name} kazandı. Senin payın %${share}.`,
+    held: (name: string, share: string): string => `${name} kazanamadı. Payın %${share}.`,
+    none: 'Karşında kimse yok.',
+    archetype: {
+      populist: 'Çukur adayı',
+      reformer: 'Reformcu',
+      industrialist: 'Sanayici',
+      traditionalist: 'Muhafazakâr',
+      technocrat: 'Teknokrat',
+    },
+  },
   promise: {
     title: 'Seçim vaatleri',
     icon: '\u{1F4E3}',
