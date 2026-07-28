@@ -15,6 +15,7 @@ import { ATTRACTION_ORDER } from '../data/attractions';
 import { LOBBY_ORDER } from '../data/lobbies';
 import { PROMISE_SPECS, type PromiseId } from '../data/promises';
 import { DECREE_SPECS, type DecreeId } from '../data/decrees';
+import { LEADER_SPECS, NEUTRAL_LEADER, type LeaderId } from '../data/leaders';
 import { furyStage } from './decrees';
 import { GROUP_ORDER } from './groups';
 import { POLICY_SPECS, type PolicyId } from '../data/policies';
@@ -142,6 +143,8 @@ export interface SaveData {
    */
   decrees: string[];
   fury: number;
+  /** The chosen dictator, by id (§33); an old save loads as neutral. */
+  leader: string;
   /**
    * Signed lobby deals, flattened: kind index, played-ms it lapses at.
    *
@@ -287,6 +290,7 @@ export function serialize(state: GameState): SaveData {
     betrayed: state.betrayed.map((memory) => Math.round(memory * 1000) / 1000),
     decrees: [...state.decrees],
     fury: Math.round(state.fury * 1000) / 1000,
+    leader: state.leader,
     lobbies,
     transit,
     nextTransitId: state.nextTransitId,
@@ -586,6 +590,11 @@ export function deserialize(data: unknown): GameState | null {
   state.fury =
     typeof fury === 'number' && Number.isFinite(fury) ? Math.min(2, Math.max(0, fury)) : 0;
   state.furyToldStage = furyStage(state);
+  // The leader, if this save knows one; an older file loads as neutral.
+  state.leader =
+    typeof data.leader === 'string' && data.leader in LEADER_SPECS
+      ? (data.leader as LeaderId)
+      : NEUTRAL_LEADER;
 
   // Signed deals. A file from before the lobbies existed has no key at all and
   // loads as a city nobody has approached, which is exactly right. An index this

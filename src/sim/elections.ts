@@ -4,6 +4,9 @@ import {
   MANDATE_CARD_FLOOR,
   MANDATE_CARD_SPAN,
   MANDATE_PER_CITIZEN,
+  OPENING_BASE_STEP,
+  OPENING_FLOOR,
+  OPENING_PROMISE_STEP,
   REBUKE_HAPPINESS,
   TERM_YEARS,
   VERDICT_MEMORY_S,
@@ -14,6 +17,9 @@ import { settlePromises, type PromiseVerdict } from './promises';
 import { contestedVote, opponentFor, type Opponent } from './opponents';
 import { readReport } from './report';
 import { electionsRun, restoreMandate } from './unrest';
+import { leaderGrantBonus } from './leaders';
+import { PROMISE_SPECS } from '../data/promises';
+import { LEADER_SPECS, type LeaderId } from '../data/leaders';
 import type { GameState } from './state';
 
 /**
@@ -92,6 +98,43 @@ export function standingNow(state: GameState): {
   const rival = opponentFor(state, termOf(state.playedMs) + 1);
   const contested = contestedVote(state, rival);
   return { share: contested.share, lost: contested.lost, opponent: rival };
+}
+
+/**
+ * What the vote would be for a leader with a set of promises, at the opening
+ * (§33) — before there is any city to judge.
+ *
+ * The onboarding needs a live number as the player picks promises, and it must
+ * be the *same* number the real machinery produces or the opening would lie.
+ * So this stamps the hypothetical onto a throwaway copy of the relevant state
+ * and reads the electorate through the ordinary path: the leader's base and the
+ * promises both flow through sim/groups.ts exactly as they will once the game
+ * begins.
+ *
+ * A founding city has no measurable factions yet, so the civic base carries the
+ * vote — which is why the promises (which lift named factions) and the leader's
+ * base are what move it. That is the lesson the opening is teaching: this is how
+ * you win, and this is what you will owe.
+ */
+export function scoreOpening(
+  _state: GameState,
+  leader: LeaderId,
+  promises: readonly string[],
+): number {
+  // A dedicated tally, not the running electorate — there is no city yet to
+  // judge, so a founding vote can only be about who you are and what you
+  // promised. Reusing electorateApproval here gave every candidate ~83% before
+  // they had said a word, which made "win by promising" a lie: you already had.
+  //
+  // Floor, plus your base, plus your promises. Tuned so no leader clears the
+  // threshold on their base alone — even the two-constituency ones sit right at
+  // the line — so the first thing the game teaches is that you have to promise
+  // somebody something to take office.
+  const base = LEADER_SPECS[leader]?.base.length ?? 0;
+  const made = promises.filter((id) => id in PROMISE_SPECS).length;
+  const share =
+    OPENING_FLOOR + base * OPENING_BASE_STEP + made * OPENING_PROMISE_STEP;
+  return Math.max(0, Math.min(0.95, share));
 }
 
 export type Verdict = 'won' | 'lost';
@@ -181,7 +224,7 @@ export function stepElections(state: GameState, dt: number): readonly ElectionEv
   // watched.
   const standard = MANDATE_CARD_FLOOR + MANDATE_CARD_SPAN * readReport(state).overall;
   const grant = won
-    ? Math.round(state.population * MANDATE_PER_CITIZEN * standard) * missed
+    ? Math.round(state.population * MANDATE_PER_CITIZEN * standard * leaderGrantBonus(state)) * missed
     : 0;
   if (grant > 0) state.money += grant;
   // Winning is the honest way back to legitimacy: a mayor who refused a result

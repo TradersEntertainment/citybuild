@@ -1789,3 +1789,99 @@ body {
   line-height: 1.5;
   color: color-mix(in srgb, var(--parsomen) 62%, transparent);
 }
+
+/* --- The opening: dictator select and first election (§33) ---------------- */
+
+.onboarding-card {
+  width: min(100%, 440px);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.leader-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.leader-card {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 14px;
+  border-radius: 13px;
+  border: 1px solid color-mix(in srgb, var(--pirinc) 30%, transparent);
+  background: color-mix(in srgb, var(--murekkep) 60%, transparent);
+  color: var(--parsomen);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.leader-card:hover,
+.leader-card:focus-visible {
+  border-color: var(--pirinc);
+  background: color-mix(in srgb, var(--pirinc) 12%, transparent);
+  outline: none;
+}
+
+.leader-name {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--pirinc);
+}
+
+.leader-base {
+  font-size: 12.5px;
+  color: color-mix(in srgb, var(--parsomen) 85%, transparent);
+}
+
+.leader-edge {
+  font-size: 12.5px;
+  color: var(--sis);
+  line-height: 1.4;
+}
+
+.vote-tally {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 14px;
+  color: var(--parsomen);
+  margin-top: 4px;
+}
+
+.vote-tally[data-won='true'] .mono {
+  color: var(--pirinc);
+  font-weight: 600;
+}
+
+.vote-bar {
+  margin: 2px 0 6px;
+}
+
+.promise-picks {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.promise-pick {
+  text-align: left;
+}
+
+.intro-start:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* Selected promises in the opening election read as chosen (§33). */
+.promise-pick[data-selected='true'] {
+  border-color: var(--pirinc);
+  background: color-mix(in srgb, var(--pirinc) 16%, transparent);
+}
+.promise-pick[data-selected='true'] span {
+  color: var(--pirinc);
+}

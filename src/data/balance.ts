@@ -780,6 +780,22 @@ export const GROUP_PARK_PER_RESIDENTS = 25;
 /** One transit stop per this many residents reads as a served city. */
 export const GROUP_STOP_PER_RESIDENTS = 150;
 
+// --- The chosen leader (§33) -----------------------------------------------------
+/**
+ * The permanent warmth a leader's base lends each of its constituencies, on the
+ * 0..1 pet score. Milder than a promise (0.18): a base is where you came from,
+ * not a thing you did for them, so it colours the vote without deciding it.
+ */
+export const LEADER_BASE_SWAY = 0.1;
+/**
+ * The opening election (§33) is scored on its own terms — there is no city yet,
+ * so it is base plus promises against a floor. Tuned so a leader's base alone
+ * never clears 50%: you take office by promising, which is the first lesson.
+ */
+export const OPENING_FLOOR = 0.33;
+export const OPENING_BASE_STEP = 0.08;
+export const OPENING_PROMISE_STEP = 0.07;
+
 // --- Decrees and fury (§32) ------------------------------------------------------
 /**
  * The meter's mechanics. The city's *temper* — tolerance, per-decree

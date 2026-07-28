@@ -19,6 +19,7 @@ import type { GroupId } from './groups';
 import { createRng, hashSeed } from './rng';
 import type { GameState } from './state';
 import { eraReached } from './tiles';
+import { leaderFuryResist } from './leaders';
 
 /**
  * Fury, and the city's hidden temper (§32).
@@ -217,6 +218,8 @@ export function furyPressure(state: GameState): number {
   // they multiply — a ruler who reaches for all of them gets a city that is
   // very quiet and, if they blinded the press too, very unreadable.
   for (const id of state.decrees) pressure *= DECREE_SPECS[id].muffle ?? 1;
+  // …and the strongman's feared city organises slower still (§33).
+  pressure *= leaderFuryResist(state);
   return pressure;
 }
 

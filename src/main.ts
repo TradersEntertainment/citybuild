@@ -80,7 +80,7 @@ import { currentOffer, dealRemaining, offerIndex, signLobby } from './sim/lobbie
 import { readReport, reportLegacyFactor } from './sim/report';
 import { activeSites } from './sim/missions';
 import { standingNow } from './sim/elections';
-import { PROMISE_ORDER, PROMISE_SPECS, isPromiseUnlocked } from './data/promises';
+import { PROMISE_ORDER, PROMISE_SPECS, isPromiseUnlocked, type PromiseId } from './data/promises';
 import { betrayalTotal, hasPromised, makePromise, promiseProgress } from './sim/promises';
 import {
   confiscate,
@@ -104,6 +104,10 @@ import { mountRetirePrompt } from './ui/retirePrompt';
 import { guidanceFor } from './ui/guidance';
 import { mountInspector } from './ui/inspector';
 import { mountIntro } from './ui/intro';
+import { mountOnboarding } from './ui/onboarding';
+import { scoreOpening } from './sim/elections';
+import { leaderStartMoney } from './sim/leaders';
+import { ELECTION_THRESHOLD } from './data/balance';
 import * as haptics from './ui/haptics';
 import { mountEventFeed, type CustomEntry } from './ui/eventFeed';
 import { mountToast } from './ui/toast';
@@ -700,15 +704,40 @@ function catchUp(): void {
 // whether its sheet is open.
 const returning = game.buildings.size > 0 || playerRoadTiles() > 0;
 const coach = mountCoach(ui, false);
-const intro = mountIntro(ui, {
-  skip: returning,
-  onDismiss: () => coach.start(coachFacts()),
-});
-if (returning) coach.dismiss();
-// The card is shown once and remembered, so a player on their second run gets
-// no card — and the coach has to start itself rather than wait for a dismissal
-// that will never come.
-else if (!intro.open) coach.start(coachFacts());
+// A fresh game opens on the dictator-selection and the first election (§33); a
+// returning city — one with a leader already chosen, or anything built — skips
+// straight to play. The old road-tutorial card is folded into the coach, which
+// teaches the gesture in place once the player has a city to govern.
+const freshStart = !returning && !savedCity;
+if (freshStart) {
+  // The overlay covers the canvas, so it gates map input for as long as it is
+  // up — the same way the intro card always has. No handle to keep.
+  mountOnboarding(ui, {
+    threshold: ELECTION_THRESHOLD,
+    scoreOpening: (leader, promises) => scoreOpening(game, leader, promises),
+    onComplete: ({ leader, promises }) => {
+      // Write the choice into the fresh city: the leader stands, the promises
+      // are outstanding (to be settled at the first real election), and the
+      // treasury takes the leader's opening edge.
+      game.leader = leader;
+      game.money += leaderStartMoney(leader);
+      // Recorded directly rather than through makePromise: a fresh city is in
+      // the founding era, and the opening promises unlock at 'town', so the
+      // gated path would silently reject every one of them — you would win the
+      // campaign on promises the game then forgot. These ARE the promises the
+      // first term was bought with, and they come due at the first real
+      // election like any other (§30).
+      game.promises = promises.filter((id) => id in PROMISE_SPECS) as PromiseId[];
+      syncUi();
+      autosave.flush(game);
+      coach.start(coachFacts());
+    },
+  });
+} else {
+  const intro = mountIntro(ui, { skip: returning, onDismiss: () => coach.start(coachFacts()) });
+  if (returning) coach.dismiss();
+  else if (!intro.open) coach.start(coachFacts());
+}
 
 /**
  * One-finger panning, used when no tool is selected.

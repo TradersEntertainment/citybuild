@@ -15,6 +15,7 @@ import { LOBBY_SPECS } from '../data/lobbies';
 import { unrestGroupSway } from './unrest';
 import { promiseSway } from './promises';
 import { decreeSway } from './decrees';
+import { leaderBaseSway } from './leaders';
 import { bandCount, burialHappiness, schooledShare, workingShare } from './cohorts';
 import { crimeHappiness } from './crime';
 import { rubbishStrain } from './rubbish';
@@ -279,6 +280,9 @@ function petScore(state: GameState, id: GroupId, t: Tallies): number {
   // named grievance. The one channel where a mayor can buy affection with
   // nothing but the treasury — the report card never sees it.
   score += decreeSway(state, id);
+  // …and the base the leader was elected on (§33): the room they came from,
+  // warm from turn zero. Mild, permanent, and zero for everyone else.
+  score += leaderBaseSway(state, id);
   return score < 0 ? 0 : score > 1 ? 1 : score;
 }
 

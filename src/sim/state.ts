@@ -5,6 +5,7 @@ import type { LobbyDeal } from './lobbies';
 import type { Mandate } from './unrest';
 import type { PromiseId } from '../data/promises';
 import type { DecreeId } from '../data/decrees';
+import { NEUTRAL_LEADER, type LeaderId } from '../data/leaders';
 import { createBudgets, type Budgets } from './budgets';
 import type { PolicyId } from '../data/policies';
 import type { Loan } from './credit';
@@ -204,6 +205,12 @@ export interface GameState {
   fury: number;
   furyToldStage: number;
   /**
+   * The dictator the player chose at the opening (data/leaders.ts, §33). Saved
+   * so their base and their edge outlast a reload; an old save without one
+   * loads as the neutral leader.
+   */
+  leader: LeaderId;
+  /**
    * Level bought in each civic programme (data/investments.ts). What a rich city
    * spends its money on, and the only purchase whose effect is the whole map.
    */
@@ -267,6 +274,7 @@ export function createGameState(seed: number, now: number, legacy = 0): GameStat
     decrees: [],
     fury: 0,
     furyToldStage: 0,
+    leader: NEUTRAL_LEADER,
     mandate: 'elected',
     unrest: 0,
     transit: new Map(),

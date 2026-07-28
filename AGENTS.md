@@ -626,6 +626,31 @@ Listeden **yapılmayanlar** ve nedenleri §3'ün sonunda.
   gerçekte olan buydu. (Düzeltmeyi geri alıp testin kırmızıya döndüğü
   doğrulandı.)
 
+### §33 diktatör seçimi + açılış seçimi — oyun artık siyasetle başlıyor
+Oyuncu: "diktatörünü seç diye başlasın, kişilik ve vaatle seçim kazanarak
+başlayalım." Eski açılış boş bir haritada dört etiketsiz fiildi; siyaset oyunu
+için hikâye yanlış sayfadan başlıyordu.
+
+- `data/leaders.ts` + `sim/leaders.ts`: beş diktatör (Halkın Sesi, Teknokrat,
+  Demir Yumruk, Ağa, Reformcu). Her biri bir *eğilim*: iki kesimlik bir taban
+  (kalıcı hafif pet-skoru, groups.ts okur) + tek somut avantaj (dolu kasa /
+  öfke direnci / seçim ödeneği çarpanı). Altıncı bir `neutral` var — asla
+  seçilmez, taze `createGameState`'in ve eski kayıtların varsayılanı, hiçbir
+  kesimi sessizce ısıtmasın diye (bu bir testi düşürmüştü, doğru yakaladı).
+- `ui/onboarding.ts`: iki ekran. (1) Diktatörünü seç. (2) İlk seçim — canlı oy
+  oranı barı, vaat listesi. **Taban tek başına %50'yi geçmiyor** (§33 formülü,
+  `scoreOpening`): göreve girmenin ilk dersi birine bir şey vaat etmek. Vaatler
+  doğrudan `game.promises`'e yazılıyor (makePromise'in çağ kilidini atlayarak —
+  taze şehir 'founding' çağında, açılış vaatleri 'town' gerektirir, yoksa
+  kampanyayı verdiğin vaatlerle kazanıp vaatler kaydolmuyordu; tarayıcıda
+  yakalandı).
+
+**"Çöküyor" tanısı:** tarayıcıda sürüldü. Taze oyun, canlı ferman basma,
+election geçişi — hepsinde sıfır JS hatası. "Target crashed" yalnızca 60ms'de
+ard arda 13 ferman basma sentetik testinde oldu = swiftshader yazılım-GPU'sunun
+yük altında ölmesi, oyun mantığı değil. Gerçek cihazda olmaz. Asıl "oynanmıyor"
+hissi panelin devasa kaydırma olması (fermanlar en altta) + sandbox'ta 2fps.
+
 ### §32 fermanlar — diktatörün menüsü ve şehrin gizli mizacı
 Oyuncunun isteği: canlı vergi, zorla askere yollama, interneti kesme (2000
 sonrası), "şunu yaparsan gelir artar halk kızar" düğmeleri — ve **denenerek

@@ -200,6 +200,33 @@ export const STR = {
    * business, the Gazette reads everything as neighbourhood. Neither lies —
    * the game only ever prints true things — they pick different truths.
    */
+  /**
+   * The opening (§33): choose your dictator, then win your first term by
+   * telling people what they want to hear. This is where a politics game
+   * should begin — with who you are and an election you have to buy.
+   */
+  onboarding: {
+    pickTitle: 'Diktatörünü seç',
+    pickLede: 'Nereden geldiğin, seni kimin desteklediğini belirler. Gerisi sana kalmış.',
+    base: 'Tabanın',
+    edge: 'Avantajın',
+    leaders: {
+      populist: { name: 'Halkın Sesi', edge: 'Geniş taban, boş kasa.' },
+      technocrat: { name: 'Teknokrat', edge: 'Dolu kasa (+₺45.000), esnafın güveni.' },
+      strongman: { name: 'Demir Yumruk', edge: 'Korkulan şehir: öfke %34 yavaş örgütlenir.' },
+      patron: { name: 'Ağa', edge: 'Her seçim zaferi %25 daha çok öder.' },
+      reformer: { name: 'Reformcu', edge: 'Çevre ve gençlik seninle; kasa değil.' },
+    },
+    voteTitle: 'İlk seçim',
+    voteLede: 'Kazanmak için vaat ver. Tuttuğun sürece taban seninle; tutmazsan bir sonraki seçimde ödersin.',
+    approval: 'Oy oranı',
+    needed: 'Kazanmak için %50 gerekli.',
+    win: 'Seçime gir',
+    winning: 'Kazandın — göreve başla!',
+    losing: 'Yetmez. Daha çok kesime vaat ver.',
+    yourBase: 'Tabanın seninle:',
+    begin: 'Şehri devral',
+  },
   media: {
     postName: 'Şehir Postası',
     gazetteName: 'Körfez Gazetesi',
