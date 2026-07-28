@@ -8,6 +8,7 @@ import {
   UNREST_ON_SEIZURE,
   UNREST_QUIET_CARD,
 } from '../data/balance';
+import { decreeUnrestQuiet } from './decrees';
 import { readReport } from './report';
 import type { GameState } from './state';
 
@@ -135,16 +136,21 @@ export interface UnrestChange {
 export function stepUnrest(state: GameState, dt: number): readonly UnrestChange[] {
   const before = state.unrest;
 
+  // Martial law (§32): troops on the squares put unrest down faster, whoever
+  // is governing. Suppression, not forgiveness — it multiplies the decay and
+  // touches nothing underneath, which is why a ruler leaning on it is buying
+  // quiet with the fury meter running.
+  const suppression = decreeUnrestQuiet(state);
   if (hasMandate(state)) {
     // An elected government sheds whatever is left at the ordinary rate: a
     // player who refused once and then won the next vote is not carrying the
     // first refusal around forever.
-    state.unrest = clamp01(state.unrest - UNREST_DECAY_PER_S * dt);
+    state.unrest = clamp01(state.unrest - UNREST_DECAY_PER_S * suppression * dt);
   } else {
     // How well the city is actually run, 0..1 (sim/report.ts). A good card buys
     // quiet; a bad one buys none, and the grip does the rest.
     const governing = readReport(state).overall;
-    const quiet = UNREST_DECAY_PER_S * governing * UNREST_QUIET_CARD;
+    const quiet = UNREST_DECAY_PER_S * governing * UNREST_QUIET_CARD * suppression;
     state.unrest = clamp01(state.unrest + (UNREST_GRIP_PER_S - quiet) * dt);
   }
 

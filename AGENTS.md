@@ -652,6 +652,18 @@ bulunan, her oyunda değişen bir öfke eşiği**.
   yasağı") — "bu halk şuna sinirleniyor" bilgisi ancak bedeli ödenerek gelir.
   Meydan yanarken sansür işlemez: isyan her koşulda duyurulur.
 - Çevrimdışı merhamet: kimse bakmazken öfke yalnız düşer (çöp kuralı).
+- **Genişletme (13 süreğen + 2 tek atım):** tahıl tekeli (hasat kârı devlete),
+  angarya (yol bakımı halka), grev yasağı (sanayi + patronlar memnun — decree
+  `pleases` yarım ağırlıkta), **muhbir ağı** (suç düşer, sansürde bile uyarılar
+  gelir — otokratın klasik çifti: bas + dinle), ek vergi kararnamesi (vergiyi
+  ×1.15 vergiler), **sıkıyönetim** (suç ×0.4, §29 huzursuzluğu 2× hızla
+  bastırılır, ticaret ölür, HERKES kızar, tablonun en hızlı öfkesi),
+  **sınır kapatma** (göçün yalnız çıkışı ×0.25 — huzursuzluğun kaçırdığı nüfus
+  içeride kalır, kalır ve kızar), sosyal medya yasağı (≥2010; kesintinin hafif
+  kardeşi, uyarıları KÖRLEMEZ) ve **ekmek dağıtımı** (öfke tahliye vanası —
+  rahatlama şehrin gizli mizacına *bölünür*: alıngan şehir ekmekle de yatışmaz).
+- Etkiler artık spec alanları, sim düz çarpım alıyor (`productOf`): yeni ferman
+  = tabloya bir satır + iki string, başka hiçbir dosya adını öğrenmez.
 
 ### §31 rakip — seçim eşik değil yarış
 Seçim bir *kontroldü*: yarısını al, koltuğu koru. Karşı tarafta kimse yoktu,

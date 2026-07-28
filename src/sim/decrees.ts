@@ -1,4 +1,7 @@
 import {
+  BREAD_CAP,
+  BREAD_PER_CITIZEN,
+  BREAD_RELIEF,
   CONFISCATION_CAP,
   CONFISCATION_FURY,
   CONFISCATION_PER_CITIZEN,
@@ -10,12 +13,7 @@ import {
   TAX_RATE_MAX,
   TAX_RATE_MIN,
 } from '../data/balance';
-import {
-  DECREE_EFFECTS,
-  DECREE_ORDER,
-  DECREE_SPECS,
-  type DecreeId,
-} from '../data/decrees';
+import { DECREE_ORDER, DECREE_SPECS, type DecreeId, type DecreeSpec } from '../data/decrees';
 import { yearOf } from './timeline';
 import type { GroupId } from './groups';
 import { createRng, hashSeed } from './rng';
@@ -70,7 +68,10 @@ export function tolerance(state: GameState): number {
  * The spread is wide on purpose: at 0.6 a decree is background noise, at 1.8
  * it is the thing this city will riot about first.
  */
-export function sensitivity(state: GameState, id: DecreeId | 'tax' | 'confiscation'): number {
+export function sensitivity(
+  state: GameState,
+  id: DecreeId | 'tax' | 'confiscation' | 'bread',
+): number {
   const rng = createRng((state.seed ^ hashSeed(`temper:sense:${id}`)) >>> 0);
   return rng.range(0.6, 1.8);
 }
@@ -144,6 +145,33 @@ export function confiscate(state: GameState): ConfiscationResult {
   return { seized };
 }
 
+export type BreadResult = { fed: true; cost: number; relief: number } | { fed: false };
+
+/**
+ * The other one-shot: bread, handed out on the square.
+ *
+ * The release valve every autocrat reaches for — pay now, and some of the
+ * banked fury goes home fed. How *much* goes home is this city's own secret,
+ * inverted: a touchy city is also a hard one to buy off, so the same hidden
+ * sensitivity that makes decrees expensive here makes bread cheap-looking and
+ * weak. "Bu halk ekmekle yatışmıyor" is a discovery, and it costs a granary
+ * to make.
+ *
+ * Refused outright when the treasury cannot cover it: a dole the city cannot
+ * pay for is not a dole, and the bank is where borrowing lives.
+ */
+export function handOutBread(state: GameState): BreadResult {
+  const cost = Math.min(BREAD_CAP, Math.max(500, Math.round(state.population * BREAD_PER_CITIZEN)));
+  if (state.money < cost) return { fed: false };
+  state.money -= cost;
+  const relief = BREAD_RELIEF / sensitivity(state, 'bread');
+  state.fury = clampFury(state.fury - relief);
+  // The street can visibly settle a stage; the told-stage follows downward so
+  // the next escalation is announced fresh rather than swallowed.
+  if (furyStage(state) < state.furyToldStage) state.furyToldStage = furyStage(state);
+  return { fed: true, cost, relief };
+}
+
 // --- The meter -------------------------------------------------------------------
 
 /** 0 calm · 1 murmurs · 2 protests. Derived from fury against the hidden marks. */
@@ -155,9 +183,22 @@ export function furyStage(state: GameState): number {
   return 0;
 }
 
-/** Whether the player's own decrees have blinded the early warnings. */
+/**
+ * Whether the player's own decrees have blinded the early warnings.
+ *
+ * Any blinding decree silences them — unless an informant network is also on
+ * the payroll, in which case the street's mood reaches the palace however
+ * quiet the papers are. Paying to see what your own censorship hides is the
+ * oldest line-item in the autocrat's budget, and it works here too.
+ */
 export function warningsSilenced(state: GameState): boolean {
-  return isDecreeActive(state, 'censorship') || isDecreeActive(state, 'internetCut');
+  let blinded = false;
+  let revealed = false;
+  for (const id of state.decrees) {
+    if (DECREE_SPECS[id].blinds) blinded = true;
+    if (DECREE_SPECS[id].reveals) revealed = true;
+  }
+  return blinded && !revealed;
 }
 
 /** Fury added per second by everything currently in force, temper included. */
@@ -172,11 +213,10 @@ export function furyPressure(state: GameState): number {
     // last few points of the tax slider are far dearer than the first.
     pressure += TAX_FURY_PER_S * (excess / 0.05) * sensitivity(state, 'tax');
   }
-  // The muffles: censorship and the cut slow how fast anger organises. They
-  // multiply, so a ruler who reaches for both gets a city that is very quiet
-  // and very blind.
-  if (isDecreeActive(state, 'censorship')) pressure *= DECREE_EFFECTS.CENSORSHIP_MUFFLE;
-  if (isDecreeActive(state, 'internetCut')) pressure *= DECREE_EFFECTS.INTERNET_MUFFLE;
+  // The muffles: every suppressing decree slows how fast anger organises, and
+  // they multiply — a ruler who reaches for all of them gets a city that is
+  // very quiet and, if they blinded the press too, very unreadable.
+  for (const id of state.decrees) pressure *= DECREE_SPECS[id].muffle ?? 1;
   return pressure;
 }
 
@@ -273,40 +313,93 @@ export function decreeStipend(state: GameState): number {
   return total;
 }
 
-/** Conscription: the workshops, short of hands. */
+/**
+ * The product of one effect field over every decree in force.
+ *
+ * All the standing multipliers go through here, so adding a decree is one row
+ * in the table and nothing else — the curfew and martial law both dim the
+ * shops, and a city under both gets both, multiplied, without either knowing
+ * the other exists.
+ */
+function productOf(state: GameState, key: keyof DecreeSpec): number {
+  let factor = 1;
+  for (const id of state.decrees) {
+    const value = DECREE_SPECS[id][key];
+    if (typeof value === 'number') factor *= value;
+  }
+  return factor;
+}
+
+/** Conscription and the strike ban, pulling opposite ways on the same floor. */
 export function decreeIndustryFactor(state: GameState): number {
-  return isDecreeActive(state, 'conscription') ? DECREE_EFFECTS.CONSCRIPTION_INDUSTRY : 1;
+  return productOf(state, 'industry');
 }
 
-/** Curfew: shutters at dusk. */
+/** Curfew and martial law: shutters at dusk, checkpoints at noon. */
 export function decreeCommerceFactor(state: GameState): number {
-  return isDecreeActive(state, 'curfew') ? DECREE_EFFECTS.CURFEW_COMMERCE : 1;
+  return productOf(state, 'commerce');
 }
 
-/** Curfew: the streets under the boot. */
+/** Curfew, informants and martial law — three grips on the same streets. */
 export function decreeCrimeFactor(state: GameState): number {
-  return isDecreeActive(state, 'curfew') ? DECREE_EFFECTS.CURFEW_CRIME : 1;
+  return productOf(state, 'crime');
 }
 
-/** The cut: office floors with nothing to trade on. */
+/** The cuts: office floors with nothing to trade on. */
 export function decreeOfficeFactor(state: GameState): number {
-  return isDecreeActive(state, 'internetCut') ? DECREE_EFFECTS.INTERNET_OFFICE : 1;
+  return productOf(state, 'office');
 }
 
 /** The cut: a city that stops learning. */
 export function decreeResearchFactor(state: GameState): number {
-  return isDecreeActive(state, 'internetCut') ? DECREE_EFFECTS.INTERNET_RESEARCH : 1;
+  return productOf(state, 'research');
+}
+
+/** The surcharge: a decree that taxes the tax. */
+export function decreeTaxFactor(state: GameState): number {
+  return productOf(state, 'taxFactor');
+}
+
+/** The grain levy: the harvest's margin, kept at the scales. */
+export function decreeFarmFactor(state: GameState): number {
+  return productOf(state, 'farmFactor');
+}
+
+/** Corvée: the people carry the roads, the treasury does not. */
+export function decreeRoadUpkeepFactor(state: GameState): number {
+  return productOf(state, 'roadUpkeepFactor');
 }
 
 /**
- * What the decrees do to one faction's vote: propaganda's warmth across the
- * whole room, less each standing decree's named grievance (sim/groups.ts).
+ * The closed border: how much of the outflow actually gets out.
+ *
+ * Read by the migration step (sim/population.ts) on the leaving side only —
+ * a closed border has never stopped anyone arriving.
+ */
+export function decreeEmigrationFactor(state: GameState): number {
+  return productOf(state, 'emigrationFactor');
+}
+
+/**
+ * Martial law: how much faster §29 unrest is put down while troops hold the
+ * squares. Read by sim/unrest.ts on its decay terms — suppression, not
+ * forgiveness, which is why it does nothing about the fury underneath.
+ */
+export function decreeUnrestQuiet(state: GameState): number {
+  return productOf(state, 'unrestQuiet');
+}
+
+/**
+ * What the decrees do to one faction's vote: each named grievance at full
+ * weight, each flattery at half — imposed favour is thin, imposed harm is not
+ * (sim/groups.ts).
  */
 export function decreeSway(state: GameState, id: GroupId): number {
   let sway = 0;
-  if (isDecreeActive(state, 'propaganda')) sway += DECREE_EFFECTS.PROPAGANDA_SWAY;
   for (const active of state.decrees) {
-    if (DECREE_SPECS[active].angers.includes(id)) sway -= DECREE_GROUP_SWAY;
+    const spec = DECREE_SPECS[active];
+    if (spec.angers.includes(id)) sway -= DECREE_GROUP_SWAY;
+    if (spec.pleases?.includes(id)) sway += DECREE_GROUP_SWAY / 2;
   }
   return sway;
 }

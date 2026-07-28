@@ -8,6 +8,12 @@ import {
 import { DECREE_ORDER, DECREE_SPECS } from '../src/data/decrees';
 import {
   confiscate,
+  decreeEmigrationFactor,
+  decreeFarmFactor,
+  decreeRoadUpkeepFactor,
+  decreeTaxFactor,
+  decreeUnrestQuiet,
+  handOutBread,
   decreeCommerceFactor,
   decreeCrimeFactor,
   decreeGate,
@@ -348,6 +354,148 @@ describe('the hooks', () => {
   });
 });
 
+describe('the wider menu (§32 genişletme)', () => {
+  it('composes multipliers as products when decrees overlap', () => {
+    // Curfew, informants and martial law all grip the same streets; a city
+    // under all three gets all three, multiplied, and none of them knows the
+    // others exist.
+    const state = city();
+    toggleDecree(state, 'curfew');
+    toggleDecree(state, 'informants');
+    toggleDecree(state, 'martialLaw');
+    expect(decreeCrimeFactor(state)).toBeCloseTo(0.5 * 0.75 * 0.4, 10);
+    expect(decreeCommerceFactor(state)).toBeCloseTo(0.9 * 0.85, 10);
+  });
+
+  it('lets conscription and the strike ban pull opposite ways on one floor', () => {
+    const state = city();
+    toggleDecree(state, 'conscription');
+    toggleDecree(state, 'strikeBan');
+    expect(decreeIndustryFactor(state)).toBeCloseTo(0.92 * 1.1, 10);
+  });
+
+  it('gates the modern pair on their own calendars', () => {
+    const state = city();
+    state.playedMs = 105 * 40 * 1000; // 2005: internet yes, platforms not yet
+    expect(decreeGate(state, 'internetCut')).toBe('open');
+    expect(decreeGate(state, 'socialMediaBan')).toBe('year');
+    state.playedMs = 112 * 40 * 1000; // 2012
+    expect(decreeGate(state, 'socialMediaBan')).toBe('open');
+  });
+
+  it('keeps the platform ban milder than the cut, on both sides', () => {
+    // Its whole reason to exist: some suppression, less collateral, and — the
+    // half that matters — it does NOT blind the warnings.
+    const state = city();
+    toggleDecree(state, 'socialMediaBan');
+    expect(warningsSilenced(state)).toBe(false);
+    expect(DECREE_SPECS.socialMediaBan.muffle!).toBeGreaterThan(DECREE_SPECS.internetCut.muffle!);
+    expect(DECREE_SPECS.socialMediaBan.office!).toBeGreaterThan(DECREE_SPECS.internetCut.office!);
+  });
+
+  it('pays informants to see through the ruler\'s own censorship', () => {
+    const state = city();
+    toggleDecree(state, 'censorship');
+    expect(warningsSilenced(state)).toBe(true);
+    toggleDecree(state, 'informants');
+    expect(warningsSilenced(state)).toBe(false);
+    // …and the warnings genuinely arrive while both stand.
+    toggleDecree(state, 'curfew');
+    setTaxRate(state, TAX_RATE_MAX);
+    const heard: string[] = [];
+    for (let i = 0; i < 5_000 && !heard.includes('revolt'); i++) {
+      for (const event of stepDecrees(state, 1)) heard.push(event.kind);
+    }
+    expect(heard).toEqual(['murmurs', 'protests', 'revolt']);
+  });
+
+  it('chokes only the outflow at a closed border', () => {
+    const state = city();
+    expect(decreeEmigrationFactor(state)).toBe(1);
+    toggleDecree(state, 'borderClosure');
+    expect(decreeEmigrationFactor(state)).toBeCloseTo(0.25, 10);
+  });
+
+  it('puts unrest down faster under martial law — suppression, not forgiveness', () => {
+    const state = city();
+    toggleDecree(state, 'martialLaw');
+    expect(decreeUnrestQuiet(state)).toBe(2);
+    // The fury underneath is untouched: martial law is itself the fastest
+    // fury in the table.
+    expect(DECREE_SPECS.martialLaw.furyPerS).toBeGreaterThan(DECREE_SPECS.curfew.furyPerS);
+  });
+
+  it('takes the farmer\'s margin and the taxpayer\'s fifteen percent', () => {
+    const state = city();
+    toggleDecree(state, 'grainLevy');
+    toggleDecree(state, 'surcharge');
+    toggleDecree(state, 'corvee');
+    expect(decreeFarmFactor(state)).toBeCloseTo(1.4, 10);
+    expect(decreeTaxFactor(state)).toBeCloseTo(1.15, 10);
+    expect(decreeRoadUpkeepFactor(state)).toBeCloseTo(0.6, 10);
+  });
+
+  it('flatters at half the weight it wounds', () => {
+    const state = city();
+    toggleDecree(state, 'strikeBan');
+    const pleased = decreeSway(state, 'industrialists');
+    const wounded = decreeSway(state, 'young');
+    expect(pleased).toBeGreaterThan(0);
+    expect(wounded).toBeLessThan(0);
+    expect(Math.abs(wounded)).toBeCloseTo(Math.abs(pleased) * 2, 10);
+  });
+});
+
+describe('the bread dole', () => {
+  it('feeds the square for money and vents fury by this city\'s own measure', () => {
+    const state = city();
+    state.money = 1_000_000;
+    state.fury = 0.5;
+    const before = state.money;
+    const result = handOutBread(state);
+    expect(result.fed).toBe(true);
+    expect(state.money).toBeLessThan(before);
+    expect(state.fury).toBeLessThan(0.5);
+  });
+
+  it('is refused, not lent, when the treasury cannot cover it', () => {
+    const state = city();
+    state.money = 10;
+    state.fury = 0.5;
+    expect(handOutBread(state).fed).toBe(false);
+    expect(state.money).toBe(10);
+    expect(state.fury).toBe(0.5);
+  });
+
+  it('calms a touchy city less — the same temper, read from the other side', () => {
+    let touchy: GameState | null = null;
+    let easy: GameState | null = null;
+    for (let n = 0; n < 80 && (!touchy || !easy); n++) {
+      const state = city(`bread-${n}`);
+      const sense = sensitivity(state, 'bread');
+      if (sense > 1.5 && !touchy) touchy = state;
+      if (sense < 0.8 && !easy) easy = state;
+    }
+    expect(touchy).not.toBeNull();
+    expect(easy).not.toBeNull();
+    for (const state of [touchy!, easy!]) {
+      state.money = 1_000_000;
+      state.fury = 0.5;
+      handOutBread(state);
+    }
+    // The easy city vented more fury for the same loaf.
+    expect(easy!.fury).toBeLessThan(touchy!.fury);
+  });
+
+  it('never drives fury below zero, and re-announces a fresh escalation', () => {
+    const state = city();
+    state.money = 10_000_000;
+    state.fury = 0.05;
+    handOutBread(state);
+    expect(state.fury).toBe(0);
+  });
+});
+
 describe('the save', () => {
   it('carries the decrees and the fury — both are debts', () => {
     const state = city();
@@ -385,7 +533,7 @@ describe('the save', () => {
   it('drops an unknown decree and clamps a corrupt meter', () => {
     const state = city();
     const data = serialize(state) as unknown as Record<string, unknown>;
-    data['decrees'] = ['curfew', 'martialLaw'];
+    data['decrees'] = ['curfew', 'royalDecree'];
     data['fury'] = Number.NaN;
     const loaded = deserialize(data as never) as GameState;
     expect(loaded!.decrees).toEqual(['curfew']);

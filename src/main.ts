@@ -86,6 +86,7 @@ import {
   confiscate,
   decreeStates,
   furyStage,
+  handOutBread,
   setTaxRate,
   toggleDecree,
   warningsSilenced,
@@ -335,6 +336,22 @@ mountCityPanel(ui, {
     toast.show(STR.decree.confiscated(seized));
     eventFeed.pushCustom([
       { icon: STR.decree.icon, tone: 'warn', text: STR.decree.confiscated(seized) },
+    ]);
+    syncUi();
+    autosave.flush(game);
+  },
+  onBread: () => {
+    const result = handOutBread(game);
+    haptics.tap();
+    if (!result.fed) {
+      sfx.play('blocked');
+      toast.show(STR.decree.breadTooPoor);
+      return;
+    }
+    sfx.play('build');
+    toast.show(STR.decree.breadGiven(result.cost));
+    eventFeed.pushCustom([
+      { icon: STR.decree.icon, tone: 'calm', text: STR.decree.breadGiven(result.cost) },
     ]);
     syncUi();
     autosave.flush(game);

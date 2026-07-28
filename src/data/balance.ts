@@ -808,6 +808,14 @@ export const CONFISCATION_CAP = 150_000;
 /** Fury one confiscation adds, before this city's sensitivity scales it. */
 export const CONFISCATION_FURY = 0.16;
 /**
+ * The bread dole: ₺ per resident it costs, its cap, and the fury one handout
+ * relieves before the city's temper divides it — a touchy city is also a hard
+ * one to buy off, so the two hidden numbers pull the same way.
+ */
+export const BREAD_PER_CITIZEN = 1.5;
+export const BREAD_CAP = 100_000;
+export const BREAD_RELIEF = 0.12;
+/**
  * How hard a standing decree's named grievance leans on its faction, on the
  * 0..1 pet score. Above an ordinance (0.12), below a signed contract (0.22):
  * a decree is policy imposed, not policy agreed.

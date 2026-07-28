@@ -32,9 +32,12 @@ import type { GameState } from './state';
 import { lobbyOutputFactor, lobbyStipend } from './lobbies';
 import {
   decreeCommerceFactor,
+  decreeFarmFactor,
   decreeIndustryFactor,
   decreeOfficeFactor,
+  decreeRoadUpkeepFactor,
   decreeStipend,
+  decreeTaxFactor,
 } from './decrees';
 import { decodeRoad, decodeZone, NONE } from './tiles';
 import { index } from './world';
@@ -212,7 +215,9 @@ export function computeLedger(
   // already built: it is a civil service, so it bills less every minute rather
   // than refunding anything.
   const admin = techFactor(state, 'administration');
-  const roads = roadUpkeep(state);
+  // Corvée (§32): the people carry the road bill, at the price the fury meter
+  // is already charging them.
+  const roads = roadUpkeep(state) * decreeRoadUpkeepFactor(state);
   const stations = (serviceUpkeep(state) + attractionUpkeep(state) + policyUpkeep(state)) * admin;
   const plants = utilityUpkeep(state) * admin;
   const debt = debtService(state);
@@ -232,7 +237,8 @@ export function computeLedger(
   // treasury, a boom decade fills it, whatever the tax rate says.
   const history = state.timelineEffects.incomeMult;
   taxIncome *= history;
-  const farmIncome = farmYield * FOOD_PRICE * history;
+  // The grain levy (§32) takes the margin at the state's scales.
+  const farmIncome = farmYield * FOOD_PRICE * history * decreeFarmFactor(state);
   const transit = transitIncome(state) * history;
   // The coast, earning. Moved by history like every other income line: a
   // depression empties the docks as surely as it empties the shops.
@@ -264,6 +270,9 @@ export function computeLedger(
   // propaganda drains it. One net line, like the lobbies, and for the same
   // reason — it is the row that says what ruling by force is worth.
   const decrees = decreeStipend(state);
+  // The surcharge (§32): a decree that taxes the tax — applied to the whole
+  // take at once, because that is what an across-the-board levy is.
+  taxIncome *= decreeTaxFactor(state);
 
   return {
     taxIncome,

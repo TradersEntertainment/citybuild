@@ -69,6 +69,8 @@ export interface CityPanelDeps {
   onTax(direction: number): void;
   /** Seizes wealth, once, now. */
   onConfiscate(): void;
+  /** The other one-shot: bread on the square (§32). */
+  onBread(): void;
   /** Whether an ordinance is in force, for the row state. */
   policyActive(id: PolicyId): boolean;
   policyUnlocked(id: PolicyId): boolean;
@@ -459,7 +461,18 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
   confiscateName.textContent = `${STR.decree.confiscate} — ${STR.decree.confiscateTrade}`;
   confiscateButton.append(confiscateName);
   confiscateButton.addEventListener('click', () => deps.onConfiscate());
-  decrees.body.append(confiscateButton);
+
+  // The release valve beside the seizure: the two one-shots are one decision
+  // apart — take from the square, or feed it — and the menu says so by
+  // putting them on adjacent rows.
+  const breadButton = document.createElement('button');
+  breadButton.type = 'button';
+  breadButton.className = 'panel-policy';
+  const breadName = document.createElement('span');
+  breadName.textContent = `${STR.decree.bread} — ${STR.decree.breadTrade}`;
+  breadButton.append(breadName);
+  breadButton.addEventListener('click', () => deps.onBread());
+  decrees.body.append(confiscateButton, breadButton);
   inner.append(decrees.el);
 
   const promises = section(STR.promise.title);
@@ -810,7 +823,9 @@ export function mountCityPanel(root: HTMLElement, deps: CityPanelDeps): CityPane
       // for the rest.
       decreeView.value.textContent =
         view.gate === 'year'
-          ? STR.decree.lockedYear(2000)
+          ? STR.decree.lockedYear(
+              DECREE_SPECS[view.id as keyof typeof DECREE_SPECS]?.fromYear ?? 2000,
+            )
           : view.gate === 'era'
             ? STR.eraName[DECREE_SPECS[view.id as keyof typeof DECREE_SPECS].unlockedAt]
             : view.active

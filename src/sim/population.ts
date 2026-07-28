@@ -26,6 +26,7 @@ import { dayFraction, nightAmount } from './daytime';
 import { nightHappiness } from './investments';
 import { lobbyHappiness } from './lobbies';
 import { unrestHappiness, unrestMigrationPush } from './unrest';
+import { decreeEmigrationFactor } from './decrees';
 import { portHappiness } from './ports';
 import { ritualHappiness } from './rituals';
 import type { GameState } from './state';
@@ -231,6 +232,10 @@ function migrate(state: GameState, vacancy: number, dt: number): void {
   // it pushes a city that was gaining people toward losing them instead of only
   // slowing the gain — which is what "they are leaving" has to mean.
   perMinute -= (unrestMigrationPush(state) * state.population) / 1_000;
+  // The closed border (§32): the outflow — and only the outflow — is choked.
+  // Applied after the unrest push on purpose: the border is aimed at exactly
+  // the people unrest is driving out, and no border has ever stopped arrivals.
+  if (perMinute < 0) perMinute *= decreeEmigrationFactor(state);
   const change = (perMinute * dt) / 60;
   if (change === 0) return;
 
