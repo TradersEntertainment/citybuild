@@ -88,6 +88,68 @@ const FOOTPRINT_CURVE = 0.5;
  */
 const PITCH_GAIN = 1.7;
 
+/**
+ * The darkest a roof is allowed to be, as linear relative luminance.
+ *
+ * A roof is the one surface in this city that always faces the sun, and the
+ * tables below authored several of them at a reflectance no roofing material
+ * has. `#26303A` on the tallest modern office is 0.028 — darker than fresh
+ * asphalt, about the reflectance of coal — and the arithmetic of what that
+ * produces is the complaint: at a 70° sun the key gives an up-facing plane
+ * 2.59 and a vertical one 0.92, and the hemisphere fill gives 0.58 and 0.37, so
+ * that roof leaves the surface at 0.08 against 0.44 for the sunlit wall below
+ * it and 0.13 for the wall in shade. **The top of the tower came out as dark as
+ * its own shaded side, under a midday sun.** That is not a stylised roof, it is
+ * a lighting contradiction, and it is why a block of towers reads as a set of
+ * flat slabs rather than as lit volumes.
+ *
+ * 0.12 is the low end of real roofing — bitumen, gravel, weathered membrane —
+ * and puts the same roof at 0.38: three times its own shaded wall, and a shade
+ * under the sunlit one. That last part is deliberate and is where this stops
+ * short of the obvious rule "a horizontal plane must be the brightest thing in
+ * a daylit frame". Satisfying that rule against walls of limewash and dressed
+ * stone (0.34 luminance) would need a roof at 0.14 or above — a city whose
+ * roofs are paler than its walls, which inverts the read the other way and is
+ * not what anyone means by a dark roof.
+ *
+ * Applied as a floor rather than by editing the tables so there is one place
+ * that explains it, and so a row added later cannot quietly reintroduce a
+ * black roof. Every pitched roof in the tables is already above it and is
+ * untouched.
+ */
+const MIN_ROOF_LUMINANCE = 0.12;
+
+/**
+ * The authored roof colour, lifted to the floor above if it falls under it.
+ *
+ * Scaled in linear light, all three channels by the same factor, so the hue and
+ * the saturation the table authored survive exactly — this brightens a roof, it
+ * does not repaint one.
+ */
+function roofColour(hex: string): string {
+  const value = parseInt(hex.slice(1), 16);
+  const channels = [(value >> 16) & 255, (value >> 8) & 255, value & 255].map(
+    (byte) => toLinear(byte / 255),
+  ) as [number, number, number];
+  const luminance = 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+  if (luminance >= MIN_ROOF_LUMINANCE || luminance <= 0) return hex;
+  const gain = MIN_ROOF_LUMINANCE / luminance;
+  return `#${channels
+    .map((channel) => {
+      const byte = Math.round(toSrgb(Math.min(1, channel * gain)) * 255);
+      return byte.toString(16).padStart(2, '0');
+    })
+    .join('')}`;
+}
+
+function toLinear(value: number): number {
+  return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+}
+
+function toSrgb(value: number): number {
+  return value <= 0.0031308 ? value * 12.92 : 1.055 * Math.pow(value, 1 / 2.4) - 0.055;
+}
+
 function arch(
   footprint: number,
   height: number,
@@ -99,7 +161,7 @@ function arch(
     footprint: FOOTPRINT_GAIN * Math.pow(footprint, FOOTPRINT_CURVE),
     height: HEIGHT_GAIN * Math.pow(height, HEIGHT_CURVE),
     roofPitch: roofPitch * PITCH_GAIN,
-    roof,
+    roof: roofColour(roof),
     facade,
   };
 }

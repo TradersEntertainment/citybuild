@@ -152,8 +152,9 @@ describe('the geometry', () => {
       expect(geometry.groups).toHaveLength(2);
       expect(geometry.groups[0]?.materialIndex).toBe(0);
       expect(geometry.groups[1]?.materialIndex).toBe(1);
-      // Four walls of two triangles each.
-      expect(geometry.groups[0]?.count).toBe(24);
+      // Four walls, each cut once near the ground so the baked contact band has
+      // its own strip of vertices to be dark at: two quads of two triangles.
+      expect(geometry.groups[0]?.count).toBe(48);
       const total = geometry.groups.reduce((sum, g) => sum + g.count, 0);
       expect(total).toBe(geometry.getAttribute('position').count);
       geometry.dispose();

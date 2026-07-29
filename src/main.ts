@@ -2272,6 +2272,15 @@ syncUi();
    */
   resources: () => renderer.resources,
   stats: () => renderer.stats,
+  /**
+   * The graphics tier this device was given (render3d/quality.ts).
+   *
+   * The first question to ask when somebody reports that the game is hot or
+   * stuttering, because it decides whether they are paying for a post-process
+   * chain and three shadow cascades or for neither — and it is derived from
+   * signals nobody can see from the outside.
+   */
+  quality: () => renderer.quality,
 };
 // Named on the first frame rather than on the sweep timer: a returning player
 // opens a city that already has neighbourhoods, and waiting a beat for them to

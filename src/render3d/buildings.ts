@@ -38,6 +38,35 @@ const INITIAL_CAPACITY = 256;
 const STOREY = 0.3;
 
 /**
+ * Height of the contact band at the foot of every wall, in world units (~1 m),
+ * and how dark it goes.
+ *
+ * Ambient occlusion, baked once into the shared geometry's vertex colours. It
+ * costs one extra quad per wall — eight triangles per archetype, reused by
+ * every instance of it — one float attribute the GPU is already interpolating,
+ * and nothing at all per frame. There is no pass, no render target and no
+ * texture, so it is on at every tier including the floor.
+ *
+ * Why it is the highest-value thing available here: without it a building
+ * terminates on the terrain at a hard aliased polygon edge, with the wall's own
+ * colour running right up to the grass and stopping. That reads as a decal
+ * standing on a sheet rather than an object sitting in the ground, and no
+ * amount of cast shadow fixes it, because the sun is often behind the building
+ * or straight overhead and the crevice between a wall and the ground it stands
+ * on is dark in *every* light. It is the one darkening that is never wrong.
+ *
+ * A metre, because that is roughly the reach of the occlusion a wall casts on
+ * itself where it meets flat ground, and because at the zoom the game is played
+ * in it lands on three or four device pixels — enough to read as contact,
+ * little enough that it is never mistaken for a storey.
+ */
+const CONTACT_BAND = 0.12;
+/** Never more than this share of the wall, so a cottage keeps a cottage's face. */
+const CONTACT_BAND_MAX_SHARE = 0.3;
+/** How much light reaches the very bottom of the wall. */
+const CONTACT_FLOOR = 0.52;
+
+/**
  * Everything about an archetype that does not depend on how many of it there
  * are: the geometry, the two materials, and the two generated canvases behind
  * them.
@@ -83,6 +112,23 @@ const CANVAS_SKINS: FacadeSkins = {
   emissive: createEmissiveTexture,
 };
 
+/**
+ * Surface detail hung on a facade material the moment it is made.
+ *
+ * Structural rather than an import of `FacadeMapLayer`, for the same reason
+ * `FacadeSkins` exists: this file has to run in a node test runner, and a seam
+ * narrow enough to state in three lines is a seam a test can fill. It is also
+ * the enforcement point for the module's own rule — attaching belongs in
+ * `kitFor`, which runs once per archetype, and never in `makeBucket` or
+ * `growBucket`, which run again every time a bucket doubles. That is precisely
+ * the leak tests/meshLeaks.test.ts was written to catch, and passing the layer
+ * in here rather than letting the renderer reach into the buckets is what keeps
+ * it structurally impossible.
+ */
+export interface FacadeDetail {
+  attach(material: THREE.MeshStandardMaterial, options: Archetype['facade']): void;
+}
+
 export interface BuildingMeshes {
   readonly group: THREE.Group;
   /** Re-writes every instance matrix from sim state. Call once per frame. */
@@ -92,7 +138,10 @@ export interface BuildingMeshes {
   dispose(): void;
 }
 
-export function createBuildings(skins: FacadeSkins = CANVAS_SKINS): BuildingMeshes {
+export function createBuildings(
+  skins: FacadeSkins = CANVAS_SKINS,
+  detail?: FacadeDetail,
+): BuildingMeshes {
   const group = new THREE.Group();
   group.name = 'buildings';
 
@@ -123,13 +172,27 @@ export function createBuildings(skins: FacadeSkins = CANVAS_SKINS): BuildingMesh
       emissiveIntensity: nightFactor,
       roughness: period === 'modern' && zone === 'com' ? 0.32 : 0.76,
       metalness: period === 'modern' && zone === 'com' ? 0.28 : 0.04,
+      // Two colours ride this attribute and they multiply: the baked contact
+      // band on the geometry's own vertices (CONTACT_BAND) and the per-plot
+      // tint on the instance buffer. three folds both into `vColor`, so the
+      // flag is needed for the first and the second arrives on its own.
+      vertexColors: true,
     });
     const roofMaterial = new THREE.MeshStandardMaterial({
       color: spec.roof,
       roughness: 0.88,
       metalness: 0.05,
+      // The roof carries no contact band — it is the top of the building — but
+      // it has to answer to the same per-plot tint as the walls it sits on, and
+      // the geometry hands it ones for the band either way.
+      vertexColors: true,
     });
     materials.push(facadeMaterial, roofMaterial);
+    // Once per archetype, beside the two canvases this frame is already
+    // drawing, and from the same `spec.facade` they were drawn from — so the
+    // painted window and the modelled reveal cannot come apart. The roof takes
+    // no maps: it has no windows to recess.
+    detail?.attach(facadeMaterial, spec.facade);
 
     const geometry = buildArchetypeGeometry(spec);
     geometries.push(geometry);
@@ -205,12 +268,22 @@ export function createBuildings(skins: FacadeSkins = CANVAS_SKINS): BuildingMesh
       // an untinted row of them reads as one house photocopied. A stable
       // brightness/warmth wobble per plot breaks the monotony for free — no
       // extra draw calls, just the instance colour buffer.
-      const shade = 0.84 + hashUnit(building.x, building.y, 23) * 0.3;
+      //
+      // Widened, and along a second axis. The old pair moved value by ±15% and
+      // the red/blue ratio by ±11%, which is a *tint* — quantised over 53,000
+      // roof pixels in a village block it left two hue buckets and read as a
+      // photocopied row anyway, because the eye reads hue long before it reads
+      // value. Red against blue now moves ±21% and green rides an independent
+      // hash, so the scatter is two-dimensional and a terracotta roof lands
+      // anywhere in about sixteen degrees of hue. Still one buffer, still no
+      // draw call: what changed is which numbers go into it.
+      const shade = 0.82 + hashUnit(building.x, building.y, 23) * 0.34;
       const warm = hashUnit(building.x, building.y, 29) - 0.5;
+      const leaf = hashUnit(building.x, building.y, 31) - 0.5;
       tint.setRGB(
-        Math.min(1, shade * (1 + warm * 0.1)),
-        shade,
-        Math.min(1, shade * (1 - warm * 0.12)),
+        Math.min(1, shade * (1 + warm * 0.2)),
+        Math.min(1, shade * (1 + leaf * 0.09)),
+        Math.min(1, shade * (1 - warm * 0.22)),
       );
       bucket.mesh.setColorAt(bucket.count, tint);
       bucket.count++;
@@ -298,15 +371,41 @@ export function buildArchetypeGeometry(spec: Archetype): THREE.BufferGeometry {
   const top = spec.height;
   const positions: number[] = [];
   const uvs: number[] = [];
+  const shade: number[] = [];
 
   const across = Math.max(1, Math.round(spec.footprint / (STOREY * 1.6)));
   const up = Math.max(1, Math.round(top / STOREY));
 
-  /** One wall, wound so its outward face points away from the building. */
+  // The contact band. Never more than a third of the wall, so a cottage does
+  // not go dark to the eaves.
+  const band = Math.min(CONTACT_BAND, top * CONTACT_BAND_MAX_SHARE);
+  const bandV = (band / Math.max(top, 1e-4)) * up;
+
+  /**
+   * One wall, wound so its outward face points away from the building, and cut
+   * once near the ground so the contact darkening has somewhere to live.
+   *
+   * The cut is the only reason the wall is two quads rather than one: a colour
+   * attribute on a box's own corners can only produce a gradient over the whole
+   * wall, which on a level-five office would be a building that fades to black
+   * at the bottom rather than a building that meets the ground.
+   */
   const wall = (x0: number, z0: number, x1: number, z1: number): void => {
-    positions.push(x0, 0, z0, x1, 0, z1, x1, top, z1);
-    positions.push(x0, 0, z0, x1, top, z1, x0, top, z0);
-    uvs.push(0, 0, across, 0, across, up, 0, 0, across, up, 0, up);
+    const strip = (
+      y0: number,
+      y1: number,
+      v0: number,
+      v1: number,
+      c0: number,
+      c1: number,
+    ): void => {
+      positions.push(x0, y0, z0, x1, y0, z1, x1, y1, z1);
+      positions.push(x0, y0, z0, x1, y1, z1, x0, y1, z0);
+      uvs.push(0, v0, across, v0, across, v1, 0, v0, across, v1, 0, v1);
+      for (const c of [c0, c0, c1, c0, c1, c1]) shade.push(c, c, c);
+    };
+    strip(0, band, 0, bandV, CONTACT_FLOOR, 1);
+    strip(band, top, bandV, up, 1, 1);
   };
 
   wall(-h, h, h, h); // +z
@@ -335,9 +434,15 @@ export function buildArchetypeGeometry(spec: Archetype): THREE.BufferGeometry {
   // The underside, which shows on a slope steep enough to lift one corner.
   quad(positions, uvs, [-h, 0, -h], [h, 0, -h], [h, 0, h], [-h, 0, h]);
 
+  // Everything after the walls is roof or underside: no contact band, so full
+  // brightness — except the underside, which never sees the sky at all.
+  while (shade.length < (positions.length / 3 - 6) * 3) shade.push(1);
+  while (shade.length < (positions.length / 3) * 3) shade.push(CONTACT_FLOOR);
+
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+  geometry.setAttribute('color', new THREE.Float32BufferAttribute(shade, 3));
   geometry.computeVertexNormals();
   geometry.computeBoundingSphere();
   geometry.addGroup(0, wallVertices, 0);

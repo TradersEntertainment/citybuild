@@ -1650,6 +1650,71 @@ export const MAX_DPR = 2; // Math.min(devicePixelRatio, 2)
  * making against a tab that dies with "Out of Memory".
  */
 export const MAX_DRAWING_PIXELS = 4_000_000;
+
+// --- Graphics tier (§36) -----------------------------------------------------
+/**
+ * What decides whether a device gets the expensive rendering passes.
+ *
+ * The rule these serve is the project's own: anything expensive sits behind a
+ * tier a mid-range phone can refuse. The numbers are here rather than beside
+ * the decision (render3d/quality.ts) because they are tunables, and because the
+ * one thing that will certainly happen to them is that somebody holding a real
+ * phone will want to move one without reading a hundred lines of policy.
+ *
+ * None of them was measured on a GPU — there is none in the environment this
+ * was written in — so every one is chosen to be *conservative in the direction
+ * of a phone*: the failure they are set to avoid is a handset paying for an
+ * ambient-occlusion pass, not a desktop missing one.
+ */
+
+/**
+ * Smallest viewport side, in CSS pixels, at or below which a device is treated
+ * as a handheld whatever else it claims about itself.
+ *
+ * 540 clears every phone in portrait (a 430-wide iPhone Pro Max is the widest
+ * in common use) and sits well under the ~600 CSS px of a small tablet. A
+ * desktop window dragged narrower than this is caught too, which is correct
+ * rather than accidental: what is being asked is how many pixels of city are on
+ * screen and how likely a finger is driving them.
+ */
+export const TIER_HANDHELD_MAX_CSS_PX = 540;
+
+/** `navigator.hardwareConcurrency` assumed when the browser will not say. */
+export const TIER_ASSUMED_CORES = 4;
+
+/** Logical cores below which nothing above the floor tier is offered. */
+export const TIER_MIN_CORES_MEDIUM = 4;
+/** Logical cores a machine must report before the top tier is considered. */
+export const TIER_MIN_CORES_HIGH = 8;
+
+/**
+ * `navigator.deviceMemory` (GiB) floors. Chromium-only and rounded to a power
+ * of two by the spec, so it is used as a veto when present and ignored when
+ * absent — Safari and Firefox report nothing and must not be punished for it.
+ */
+export const TIER_MIN_MEMORY_GB_MEDIUM = 4;
+export const TIER_MIN_MEMORY_GB_HIGH = 8;
+
+/**
+ * Drawing-buffer pixels per logical core above which the top tier is refused.
+ *
+ * The top tier's cost is per-pixel — full-screen post passes and three shadow
+ * cascades — so the window matters as much as the machine does. Core count is a
+ * poor proxy for a GPU and is used as one here knowingly, because it is the only
+ * capability signal a browser offers at all; what it really reports is the class
+ * of machine.
+ *
+ * The number has to be read against MAX_DRAWING_PIXELS, or it does nothing.
+ * That budget already caps any frame at four million pixels, so the worst case
+ * an eight-core machine can present is 4M/8 = 500k and the worst a sixteen-core
+ * one can present is 250k — meaning anything above 500k here is a rule that can
+ * never fire. At 400k the line falls in the one place it is useful: an ordinary
+ * 1080p window (259k) passes on eight cores, and a window pushed to the budget
+ * ceiling — a Retina laptop panel, a 4K or 5K desktop — needs sixteen cores
+ * before the most expensive configuration this app can assemble is offered.
+ */
+export const TIER_HIGH_MAX_PIXELS_PER_CORE = 400_000;
+
 export const LONG_PRESS_MS = 380;
 export const TAP_SLOP_PX = 10; // movement still counted as a tap
 export const TOUCH_TARGET_MIN_PX = 44;

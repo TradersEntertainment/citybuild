@@ -226,6 +226,16 @@ export interface SkyRig {
    */
   readonly keyDirection: THREE.Vector3;
   /**
+   * Where the sun is, as a unit vector — below the horizon for a third of the
+   * day, which is exactly why it is not the same thing as `keyDirection`.
+   *
+   * Exposed for whoever draws the sun rather than lights by it (render3d/
+   * atmosphere.ts). The arc is authored once, in `setDayFraction` below, and a
+   * second copy of that formula somewhere else would put the drawn sun and the
+   * cast shadows in different parts of the sky the first time it was retuned.
+   */
+  readonly sunDirection: THREE.Vector3;
+  /**
    * Sets the time of day, 0..1 from the sim's clock. Moves the sun, dims it,
    * and swings the dome, the fog and the sky bounce from daylight to night.
    *
@@ -393,6 +403,7 @@ export function createSky(scene: THREE.Scene): SkyRig {
     setLighting,
     key,
     keyDirection,
+    sunDirection,
     ambient,
     setDayFraction,
     dispose: () => {

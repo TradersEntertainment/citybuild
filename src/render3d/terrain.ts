@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { decodeTerrain, type TerrainKind } from '../sim/tiles';
 import { index, isTileOwned, type World } from '../sim/world';
-import { CHUNK_TILES, HEIGHT_SCALE, SEA_LEVEL, SEA_Y } from './constants';
+import { CHUNK_TILES, HEIGHT_SCALE, SEA_LEVEL } from './constants';
 
 /**
  * The height field as real ground (§4 data, §14 presentation). Built once as a
@@ -257,92 +257,6 @@ function groundColour(
     const grey = (out.r + out.g + out.b) / 3;
     out.lerp(new THREE.Color(grey * 0.85, grey * 0.86, grey * 0.82), 0.62);
   }
-}
-
-/** Flat, translucent water surface at sea level. */
-export function createWater(world: World): THREE.Mesh {
-  const geometry = new THREE.PlaneGeometry(world.size * 2, world.size * 2, 1, 1);
-  geometry.rotateX(-Math.PI / 2);
-  const material = new THREE.MeshStandardMaterial({
-    color: '#2E5F82',
-    roughness: 0.08,
-    metalness: 0.15,
-    transparent: true,
-    opacity: 0.82,
-  });
-
-  // Animated surface: a static plane reads as wet cardboard. The waves are a
-  // normal perturbation injected into the standard material, so fog, shadows
-  // and tone mapping all keep working; the time uniform is wound by the
-  // renderer every frame via the tick hook hung on the mesh.
-  const clock = { value: 0 };
-  material.onBeforeCompile = (shader) => {
-    shader.uniforms['waterTime'] = clock;
-    shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', '#include <common>\nvarying vec3 vWaterWorld;')
-      .replace(
-        '#include <worldpos_vertex>',
-        '#include <worldpos_vertex>\nvWaterWorld = (modelMatrix * vec4(transformed, 1.0)).xyz;',
-      );
-    shader.fragmentShader = shader.fragmentShader
-      .replace(
-        '#include <common>',
-        `#include <common>
-uniform float waterTime;
-varying vec3 vWaterWorld;
-float waterHash(vec2 p) {
-  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123);
-}
-float waterNoise(vec2 p) {
-  vec2 i = floor(p);
-  vec2 f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(
-    mix(waterHash(i), waterHash(i + vec2(1.0, 0.0)), u.x),
-    mix(waterHash(i + vec2(0.0, 1.0)), waterHash(i + vec2(1.0, 1.0)), u.x),
-    u.y
-  );
-}
-float waterWave(vec2 p, float t) {
-  return sin(p.x * 1.7 + t) * 0.32
-       + sin(p.y * 2.3 - t * 1.25) * 0.28
-       + waterNoise(p * 1.4 + vec2(t * 0.45, -t * 0.3)) * 0.4;
-}`,
-      )
-      .replace(
-        '#include <normal_fragment_begin>',
-        `#include <normal_fragment_begin>
-{
-  float t = waterTime * 0.85;
-  vec2 wp = vWaterWorld.xz * 0.45;
-  float e = 0.4;
-  float hC = waterWave(wp, t);
-  float hX = waterWave(wp + vec2(e, 0.0), t);
-  float hZ = waterWave(wp + vec2(0.0, e), t);
-  vec3 waveWorld = normalize(vec3((hC - hX) * 0.55, 1.0, (hC - hZ) * 0.55));
-  normal = normalize((viewMatrix * vec4(waveWorld, 0.0)).xyz);
-}`,
-      )
-      .replace(
-        '#include <roughnessmap_fragment>',
-        `#include <roughnessmap_fragment>
-roughnessFactor = clamp(
-  roughnessFactor + (waterNoise(vWaterWorld.xz * 1.8 + waterTime * 0.4) - 0.5) * 0.1,
-  0.02,
-  1.0
-);`,
-      );
-  };
-
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.position.set(world.size / 2, SEA_Y, world.size / 2);
-  mesh.receiveShadow = true;
-  mesh.renderOrder = 1;
-  mesh.name = 'water';
-  mesh.userData.tick = (seconds: number): void => {
-    clock.value = seconds;
-  };
-  return mesh;
 }
 
 function clamp(v: number, lo: number, hi: number): number {

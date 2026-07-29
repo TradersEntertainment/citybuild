@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { MAX_DPR, MAX_DRAWING_PIXELS } from '../data/balance';
 import type { DraftRender } from '../input/draft';
 import type { GameState } from '../sim/state';
 import { createBuildings, type BuildingMeshes } from './buildings';
@@ -22,35 +21,32 @@ import { createWildlife, type WildlifeLayer } from './wildlife';
 import { seasonTint } from './seasonLook';
 import { createShips, type ShipLayer } from './ships';
 import { createStations, type StationLayer } from './stations';
-import { createTerrain, createWater, sampleHeight, type TerrainMesh } from './terrain';
+import { createTerrain, sampleHeight, type TerrainMesh } from './terrain';
 import { createTraffic, type TrafficLayer } from './traffic';
 import { createTrees, type TreeLayer } from './trees';
 import { createWeatherFx, type WeatherFx } from './weatherFx';
 
-/**
- * The device pixel ratio to draw at, given the window it has to fill.
- *
- * Two caps, not one. MAX_DPR keeps a phone from rendering at three or four times
- * its own screen for a sharpness nobody can see; MAX_DRAWING_PIXELS keeps a big
- * desktop window from asking for a framebuffer measured in hundreds of megabytes
- * (see the constant for the arithmetic). The second is the one that matters for
- * "Out of Memory", because it is the only term here that scales with something
- * the player can change without touching the game.
- *
- * Never returns more than the display actually has, and never less than a
- * quarter — below that the picture is mush, and a window big enough to hit that
- * floor has problems this cannot solve.
- */
-export function pixelRatioFor(
-  width: number,
-  height: number,
-  devicePixelRatio = 1,
-): number {
-  const area = Math.max(1, width * height);
-  const capped = Math.min(MAX_DPR, Math.max(0.25, devicePixelRatio || 1));
-  const budget = Math.sqrt(MAX_DRAWING_PIXELS / area);
-  return Math.max(0.25, Math.min(capped, budget));
-}
+// The six layers that answer to the graphics tier, and the tier itself. Grouped
+// rather than filed alphabetically above because they arrive as one decision:
+// which of these is switched on, and how far, is `quality.ts`'s single answer.
+import { createAtmosphere, WATER_HAZE_WEIGHT, type Atmosphere } from './atmosphere';
+import { createFacadeMaps, type FacadeMapLayer } from './facadeMaps';
+import { createPostFx, type PostFx } from './postfx';
+import { createShadowCascades, type ShadowCascades } from './shadows';
+import { createTerrainDetail, type TerrainDetailLayer } from './terrainDetail';
+import { createWater, type WaterLayer } from './water';
+import {
+  decideQualityTier,
+  MODULE_TIERS,
+  pixelRatioFor,
+  readDeviceProfile,
+  type QualityTier,
+} from './quality';
+
+// Moved to render3d/quality.ts, where the tier decision can reach it without
+// dragging three.js into a pure function. Re-exported rather than relocated in
+// its callers, because this is the file everybody already looks in for it.
+export { pixelRatioFor } from './quality';
 
 /**
  * Owns the WebGL context and the scene graph, and nothing else. Everything the
@@ -93,11 +89,31 @@ const ZONE_REBUILD_INTERVAL_MS = 220;
 export class Renderer {
   readonly stats: RenderStats = { fps: 0, drawCalls: 0, triangles: 0, cpuMs: 0 };
 
+  /**
+   * The graphics tier this renderer was built at (render3d/quality.ts).
+   *
+   * Read-only, and there is deliberately no setter. Three of the six new layers
+   * install their shader patch by *snapshotting* the material's
+   * `customProgramCacheKey` at patch time (shadows.ts:389, atmosphere.ts:1211),
+   * which freezes whatever tier was in force when the snapshot was taken — so a
+   * runtime `setQuality` on the terrain grain or the facade maps would compile
+   * nothing and change nothing, silently. Rather than ship a settings control
+   * that half works, the tier is chosen once, before the first material is
+   * patched. Whoever adds the settings screen should first make those two chain
+   * the cache-key *function* instead of its result; then this can grow a setter.
+   */
+  readonly quality: QualityTier;
+
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
   private readonly sky: SkyRig;
+  private readonly atmosphere: Atmosphere;
+  private readonly shadows: ShadowCascades;
+  private readonly postfx: PostFx;
   private readonly terrain: TerrainMesh;
-  private readonly water: THREE.Mesh;
+  private readonly terrainDetail: TerrainDetailLayer;
+  private readonly water: WaterLayer;
+  private readonly facadeMaps: FacadeMapLayer;
   private readonly roads: RoadMesh;
   private readonly streetlights: StreetlightLayer;
   private readonly buildings: BuildingMeshes;
@@ -197,17 +213,53 @@ export class Renderer {
         this.forSaleDirty = true;
         this.stationsDirty = true;
         this.terrain.rebuildAll();
+        // What each new layer needs to come back, and nothing more.
+        //
+        // Render targets are framebuffers, which three does not restore, so the
+        // whole post chain is dropped and rebuilt. The water's depth field and
+        // the terrain's grain are DataTextures, which three re-uploads from the
+        // arrays it still holds — but the water's field is re-baked anyway,
+        // because `rebuild` is also what flags it for that upload. The
+        // atmosphere and any material it patched have to be told to recompile:
+        // a shader assembled in `onBeforeCompile` dies with the context and
+        // three will not rebuild what it did not author. The shadow maps are
+        // three's own render targets and are reallocated on the next shadow
+        // pass; the facade maps are DataTextures whose byte arrays are still
+        // referenced, so both are deliberately absent from this list.
+        this.postfx.invalidate();
+        this.water.rebuild();
+        this.atmosphere.invalidate();
+        // Idempotent — already-adopted materials are recognised and skipped —
+        // so this is belt and braces against a terrain rebuild that ever starts
+        // minting fresh materials rather than fresh geometry.
+        this.terrainDetail.attach(this.terrain.group);
         this.onContextRestored?.();
       },
       false,
     );
 
+    // Decided once, here, before a single material exists to be patched. See
+    // the note on `quality` for why there is no setter.
+    this.quality = decideQualityTier(readDeviceProfile());
+    const tiers = MODULE_TIERS[this.quality];
+
     this.sky = createSky(this.scene);
     this.terrain = createTerrain(state.world);
-    this.water = createWater(state.world);
+    // Before anything else can touch the terrain material. `attach` refuses a
+    // material that already carries an `onBeforeCompile`, which is its guard
+    // against flattening the sea — and both the atmosphere and the shadow
+    // cascades install one on every lit material they can reach. Adopt first
+    // and they chain onto this; adopt second and it silently does nothing.
+    this.terrainDetail = createTerrainDetail(tiers.terrainDetail);
+    this.terrainDetail.attach(this.terrain.group);
+    this.water = createWater(state.world, tiers.water);
     this.roads = createRoads(state.world);
     this.streetlights = createStreetlights(state.world);
-    this.buildings = createBuildings();
+    this.facadeMaps = createFacadeMaps(tiers.facadeMaps);
+    // Passed in rather than reached for, so the maps are hung on a facade
+    // material inside `kitFor` — once per archetype — and never from the bucket
+    // doubling path, which is the leak meshLeaks.test.ts guards.
+    this.buildings = createBuildings(undefined, this.facadeMaps);
     this.trees = createTrees(state.world);
     this.traffic = createTraffic(state.world);
     this.pedestrians = createPedestrians(state.world);
@@ -229,7 +281,7 @@ export class Renderer {
 
     this.scene.add(
       this.terrain.group,
-      this.water,
+      this.water.group,
       this.roads.group,
       this.streetlights.group,
       this.trees.group,
@@ -248,6 +300,54 @@ export class Renderer {
       this.weather.group,
     );
 
+    // The cascades take the key light over: sky.ts goes on colouring and aiming
+    // it through the whole day cycle, and these carry that colour and intensity
+    // into one to three fitted shadow maps instead of the single map-wide one
+    // the light was casting itself. Do not re-enable `sky.key.castShadow`.
+    this.shadows = createShadowCascades(this.scene, this.sky.key, tiers.shadows);
+
+    this.atmosphere = createAtmosphere(this.scene, tiers.atmosphere);
+    this.scene.add(this.atmosphere.group);
+    // Required, not tidiness: the atmosphere's dome is a strict superset of the
+    // sky rig's — the same gradient plus a sun disc, a moon on the anti-sun,
+    // stars and drifting clouds — drawn last with LEQUAL depth. Two domes would
+    // fight. Everything else in sky.ts stays: the key light, the ambient and
+    // the funded-night coupling all still drive the look.
+    this.sky.dome.visible = false;
+    // The lens and the zone overlays are deliberately absent. They are a
+    // readout in a governance game, and a legend that means one thing near the
+    // camera and another at the far edge of the map is not a legend.
+    this.atmosphere.attach(
+      this.terrain.group,
+      this.roads.group,
+      this.buildings.group,
+      this.trees.group,
+      this.traffic.group,
+      this.stations.group,
+      this.ships.group,
+      this.construction.group,
+      this.transit.group,
+      this.pedestrians.group,
+      this.hazards.group,
+      this.issues.group,
+      this.streetlights.group,
+      this.wildlife.group,
+    );
+    // The sea takes half. It is the one surface in the scene with no horizon
+    // above it in frame to fade into, so a full mix turns it into a sheet of
+    // sky colour and the coast reads as cloud — see WATER_HAZE_WEIGHT.
+    this.atmosphere.attachDamped(WATER_HAZE_WEIGHT, this.water.group);
+
+    // Last, after every layer is in the scene: it renders the scene it is
+    // handed, and at anything above the floor tier it renders it into a target.
+    this.postfx = createPostFx(this.renderer, this.scene, this.camera.camera, tiers.post);
+
+    // Sized before the first frame rather than waiting for a resize event that
+    // may never come — main.ts calls resize() immediately, but a renderer that
+    // draws a correct first frame without being told to is one less ordering
+    // rule for whoever wires it next.
+    this.syncViewport();
+
     // The rig raycasts against the height field to turn a touch into a tile, so
     // it needs the same sampler the meshes were built from.
     this.camera.setHeightSampler((x, y) => sampleHeight(state.world, x, y));
@@ -259,11 +359,41 @@ export class Renderer {
     this.renderer.setPixelRatio(pixelRatioFor(width, height, window.devicePixelRatio));
     this.renderer.setSize(width, height, false);
     this.camera.setViewport(width, height);
+    this.syncViewport();
+  }
+
+  /**
+   * Tells every layer that measures itself in pixels how big the frame is now.
+   *
+   * Strictly after `setPixelRatio`/`setSize`, because all of them read the
+   * drawing buffer rather than the CSS window: the shadow maps are sized
+   * against it, the water and the ground grain decide their detail fades in
+   * pixels, the sun's disc is antialiased against one pixel's worth of angle,
+   * and the post chain's targets simply are it. Each early-returns when nothing
+   * moved, which matters because Safari fires `visualViewport` resize
+   * continuously while the address bar slides.
+   */
+  private syncViewport(): void {
+    const canvas = this.renderer.domElement;
+    // Device pixels, straight off the buffer three just allocated — not
+    // window.innerHeight × devicePixelRatio, which ignores the budget that
+    // pixelRatioFor may have just applied.
+    const pixelWidth = canvas.width;
+    const pixelHeight = canvas.height;
+    this.shadows.resize(pixelWidth, pixelHeight);
+    this.water.resize(pixelHeight);
+    this.atmosphere.resize(pixelHeight);
+    this.terrainDetail.resize(window.innerHeight, this.renderer.getPixelRatio());
+    this.postfx.resize();
   }
 
   /** Terrain changed — an era restyle, or ground the player just bought. */
   invalidateTerrain(): void {
     this.terrain.rebuildAll();
+    // The sea's depth ramp and shoreline are baked from the height field, so
+    // ground that just changed shape leaves them describing a coast that is no
+    // longer there.
+    this.water.rebuild();
     this.forSaleDirty = true;
   }
 
@@ -358,6 +488,13 @@ export class Renderer {
       // exactly the same reason the trees do — and on the same throttle, rather
       // than each grid scan buying its own timer.
       this.pedestrians.rebuildNetwork();
+      // Aerial perspective is opt-in per material, and the layers mint
+      // materials as the city grows — a facade archetype appears the first time
+      // one of its kind is standing. A one-shot attach in the constructor would
+      // leave a whole district drawn in clear air. It rides this throttle
+      // rather than buying its own: it goes stale for the same reason the zone
+      // layer does, which is that something was built.
+      this.atmosphere.refresh();
       this.zonesDirty = false;
       this.lastZoneRebuild = frame.now;
     }
@@ -365,6 +502,10 @@ export class Renderer {
     if (this.stationsDirty) {
       this.stations.rebuild(frame.state);
       this.ships.rebuild(frame.state);
+      // A berth and a hull that were not in the scene a moment ago. Unthrottled
+      // because this branch is already the rare one — it runs on a build, not
+      // on a clock.
+      this.atmosphere.refresh();
       this.stationsDirty = false;
     }
 
@@ -372,6 +513,10 @@ export class Renderer {
     const season = seasonTint(frame.state.playedMs);
     this.terrain.setSeasonTint(season.ground);
     this.trees.setSeasonTint(season.foliage);
+    // The ground's grain fades out before it can shimmer, and smooths over as
+    // the winter deepens — both of which are already-computed numbers, so this
+    // is a handful of uniform writes however many chunks the map is cut into.
+    this.terrainDetail.update(this.camera.distance, season.snow);
     this.ships.update(deltaMs / 1000, this.camera.distance);
     this.construction.update(frame.state, this.camera.distance, frame.now);
     this.wildlife.update(deltaMs / 1000, frame.state, this.camera.distance);
@@ -381,6 +526,10 @@ export class Renderer {
     // is paused for exactly that reason.
     this.overlay.pulse(frame.now / 1000);
     this.buildings.sync(frame.state, frame.now);
+    // After the sync, so a facade material minted this frame is fading with the
+    // rest rather than at full relief for one frame. Writes nothing unless the
+    // fade actually moved, and no-ops entirely below the top tier.
+    this.facadeMaps.update(this.camera.distance);
     this.traffic.update(
       deltaMs / 1000,
       frame.state,
@@ -449,11 +598,67 @@ export class Renderer {
       this.camera.camera.position.z,
       this.scene,
     );
-    (this.water.userData['tick'] as ((seconds: number) => void) | undefined)?.(
-      performance.now() / 1000,
-    );
 
-    this.renderer.render(this.scene, this.camera.camera);
+    // The air, and the order is load-bearing in both directions.
+    //
+    // *After* the weather, because weatherFx scales the fog distances from a
+    // base it cached on its very first frame; going first would mean being
+    // overwritten every frame with frame-one values. Going second is
+    // non-accumulating and correct — this layer re-derives near, far and the
+    // colour from the camera and the same weather spell it is told about here.
+    //
+    // The sun is handed over rather than re-derived. The module can rebuild the
+    // same arc from the same `sunHeight`, which is right today and would stop
+    // being right the moment that arc is retuned in sky.ts and nowhere else —
+    // and the failure would be a drawn sun in one part of the sky casting
+    // shadows from another.
+    this.atmosphere.setSunDirection(
+      this.sky.sunDirection.x,
+      this.sky.sunDirection.y,
+      this.sky.sunDirection.z,
+    );
+    this.atmosphere.update({
+      dayFraction: dayFrac,
+      camera: this.camera.camera,
+      weather: sky.kind,
+      weatherProgress: sky.progress,
+      lighting: lit,
+      // Wall clock, not sim time: the clouds go on drifting and the stars go on
+      // twinkling while the city is paused, for the same reason the site
+      // outline goes on pulsing.
+      seconds: performance.now() / 1000,
+    });
+
+    // Last of the three, because it reads the fog colour rather than writing
+    // one: the sea reflects the same horizon the haze fades into, and the
+    // atmosphere is the layer that had the last word on what that colour is.
+    this.water.update(performance.now() / 1000, this.camera.distance, {
+      keyDirection: this.sky.keyDirection,
+      keyColour: this.sky.key.color,
+      keyIntensity: this.sky.key.intensity,
+      horizon: (this.scene.fog as THREE.Fog).color,
+      zenith: this.sky.ambient.color,
+    });
+
+    // The last statement before the draw, and that is where it has to be: the
+    // cascades gate every lit material in the scene through a shader patch, and
+    // a material created earlier in *this* frame — a facade archetype that
+    // appeared with the district — has to be gated before its first draw call
+    // or it is lit twice. `keyDirection`, never the sky shader's sun uniform:
+    // after dark the key is the moon and that uniform is under the map.
+    this.shadows.update(this.camera.camera, this.sky.keyDirection, anchorX, targetY, anchorY);
+
+    // Replaces `renderer.render(scene, camera)` outright. At the floor and
+    // middle tiers this is one call straight through to the default
+    // framebuffer with no target allocated; above them it is the composer.
+    this.postfx.render({
+      night,
+      // The lens is a readout, and the two stages that move a hue or a level —
+      // the grade and the vignette — fade out while one is raised so the legend
+      // goes on meaning what it says.
+      lensActive: this.lens.kind !== null,
+      deltaSeconds: deltaMs / 1000,
+    });
     // Before `measure`, and excluding nothing: every layer sync, every grid
     // rebuild and the draw submission itself. The GPU's own time is not in here,
     // which is the point.
@@ -482,11 +687,23 @@ export class Renderer {
   }
 
   dispose(): void {
+    // The borrowers first, and in this order, because four of the six do not
+    // own the materials they changed — they hand them back. Unwinding before
+    // the owners are torn down is what makes the handing-back mean anything.
+    //
+    // The atmosphere leads: it restores each material's original
+    // `onBeforeCompile`, which unwinds the shadow cascades' chained patch with
+    // it, so anything that walks the scene after this sees plain materials.
+    this.postfx.dispose();
+    this.atmosphere.dispose();
+    this.shadows.dispose();
+    this.facadeMaps.dispose();
+    this.terrainDetail.dispose();
+
     this.lens.dispose();
     this.sky.dispose();
     this.terrain.dispose();
-    this.water.geometry.dispose();
-    (this.water.material as THREE.Material).dispose();
+    this.water.dispose();
     this.roads.dispose();
     this.streetlights.dispose();
     this.trees.dispose();
